@@ -317,10 +317,10 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addSelectField('index_source');
     $field->setLabel('Eigene Sitemap/Struktur-Quelle');
-    $field->setNotice('Eine zusätzliche, exklusiv diesem Profil zugeordnete Inhaltsquelle – unabhängig vom Shared Pool und den YForm-/PDF-Quellen oben. "Keine" wählen und oben bei "Gemeinsamer Wissens-Pool" auf "Nicht nutzen" stellen, um eine spezialisierte Suche ausschließlich über die gewählten YForm-Tabellen und/oder PDFs anzubieten (z.B. eine reine PDF-Suche oder ein Profil, das nur eine bestimmte YForm-Tabelle durchsucht).');
+    $field->setNotice('Eine dritte, optionale Inhaltsquelle für dieses Profil – zusätzlich zu „Gemeinsamer Wissens-Pool" und den YForm-/PDF-Auswahlen oben, aber unabhängig davon. „Keine" bedeutet: keine solche zusätzliche Quelle, das Profil nutzt dann ausschließlich das, was oben eingestellt ist (Shared Pool, falls aktiviert, plus die gewählten YForm-Tabellen/PDFs). Für eine ganz auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs durchsuchen) also hier „Keine" wählen UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen.');
     $field->setAttribute('id', 'ai-chat-profile-index-source');
     $select = $field->getSelect();
-    $select->addOption('Keine (nur Shared Pool / YForm / PDF oben)', 'none');
+    $select->addOption('Keine zusätzliche Quelle', 'none');
     $select->addOption('Eigene Sitemap', 'sitemap');
     $select->addOption('Struktur-Mountpoint (Kategorie-Teilbaum)', 'mountpoint');
     if ('add' === $func && '' === (string) $field->getValue()) {
