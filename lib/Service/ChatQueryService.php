@@ -2339,12 +2339,29 @@ class ChatQueryService
         }
 
         $textWhere = implode(' OR ', $textClauses);
+
+        // Selbes Profil-Scope-Prinzip wie findSimilarContent() (siehe dortiger
+        // Kommentar): ohne das wuerde ein Profil mit use_shared_scope=0
+        // (isolierter Wissensstand) trotzdem Treffer aus dem Shared Pool UND aus
+        // fremden Profilen sehen, sobald der source_type passt - die Live-Suche
+        // kannte bisher gar keine Profil-Grenze.
+        $profileWhere = '';
+        if (null !== $profile) {
+            if ($profile->useSharedScope) {
+                $profileWhere = ' AND (profile_id = ? OR profile_id IS NULL)';
+                $params[] = $profile->id;
+            } else {
+                $profileWhere = ' AND profile_id = ?';
+                $params[] = $profile->id;
+            }
+        }
+
         $rows = $sql->getArray(
             'SELECT id, source_type, title, content, url, updatedate
                                         , source_id, source_label
              FROM ' . $table . '
              WHERE source_type IN (' . $typePlaceholders . ')
-               AND (' . $textWhere . ')
+               AND (' . $textWhere . ')' . $profileWhere . '
              ORDER BY updatedate DESC, id DESC
              LIMIT 300',
             $params,
