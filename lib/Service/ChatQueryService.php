@@ -192,15 +192,22 @@ class ChatQueryService
         // boot.php anhand der aktuellen Domain/Sprache/Rolle) statt der Client-Angabe
         // blind zu vertrauen - sonst koennte sich ein Besucher per manipulierter ID ein
         // fremdes Profil (andere Domain/Sprache, backend-only, deaktiviert) samt dessen
-        // eigenem Prompt/Wissens-Scope erschleichen. Nur authentifizierte Backend-Nutzer
-        // duerfen ein beliebiges Profil explizit waehlen (genutzt vom "Profil testen"-
-        // Dialog in pages/profiles.php, der gezielt jedes Profil unabhaengig vom eigenen
-        // Matching durchtesten koennen soll).
-        if ($scope === 'frontend' && null === self::getAuthenticatedBackendUser()) {
+        // eigenem Prompt/Wissens-Scope erschleichen. Ein authentifizierter Backend-Nutzer
+        // darf ein beliebiges Profil explizit waehlen (genutzt vom "Profil testen"-Dialog
+        // in pages/profiles.php) - schickt er dagegen GAR KEINE profile_id (z.B. beim
+        // Testen des echten Widgets auf AI Chat → Demos, das keine setzt), soll er
+        // dasselbe automatisch aufgeloeste Profil sehen wie ein echter Besucher an seiner
+        // Stelle - sonst wirkt profil-exklusiver Inhalt (PDFs/YForm) fuer jeden testenden
+        // Admin faelschlich unauffindbar, obwohl er fuer echte Besucher funktioniert.
+        if ($scope === 'frontend' && (null === self::getAuthenticatedBackendUser() || null === $profileId)) {
+            // Fuer eine echte Besucherin bleibt $backendUser hier null (Rolle "visitor");
+            // fuer einen testenden Backend-Nutzer ohne explizite profile_id wird stattdessen
+            // dessen eigene Rolle (admin/editor) verwendet, damit auch ein nur fuer
+            // Redakteure/Admins sichtbares Profil beim Testen korrekt matcht.
             $profile = (new ProfileResolver())->resolveForFrontend(
                 self::resolveCurrentFrontendDomain(),
                 rex_clang::getCurrentId(),
-                null,
+                self::getAuthenticatedBackendUser(),
             );
         }
 

@@ -74,6 +74,13 @@ class ContentProviderRegistry
         return $this->providers[$key] ?? null;
     }
 
+    /**
+     * Bewusst ueber getAll() statt getEnabledProviders($addon) - eine Icon-/Label-
+     * Anzeige (siehe auch getSourceTypeLabels() unten) ist reine Kosmetik ohne
+     * Sicherheits-/Scope-Bezug. Ueber getEnabledProviders() (nur global aktivierte
+     * Provider) blieben rein profil-exklusive Provider wie MediaPoolContentProvider
+     * ohne Icon/Label, obwohl ihr Content laengst korrekt in der Suche auftaucht.
+     */
     public function getSearchIconSvgForSourceType(rex_addon_interface $addon, string $sourceType): string
     {
         $sourceType = trim($sourceType);
@@ -81,7 +88,7 @@ class ContentProviderRegistry
             return '';
         }
 
-        foreach ($this->getEnabledProviders($addon) as $provider) {
+        foreach ($this->getAll() as $provider) {
             if (!in_array($sourceType, $provider->getSupportedSourceTypes(), true)) {
                 continue;
             }
@@ -96,13 +103,16 @@ class ContentProviderRegistry
     }
 
     /**
+     * Bewusst ueber getAll() statt getEnabledProviders($addon) - siehe Kommentar bei
+     * getSearchIconSvgForSourceType() oben, derselbe Grund.
+     *
      * @return array<string, string>
      */
     public function getSourceTypeLabels(rex_addon_interface $addon): array
     {
         $labels = [];
 
-        foreach ($this->getEnabledProviders($addon) as $provider) {
+        foreach ($this->getAll() as $provider) {
             $providerLabels = $provider->getSourceTypeLabels();
 
             foreach ($providerLabels as $sourceType => $label) {
