@@ -94,7 +94,7 @@ class OpenAiCompatibleService implements AiServiceInterface
                     throw new \Exception('Failed to get embeddings: ' . json_encode($response));
                 }
 
-                $results[] = $item['embedding'];
+                $results[] = array_values(array_map('floatval', $item['embedding']));
             }
         }
 
@@ -290,6 +290,10 @@ class OpenAiCompatibleService implements AiServiceInterface
      */
     private function streamChatCompletionsFromUrl(string $url, array $data, ?callable $onChunk = null): string
     {
+        if ('' === $url) {
+            throw new \Exception('cURL init failed: empty URL.');
+        }
+
         $timeout = (int) rex_addon::get('ai_chat')->getConfig('openai_timeout', 120);
         if ($timeout <= 0) {
             $timeout = 120;
@@ -321,7 +325,7 @@ class OpenAiCompatibleService implements AiServiceInterface
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => ! $this->shouldDisableTlsVerification($url),
             CURLOPT_SSL_VERIFYHOST => $this->shouldDisableTlsVerification($url) ? 0 : 2,
-            CURLOPT_WRITEFUNCTION => function ($curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
+            CURLOPT_WRITEFUNCTION => function (\CurlHandle $curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
                 $buffer .= $chunk;
                 while (true) {
                     $pos = strpos($buffer, "\n\n");

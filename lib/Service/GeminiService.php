@@ -95,7 +95,7 @@ class GeminiService implements AiServiceInterface
                     throw new \Exception('Failed to get embeddings: ' . json_encode($response));
                 }
 
-                $results[] = $embedding['values'];
+                $results[] = array_values(array_map('floatval', $embedding['values']));
             }
         }
 
@@ -250,6 +250,10 @@ class GeminiService implements AiServiceInterface
      */
     private function streamGenerateContentFromUrl(string $url, array $data, ?callable $onChunk = null): string
     {
+        if ('' === $url) {
+            throw new \Exception('cURL init failed: empty URL.');
+        }
+
         $ch = curl_init();
         if ($ch === false) {
             throw new \Exception('cURL init failed.');
@@ -266,7 +270,7 @@ class GeminiService implements AiServiceInterface
             CURLOPT_TIMEOUT => 120,
             CURLOPT_CONNECTTIMEOUT => 30,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: text/event-stream'],
-            CURLOPT_WRITEFUNCTION => function ($curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
+            CURLOPT_WRITEFUNCTION => function (\CurlHandle $curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
                 $buffer .= $chunk;
                 while (true) {
                     $pos = strpos($buffer, "\n\n");

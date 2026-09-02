@@ -99,7 +99,7 @@ $renderColumnSelect = static function (string $profileKey, string $fieldName, st
     return '<select class="form-control js-column-select" data-profile-key="' . rex_escape($profileKey) . '" data-allow-empty="' . ($allowEmpty ? '1' : '0') . '" data-empty-label="' . rex_escape($placeholder) . '" data-current-value="' . rex_escape($currentValue) . '" name="' . rex_escape($name) . '">' . $options . '</select>';
 };
 
-$renderRepeaterRows = static function (string $profileKey, string $repeaterName, array $rows, callable $renderRow) use (&$renderRepeaterRows): string {
+$renderRepeaterRows = static function (string $profileKey, string $repeaterName, array $rows, callable $renderRow): string {
     $html = '<div class="klxm-repeater" data-repeater-name="' . rex_escape($repeaterName) . '">';
     $html .= '<div class="klxm-repeater-items">';
     if ($rows === []) {

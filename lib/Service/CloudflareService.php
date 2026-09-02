@@ -257,6 +257,10 @@ class CloudflareService implements AiServiceInterface
      */
     private function streamRunFromUrl(string $url, array $data, ?callable $onChunk = null): string
     {
+        if ('' === $url) {
+            throw new \Exception('cURL init failed: empty URL.');
+        }
+
         $headers = [
             'Content-Type: application/json',
             'Accept: text/event-stream',
@@ -279,7 +283,7 @@ class CloudflareService implements AiServiceInterface
             CURLOPT_TIMEOUT => 120,
             CURLOPT_CONNECTTIMEOUT => 30,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_WRITEFUNCTION => function ($curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
+            CURLOPT_WRITEFUNCTION => function (\CurlHandle $curl, string $chunk) use (&$buffer, &$full, &$emittedAnyData, $onChunk): int {
                 $buffer .= $chunk;
                 while (true) {
                     $pos = strpos($buffer, "\n\n");

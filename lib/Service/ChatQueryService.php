@@ -742,7 +742,7 @@ class ChatQueryService
      * Die Ergebnisse werden zusätzlich gesammelt (getResults), damit der finale, komplette
      * Answer-Text die Tokens nachträglich ersetzen kann, ohne die Aktionen erneut auszuführen.
      *
-     * @return array{chunk: callable(string): void, flush: callable(): void, getResults: callable(): list<string>}
+     * @return array{chunk: \Closure(string): void, flush: \Closure(): void, getResults: \Closure(): list<string>}
      */
     private function wrapOnChunkForSystemTools(callable $onChunk): array
     {
@@ -801,7 +801,7 @@ class ChatQueryService
         return [
             'chunk' => $chunkHandler,
             'flush' => $flushHandler,
-            'getResults' => function () use (&$results): array {
+            'getResults' => function () use (&$results) {
                 return $results;
             },
         ];
@@ -1646,7 +1646,7 @@ class ChatQueryService
         $markdown = $this->linkifyEmailAddresses($markdown);
         $parsedown = new \Parsedown();
         $parsedown->setSafeMode(true);
-        $html = $parsedown->text($markdown);
+        $html = (string) $parsedown->text($markdown);
         $sourcesTitle = (string) rex_addon::get('ai_chat')->getConfig('sources_title', 'Links:');
         $html = str_replace('<p><strong>' . rex_escape($sourcesTitle) . ':</strong></p>', '<hr><p><strong>' . rex_escape($sourcesTitle) . ':</strong></p>', $html);
 

@@ -2,7 +2,7 @@
 
 namespace FriendsOfRedaxo\AiChat\ContentProvider;
 
-use rex_addon;
+use rex_addon_interface;
 use rex_yform_manager_field;
 use rex_yform_manager_table;
 
@@ -13,7 +13,7 @@ final class YformProfiles
     /**
      * @return array<string, array<string, mixed>>
      */
-    public static function getAll(rex_addon $addon): array
+    public static function getAll(rex_addon_interface $addon): array
     {
         $profiles = [];
 
@@ -56,7 +56,7 @@ final class YformProfiles
     /**
      * @return array<string, string>
      */
-    public static function getSourceTypeLabels(rex_addon $addon): array
+    public static function getSourceTypeLabels(rex_addon_interface $addon): array
     {
         $labels = [];
 
@@ -74,12 +74,9 @@ final class YformProfiles
     /**
      * @return list<string>
      */
-    public static function getSupportedSourceTypes(rex_addon $addon): array
+    public static function getSupportedSourceTypes(rex_addon_interface $addon): array
     {
-        /** @var list<string> $sourceTypes */
-        $sourceTypes = array_values(array_keys(self::getSourceTypeLabels($addon)));
-
-        return $sourceTypes;
+        return array_keys(self::getSourceTypeLabels($addon));
     }
 
     public static function sourceTypeForProfile(string $profileId): string
@@ -93,7 +90,7 @@ final class YformProfiles
      *
      * @return array<string, array<string, mixed>>
      */
-    public static function getByTable(rex_addon $addon, string $tableName): array
+    public static function getByTable(rex_addon_interface $addon, string $tableName): array
     {
         $tableName = trim($tableName);
         if ($tableName === '') {
@@ -213,57 +210,6 @@ final class YformProfiles
             'value' => $value,
             'value_type' => $valueType,
         ];
-    }
-
-    /**
-     * @param list<string> $preferredNames
-     */
-    private static function guessFieldName(rex_yform_manager_table $table, array $preferredNames): string
-    {
-        $preferredNames = array_values(array_filter(array_map(static fn ($value): string => mb_strtolower(trim((string) $value)), $preferredNames)));
-        if ($preferredNames === []) {
-            return '';
-        }
-
-        foreach ($table->getValueFields() as $field) {
-            if (!$field instanceof rex_yform_manager_field) {
-                continue;
-            }
-
-            $fieldName = mb_strtolower(trim((string) $field->getName()));
-            if ($fieldName !== '' && in_array($fieldName, $preferredNames, true)) {
-                return (string) $field->getName();
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private static function buildFieldDefaults(rex_yform_manager_table $table): array
-    {
-        $fields = [];
-        foreach ($table->getValueFields() as $field) {
-            if (!$field instanceof rex_yform_manager_field) {
-                continue;
-            }
-
-            $fieldName = trim((string) $field->getName());
-            if ($fieldName === '' || $fieldName === 'id') {
-                continue;
-            }
-
-            $fields[] = [
-                'field' => $fieldName,
-                'label' => trim((string) $field->getLabel()),
-                'mode' => self::detectFieldMode((string) $field->getTypeName(), $fieldName),
-                'include' => true,
-            ];
-        }
-
-        return $fields;
     }
 
     /**
@@ -668,7 +614,6 @@ final class YformProfiles
                 'lte' => $rowComparable <= $compareComparable,
                 'gt' => $rowComparable > $compareComparable,
                 'gte' => $rowComparable >= $compareComparable,
-                default => true,
             };
         }
 

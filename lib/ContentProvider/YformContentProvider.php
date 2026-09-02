@@ -167,7 +167,11 @@ final class YformContentProvider implements ContentProviderInterface
 
         $dataset = null;
         try {
-            $dataset = rex_yform_manager_table::get($tableName)->getDataset($recordId);
+            $table = rex_yform_manager_table::get($tableName);
+            if (null === $table) {
+                return null;
+            }
+            $dataset = $table->getDataset($recordId);
         } catch (\Throwable) {
             return null;
         }
@@ -457,6 +461,9 @@ final class YformContentProvider implements ContentProviderInterface
         return $this->slugify($profileId) . ':' . $recordId;
     }
 
+    /**
+     * @param array<string, mixed> $profile
+     */
     private function fallbackTitle(array $profile, int $recordId): string
     {
         $label = trim((string) ($profile['label'] ?? 'YForm'));

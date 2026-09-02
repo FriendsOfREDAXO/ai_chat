@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\AiChat\ContentProvider;
 
 use rex_addon;
+use rex_addon_interface;
 use rex_extension;
 use rex_extension_point;
 
@@ -69,7 +70,7 @@ class ContentProviderRegistry
         return $this->providers[$key] ?? null;
     }
 
-    public function getSearchIconSvgForSourceType(rex_addon $addon, string $sourceType): string
+    public function getSearchIconSvgForSourceType(rex_addon_interface $addon, string $sourceType): string
     {
         $sourceType = trim($sourceType);
         if ($sourceType === '') {
@@ -98,7 +99,7 @@ class ContentProviderRegistry
     /**
      * @return array<string, string>
      */
-    public function getSourceTypeLabels(rex_addon $addon): array
+    public function getSourceTypeLabels(rex_addon_interface $addon): array
     {
         $labels = [];
 
@@ -130,7 +131,7 @@ class ContentProviderRegistry
      * @param list<string> $sourceTypes
      * @return list<string>
      */
-    public function getPromptInstructionsForSourceTypes(rex_addon $addon, array $sourceTypes): array
+    public function getPromptInstructionsForSourceTypes(rex_addon_interface $addon, array $sourceTypes): array
     {
         $instructions = [];
         $enabledProviders = $this->getEnabledProviders($addon);
@@ -157,7 +158,7 @@ class ContentProviderRegistry
     /**
      * @return list<ContentProviderInterface>
      */
-    public function getEnabledProviders(rex_addon $addon): array
+    public function getEnabledProviders(rex_addon_interface $addon): array
     {
         $configured = $addon->getConfig('index_content_providers');
         $enabledKeys = [];

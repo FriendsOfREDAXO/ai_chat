@@ -273,7 +273,10 @@ class ChatIndex extends rex_api_function
             // Kommando aus (gleiches Prinzip wie ffmpeg's Api\Converter::handleStart()).
             // Keine PID erfassbar wie unter Unix (siehe dort) - Stop/Cancel läuft
             // hier ausschließlich über das kooperative cancel_requested-Flag.
-            pclose(popen('start /B cmd /C "' . $downloader . ' > ' . $logFile . ' 2>&1"', 'r'));
+            $handle = popen('start /B cmd /C "' . $downloader . ' > ' . $logFile . ' 2>&1"', 'r');
+            if (false !== $handle) {
+                pclose($handle);
+            }
         } else {
             $downloader = $curlPath !== null
                 ? self::buildCurlSelfCallCommand($curlPath, $server, $workerUrl)

@@ -91,7 +91,7 @@ $renderTipsList = static function (string $pipeSeparatedText): string {
 
 // Praxisnahe Empfehlungen/Tipps-Panel für eine bestimmte Settings-Unterseite (i18n-Keys
 // config_sidebar_tips_<subpage>_title / _text).
-$renderTipsPanel = static function (rex_addon $addon, string $subpage) use ($renderInfoPanel, $renderTipsList): string {
+$renderTipsPanel = static function (rex_addon_interface $addon, string $subpage) use ($renderInfoPanel, $renderTipsList): string {
     $title = $addon->i18n('config_sidebar_tips_' . $subpage . '_title');
     $text = $addon->i18n('config_sidebar_tips_' . $subpage . '_text');
 

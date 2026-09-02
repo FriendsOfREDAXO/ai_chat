@@ -229,7 +229,7 @@ class IndexerService
         $tasks = array_merge($tasks, $this->collectProfileTasks());
 
         $modeLabel = $sitemapOnlyMode ? 'sitemap-plus-providers' : $indexSource;
-        \rex_logger::factory()->info('AiChat Indexer: Collected ' . count($tasks) . ' tasks (' . $modeLabel . ').');
+        \rex_logger::factory()->info('AiChat Indexer: Collected {count} tasks ({mode}).', ['count' => count($tasks), 'mode' => $modeLabel]);
 
         return $tasks;
     }

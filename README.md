@@ -79,7 +79,40 @@ In der Suche erscheinen benannte Gruppen als eigene Filter-Facette neben den Que
 
 ### Übersetzbare Widget-Oberfläche
 
-Buttons, Platzhalter und Statusmeldungen des Chat-/Such-Widgets lassen sich unabhängig von der Sprache der KI-Antworten übersetzen – gesteuert über das `ui-language`-Feld des jeweiligen Profils, geladen aus JSON-Sprachdateien (`assets/i18n/`). Eine neue Sprache hinzufügen bedeutet: eine neue JSON-Datei mit denselben Schlüsseln anlegen, kein Code nötig. Fehlende Schlüssel fallen automatisch auf Deutsch zurück, sodass eine unvollständige Übersetzung nichts kaputt macht.
+Buttons, Platzhalter und Statusmeldungen des Chat-/Such-Widgets lassen sich unabhängig von der Sprache der KI-Antworten übersetzen – gesteuert über das `ui-language`-Feld des jeweiligen Profils (Backend → AI Chat → Profile), geladen aus JSON-Sprachdateien unter `assets/i18n/`. Fehlende Schlüssel fallen automatisch auf Deutsch zurück, eine unvollständige Übersetzung bricht also nichts.
+
+**Eigene Sprache ergänzen**: eine neue Datei `assets/i18n/<sprachcode>.json` anlegen (zweistelliger Code, optional mit Region, z. B. `en`, `fr`, `de-at`) und darin dieselben Schlüssel wie in `assets/i18n/de.json` mit den übersetzten Werten eintragen – kein Code nötig, kein Neustart erforderlich. Ausschnitt aus `de.json` als Vorlage:
+
+```json
+{
+  "greeting_fallback": "Hallo! Wie kann ich Ihnen helfen?",
+  "input_placeholder": "Nachricht schreiben...",
+  "send_title": "Senden",
+  "close_title": "Schließen",
+  "reset_confirm_text": "Möchten Sie den Chat-Verlauf wirklich löschen und neu starten?",
+  "search_trigger_label": "Suche",
+  "search_empty_results": "Keine Treffer gefunden.",
+  "intl_locale": "de-DE"
+}
+```
+
+Die vollständige, maßgebliche Liste aller Schlüssel steht in [`assets/i18n/de.json`](assets/i18n/de.json) – einige Werte wie `reset_countdown_title` (`{seconds}`), `error_prefix` (`{error}`) oder `personalization_greeting_name` (`{name}`) enthalten Platzhalter in geschweiften Klammern, die zur Laufzeit ersetzt werden und beim Übersetzen erhalten bleiben müssen. `intl_locale` steuert zusätzlich das Datumsformat (z. B. Zeitstempel unter Suchtreffern) über `Intl.DateTimeFormat`.
+
+Aktiviert wird eine neue Sprache einfach über das `ui-language`-Feld des jeweiligen Profils – ein Wert wie `fr` lädt dann automatisch `assets/i18n/fr.json`, sofern vorhanden.
+
+**Für Dritt-Addons**: Statt eigene JSON-Dateien direkt ins `assets/i18n/`-Verzeichnis von `ai_chat` zu legen, lassen sich Sprachen/Schlüssel auch über den Extension Point `AI_CHAT_WIDGET_TRANSLATIONS` nachliefern, ohne den Core-Ordner anzufassen:
+
+```php
+rex_extension::register('AI_CHAT_WIDGET_TRANSLATIONS', function (rex_extension_point $ep) {
+    $translations = $ep->getSubject();
+    if ('fr' === $ep->getParam('locale')) {
+        $translations['search_trigger_label'] = 'Rechercher';
+    }
+    return $translations;
+});
+```
+
+`subject` ist die bereits mit Deutsch als Fallback zusammengeführte Schlüssel-Wert-Liste für die aktuell angefragte Sprache (`locale`-Parameter), einzelne Schlüssel lassen sich hier gezielt überschreiben oder ergänzen.
 
 ### Missbrauchsschutz
 

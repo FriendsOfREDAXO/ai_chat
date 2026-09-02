@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\AiChat;
 
 use FriendsOfRedaxo\AiChat\Service\IndexerService;
 use rex_addon;
+use rex_addon_interface;
 use rex_extension_point;
 
 class EventListener
@@ -14,7 +15,7 @@ class EventListener
      * damit Admins die automatische Reindizierung bei Bedarf separat abschalten können
      * (z.B. bei sehr vielen Änderungen / teuren Embedding-API-Calls).
      */
-    private static function isLiveReindexEnabled(rex_addon $addon): bool
+    private static function isLiveReindexEnabled(rex_addon_interface $addon): bool
     {
         return (bool) $addon->getConfig('live_reindex_enabled', true);
     }
@@ -24,7 +25,7 @@ class EventListener
      * reines "1" - ein Vergleich wie `$value != '1'` erkennt ein aktiviertes Haekchen daher NIE
      * und wuerde die Indexierung faelschlich ueberspringen. Unkonfiguriert (null) gilt als aktiviert.
      */
-    private static function isFrontendIndexingEnabled(rex_addon $addon): bool
+    private static function isFrontendIndexingEnabled(rex_addon_interface $addon): bool
     {
         $raw = $addon->getConfig('index_frontend');
         if (null === $raw) {
@@ -131,6 +132,8 @@ class EventListener
 
     /**
      * Reindiziert YForm-Datensaetze nur dann, wenn ein YForm-Mapping fuer die Tabelle existiert.
+     *
+     * @param rex_extension_point<mixed> $ep
      */
     public static function handleYformEvent(rex_extension_point $ep): void
     {

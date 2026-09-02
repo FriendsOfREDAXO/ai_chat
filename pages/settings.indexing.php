@@ -4,6 +4,22 @@ use FriendsOfRedaxo\AiChat\Db\VectorCapability;
 
 require __DIR__ . '/settings.shared.php';
 
+/**
+ * Von settings.shared.php per require in diesen Scope injiziert - PHPStan kann require-
+ * Variablenfluss nicht ueber Dateigrenzen hinweg verfolgen, daher hier explizit annotiert.
+ *
+ * @var rex_addon_interface $addon
+ * @var Closure(string): string $rawMsg
+ * @var Closure(string, string): string $tooltipLabel
+ * @var Closure(mixed): bool $isConfigUnset
+ * @var Closure(rex_form_base, string, string, string, bool): rex_form_select_element $addBoolSelectField
+ * @var Closure(string, string, string, string=): string $renderInfoPanel
+ * @var Closure(string): string $renderTipsList
+ * @var Closure(rex_addon_interface, string): string $renderTipsPanel
+ * @var string $tooltipInitScript
+ * @var Closure(rex_config_form, string): void $renderSettingsPage
+ */
+
 if ('recheck_vector' === rex_request('func', 'string')) {
     VectorCapability::recheck();
     echo rex_view::success('Vektor-Unterstützung neu geprüft.');
