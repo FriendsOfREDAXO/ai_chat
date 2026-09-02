@@ -43,7 +43,10 @@ class WidgetTranslator
             ['locale' => $locale],
         ));
 
-        return is_array($subject) ? $subject : $translations;
+        // Ein Dritt-Addon-Listener koennte hier theoretisch einen Nicht-Array zurueckgeben -
+        // PHPStan vertraut dem generischen rex_extension_point<T>-Typ, der zur Laufzeit
+        // verletzt werden kann.
+        return is_array($subject) ? $subject : $translations; // @phpstan-ignore function.alreadyNarrowedType
     }
 
     private static function sanitizeLocale(string $locale): string

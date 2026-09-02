@@ -176,7 +176,7 @@ final class YformContentProvider implements ContentProviderInterface
             return null;
         }
 
-        if (!is_object($dataset) || !method_exists($dataset, 'getValue')) {
+        if (null === $dataset) {
             return null;
         }
 
@@ -265,16 +265,8 @@ final class YformContentProvider implements ContentProviderInterface
 
         $rows = $sql->getArray($query, $params);
 
-        if (!is_array($rows)) {
-            return [];
-        }
-
         $filteredRows = [];
         foreach ($rows as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-
             if (!YformProfiles::profileMatchesRow($profile, $row)) {
                 continue;
             }

@@ -18,7 +18,7 @@ if ($func !== '' && !$csrf->isValid()) {
 
 if ($func === 'save') {
     $postedProfiles = rex_post('profiles', 'array', []);
-    $normalizedProfiles = FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles::sanitizeProfiles(is_array($postedProfiles) ? $postedProfiles : []);
+    $normalizedProfiles = FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles::sanitizeProfiles($postedProfiles);
     rex_config::set('ai_chat', 'yform_provider_profiles', $normalizedProfiles);
     $message = rex_view::success('YForm-Mappings gespeichert.');
 }
@@ -30,10 +30,6 @@ $columnsMap = [];
 if (class_exists(rex_yform_manager_table::class)) {
     try {
         foreach (rex_yform_manager_table::getAll() as $table) {
-            if (!$table instanceof rex_yform_manager_table) {
-                continue;
-            }
-
             $tableName = trim((string) $table->getTableName());
             if ($tableName === '') {
                 continue;
@@ -188,7 +184,7 @@ if ($profiles === []) {
 } else {
     foreach ($profiles as $profileId => $profile) {
         $profileTable = (string) ($profile['table'] ?? '');
-        $profileColumns = $profileTable !== '' && isset($columnsMap[$profileTable]) && is_array($columnsMap[$profileTable]) ? $columnsMap[$profileTable] : [];
+        $profileColumns = $profileTable !== '' && isset($columnsMap[$profileTable]) ? $columnsMap[$profileTable] : [];
         $fields = is_array($profile['fields'] ?? null) ? $profile['fields'] : [];
         $conditions = is_array($profile['conditions'] ?? null) ? $profile['conditions'] : [];
 

@@ -267,8 +267,8 @@ class ChatQueryService
         $this->checkRateLimit();
 
         $messageLengthGuard = $this->evaluateMessageLengthGuard($message, $scope);
-        if (($messageLengthGuard['blocked'] ?? false) === true) {
-            $warningText = (string) ($messageLengthGuard['message'] ?? 'Diese Nachricht ist zu lang und wurde nicht verarbeitet.');
+        if ($messageLengthGuard['blocked']) {
+            $warningText = $messageLengthGuard['message'];
 
             if ($mode === 'search') {
                 return [
@@ -293,8 +293,8 @@ class ChatQueryService
         }
 
         $codeInjectionGuard = $this->evaluateCodeInjectionGuard($message);
-        if (($codeInjectionGuard['blocked'] ?? false) === true) {
-            $warningText = (string) ($codeInjectionGuard['message'] ?? 'Diese Eingabe wurde aus Sicherheitsgründen nicht verarbeitet.');
+        if ($codeInjectionGuard['blocked']) {
+            $warningText = $codeInjectionGuard['message'];
 
             if ($mode === 'search') {
                 return [
@@ -319,8 +319,8 @@ class ChatQueryService
         }
 
         $promptInjectionGuard = $this->evaluatePromptInjectionGuard($message);
-        if (($promptInjectionGuard['blocked'] ?? false) === true) {
-            $warningText = (string) ($promptInjectionGuard['message'] ?? 'Diese Eingabe wurde aus Sicherheitsgründen nicht verarbeitet.');
+        if ($promptInjectionGuard['blocked']) {
+            $warningText = $promptInjectionGuard['message'];
 
             if ($mode === 'search') {
                 return [
@@ -363,8 +363,8 @@ class ChatQueryService
         }
 
         $spamGuard = $this->evaluateSpamGuard($message);
-        if (($spamGuard['blocked'] ?? false) === true) {
-            $warningText = (string) ($spamGuard['message'] ?? 'Diese Anfrage wurde als Spam/Werbung erkannt und nicht verarbeitet.');
+        if ($spamGuard['blocked']) {
+            $warningText = $spamGuard['message'];
 
             if ($mode === 'search') {
                 return [
@@ -389,8 +389,8 @@ class ChatQueryService
         }
 
         $privacyGuard = $this->evaluatePrivacyGuard($message, $mode);
-        if (($privacyGuard['blocked'] ?? false) === true) {
-            $warningText = (string) ($privacyGuard['message'] ?? 'Diese Eingabe wurde aus Datenschutzgründen nicht verarbeitet.');
+        if ($privacyGuard['blocked']) {
+            $warningText = $privacyGuard['message'];
 
             if ($mode === 'search') {
                 return [
@@ -401,8 +401,8 @@ class ChatQueryService
                         'source_types' => [],
                     ],
                     'privacy_warning_message' => $warningText,
-                    'ai_disabled_for_session' => (bool) ($privacyGuard['disabled'] ?? false),
-                    'privacy_strikes' => (int) ($privacyGuard['strikes'] ?? 0),
+                    'ai_disabled_for_session' => $privacyGuard['disabled'],
+                    'privacy_strikes' => $privacyGuard['strikes'],
                 ];
             }
 
@@ -411,8 +411,8 @@ class ChatQueryService
                 'answer_text' => $warningText,
                 'follow_up_questions' => [],
                 'privacy_warning' => true,
-                'ai_disabled_for_session' => (bool) ($privacyGuard['disabled'] ?? false),
-                'privacy_strikes' => (int) ($privacyGuard['strikes'] ?? 0),
+                'ai_disabled_for_session' => $privacyGuard['disabled'],
+                'privacy_strikes' => $privacyGuard['strikes'],
             ];
         }
 
@@ -472,10 +472,6 @@ class ChatQueryService
         // die der Client bereits aus der mode=search-Antwort hat (title/snippet/label/url) -
         // spart eine erneute Datenbank-Suche fuer denselben Query hier.
         if ($mode === 'search_summary') {
-            if (null === $aiService) {
-                return ['summary' => null];
-            }
-
             $summaryHits = [];
             foreach (is_array($input['hits'] ?? null) ? $input['hits'] : [] as $hit) {
                 if (is_array($hit)) {
@@ -937,7 +933,7 @@ class ChatQueryService
         $uniqueResults = [];
         $seenSources = [];
         foreach ($results as $result) {
-            $sourceKey = (string) ($result['source_type'] ?? '') . '|' . (string) ($result['source_id'] ?? '');
+            $sourceKey = $result['source_type'] . '|' . $result['source_id'];
             if (isset($seenSources[$sourceKey])) {
                 continue;
             }
@@ -974,8 +970,8 @@ class ChatQueryService
 
         $map = [];
         foreach ($profile->sitemapGroups as $group) {
-            $label = trim((string) ($group['label'] ?? ''));
-            $description = trim((string) ($group['description'] ?? ''));
+            $label = $group['label'];
+            $description = $group['description'];
             if ('' !== $label && '' !== $description) {
                 $map[$label] = $description;
             }
@@ -999,8 +995,8 @@ class ChatQueryService
 
         $set = [];
         foreach ($profile->sitemapGroups as $group) {
-            $label = trim((string) ($group['label'] ?? ''));
-            if ('' !== $label && !empty($group['is_timely'])) {
+            $label = $group['label'];
+            if ('' !== $label && $group['is_timely']) {
                 $set[$label] = true;
             }
         }
@@ -1050,12 +1046,12 @@ class ChatQueryService
             return $results;
         }
 
-        $topScore = (float) ($results[0]['similarity'] ?? 0.0);
+        $topScore = $results[0]['similarity'];
         $minSignal = max(0.12, $topScore * 0.5);
         $kept = [];
 
         foreach ($results as $result) {
-            $score = (float) ($result['similarity'] ?? 0.0);
+            $score = $result['similarity'];
             if ($score < $minSignal && $kept !== []) {
                 continue;
             }
@@ -1066,7 +1062,9 @@ class ChatQueryService
             }
         }
 
-        return $kept === [] ? array_slice($results, 0, $maxResults) : $kept;
+        // Die Schleife haengt beim ersten Durchlauf immer ein Element an (der $kept !== []-Check
+        // greift erst ab der zweiten Iteration), $kept ist danach also garantiert nicht leer.
+        return $kept;
     }
 
     /**
@@ -1096,7 +1094,7 @@ class ChatQueryService
 
         $bestCoverage = 0.0;
         foreach ($context as $item) {
-            $text = mb_strtolower(trim((string) ($item['title'] ?? '') . ' ' . (string) ($item['content'] ?? '') . ' ' . (string) ($item['url'] ?? '')));
+            $text = mb_strtolower(trim($item['title'] . ' ' . $item['content'] . ' ' . $item['url']));
             if ($text === '') {
                 continue;
             }
@@ -1175,7 +1173,7 @@ class ChatQueryService
         }
 
         foreach ($context as $item) {
-            if (($item['source_type'] ?? '') === 'forcal_entry') {
+            if ($item['source_type'] === 'forcal_entry') {
                 return $context;
             }
         }
@@ -1189,7 +1187,7 @@ class ChatQueryService
         $merged = [];
 
         foreach ($keywordMatches as $item) {
-            $key = (string) ($item['source_type'] ?? '') . '|' . (string) ($item['source_id'] ?? '');
+            $key = $item['source_type'] . '|' . $item['source_id'];
             if (isset($seen[$key])) {
                 continue;
             }
@@ -1198,7 +1196,7 @@ class ChatQueryService
         }
 
         foreach ($context as $item) {
-            $key = (string) ($item['source_type'] ?? '') . '|' . (string) ($item['source_id'] ?? '');
+            $key = $item['source_type'] . '|' . $item['source_id'];
             if (isset($seen[$key])) {
                 continue;
             }
@@ -1371,7 +1369,7 @@ class ChatQueryService
         }
 
         foreach ($context as $item) {
-            if (in_array((string) ($item['source_type'] ?? ''), $providerSourceTypes, true)) {
+            if (in_array($item['source_type'], $providerSourceTypes, true)) {
                 return $context;
             }
         }
@@ -1385,7 +1383,7 @@ class ChatQueryService
         $merged = [];
 
         foreach ($keywordMatches as $item) {
-            $key = (string) ($item['source_type'] ?? '') . '|' . (string) ($item['source_id'] ?? '');
+            $key = $item['source_type'] . '|' . $item['source_id'];
             if (isset($seen[$key])) {
                 continue;
             }
@@ -1394,7 +1392,7 @@ class ChatQueryService
         }
 
         foreach ($context as $item) {
-            $key = (string) ($item['source_type'] ?? '') . '|' . (string) ($item['source_id'] ?? '');
+            $key = $item['source_type'] . '|' . $item['source_id'];
             if (isset($seen[$key])) {
                 continue;
             }
@@ -1599,7 +1597,7 @@ class ChatQueryService
     private function normalizeQuestionForCache(string $question): string
     {
         $normalized = strtolower(trim($question));
-        $normalized = preg_replace('/&nbsp;|\s+/u', ' ', $normalized ?? $question);
+        $normalized = preg_replace('/&nbsp;|\s+/u', ' ', $normalized);
         $normalized = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', (string) $normalized);
         $normalized = preg_replace('/\s+/u', ' ', trim((string) $normalized));
 
@@ -1622,18 +1620,16 @@ class ChatQueryService
         $tokensA = preg_split('/\s+/u', $normalizedA, -1, PREG_SPLIT_NO_EMPTY);
         $tokensB = preg_split('/\s+/u', $normalizedB, -1, PREG_SPLIT_NO_EMPTY);
 
-        if (!is_array($tokensA) || !is_array($tokensB) || $tokensA === [] || $tokensB === []) {
+        if (!is_array($tokensA) || !is_array($tokensB)) {
             return false;
         }
 
         $tokenSetA = array_values(array_unique($tokensA));
         $tokenSetB = array_values(array_unique($tokensB));
         $intersection = array_intersect($tokenSetA, $tokenSetB);
+        // $tokenSetA ist nie leer (preg_split(...PREG_SPLIT_NO_EMPTY) liefert hier immer eine
+        // non-empty-list), array_merge/array_unique koennen $union also nie auf [] reduzieren.
         $union = array_values(array_unique(array_merge($tokenSetA, $tokenSetB)));
-
-        if ($union === []) {
-            return false;
-        }
 
         $similarity = count($intersection) / count($union);
 
@@ -1851,12 +1847,12 @@ class ChatQueryService
         }
 
         $sorted = $context;
-        usort($sorted, static fn(array $a, array $b): int => ($b['similarity'] ?? 0.0) <=> ($a['similarity'] ?? 0.0));
+        usort($sorted, static fn(array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
 
         // Unterhalb dieser Schwelle ist der beste Treffer so schwach, dass ein Link
         // eher irreführend als hilfreich wäre (z.B. thematisch zufällige Seite bei
         // einer Anfrage, zu der es keinen wirklich passenden Inhalt gibt).
-        $topSimilarity = (float) ($sorted[0]['similarity'] ?? 0.0);
+        $topSimilarity = $sorted[0]['similarity'];
         if ($topSimilarity < 0.20) {
             return [];
         }
@@ -1869,7 +1865,7 @@ class ChatQueryService
                 continue;
             }
 
-            $text = strtolower((string) ($item['title'] ?? '') . ' ' . (string) ($item['content'] ?? '') . ' ' . (string) ($item['url'] ?? ''));
+            $text = strtolower($item['title'] . ' ' . $item['content'] . ' ' . $item['url']);
             $matches = 0;
             foreach ($messageTokens as $token) {
                 if ($token === '') {
@@ -1880,7 +1876,7 @@ class ChatQueryService
                 }
             }
 
-            if ($matches > 0 || ($item['source_type'] ?? '') === 'forcal_entry') {
+            if ($matches > 0 || $item['source_type'] === 'forcal_entry') {
                 $relevantSorted[] = $item;
             }
         }
@@ -1901,7 +1897,7 @@ class ChatQueryService
 
         if ($scope === 'frontend' && $this->hasForcalIntent($message)) {
             foreach ($sorted as $item) {
-                if (($item['source_type'] ?? '') !== 'forcal_entry') {
+                if ($item['source_type'] !== 'forcal_entry') {
                     continue;
                 }
 
@@ -1913,7 +1909,7 @@ class ChatQueryService
         }
 
         if ($selected === []) {
-            $topSimilarity = (float) ($sorted[0]['similarity'] ?? 0.0);
+            $topSimilarity = $sorted[0]['similarity'];
             $minSimilarity = max(0.18, $topSimilarity * 0.72);
 
             foreach ($sorted as $item) {
@@ -1921,7 +1917,7 @@ class ChatQueryService
                     break;
                 }
 
-                $similarity = (float) ($item['similarity'] ?? 0.0);
+                $similarity = $item['similarity'];
                 if ($similarity < $minSimilarity && count($selected) > 0) {
                     continue;
                 }
@@ -1930,14 +1926,13 @@ class ChatQueryService
             }
         }
 
-        if ($selected === [] && $topSimilarity >= 0.20) {
-            $selected = array_slice($sorted, 0, 1);
-        }
+        // $selected ist an dieser Stelle nie leer: der Block oben haengt bei nicht-leerem
+        // $sorted (garantiert, siehe oben) beim ersten Schleifendurchlauf immer ein Element an.
 
         $sources = [];
         foreach ($selected as $item) {
-            $url = trim((string) ($item['url'] ?? ''));
-            $title = trim((string) ($item['title'] ?? ''));
+            $url = trim($item['url']);
+            $title = trim($item['title']);
             if ($url === '' || $title === '') {
                 continue;
             }
@@ -2406,7 +2401,7 @@ class ChatQueryService
                 'label' => '' !== $sourceLabel ? $sourceLabel : null,
             ];
 
-            if (trim((string) ($candidate['icon_svg'] ?? '')) === '') {
+            if (trim($candidate['icon_svg']) === '') {
                 $candidate['icon_svg'] = $this->getDefaultSourceTypeIconSvg($sourceType);
             }
 
@@ -2417,11 +2412,11 @@ class ChatQueryService
 
             $existing = $candidatesBySource[$sourceKey];
             $replace = false;
-            if ((float) ($candidate['score'] ?? 0.0) > (float) ($existing['score'] ?? 0.0)) {
+            if ($candidate['score'] > $existing['score']) {
                 $replace = true;
             } elseif (
-                (float) ($candidate['score'] ?? 0.0) === (float) ($existing['score'] ?? 0.0)
-                && strcmp((string) ($candidate['updatedate'] ?? ''), (string) ($existing['updatedate'] ?? '')) > 0
+                $candidate['score'] === $existing['score']
+                && strcmp($candidate['updatedate'], $existing['updatedate']) > 0
             ) {
                 $replace = true;
             }
@@ -2771,7 +2766,7 @@ class ChatQueryService
             $score += min(3.0, $coverage * 3.0);
         }
 
-        if ($queryLower !== '' && str_contains($titleLower, $queryLower) && $queryLower !== '' && preg_match('/\s/u', $queryLower) === 1) {
+        if ($queryLower !== '' && str_contains($titleLower, $queryLower) && preg_match('/\s/u', $queryLower) === 1) {
             $score += 1.0;
         }
 
@@ -3160,10 +3155,6 @@ class ChatQueryService
                 $list[] = ($i + 1) . ') ' . $occurrence;
             }
 
-            if ($list === []) {
-                return '';
-            }
-
             return $listLabel . implode(' | ', $list) . '.';
         } catch (\Throwable $e) {
             return '';
@@ -3228,20 +3219,15 @@ class ChatQueryService
         // (zuletzt stattgefundener Termin zuerst), damit "wann war der letzte Termin" den
         // wirklich jüngsten vergangenen Termin an erster Stelle nennt.
         usort($found, static function (array $a, array $b) use ($wantPast): int {
-            $tsA = (int) ($a['ts'] ?? 0);
-            $tsB = (int) ($b['ts'] ?? 0);
+            $tsA = $a['ts'];
+            $tsB = $b['ts'];
 
             return $wantPast ? ($tsB <=> $tsA) : ($tsA <=> $tsB);
         });
 
         $result = [];
         foreach ($found as $item) {
-            $text = trim((string) ($item['text'] ?? ''));
-            if ($text === '') {
-                continue;
-            }
-
-            $result[] = $text;
+            $result[] = $item['text'];
             if (count($result) >= $maxItems) {
                 break;
             }
@@ -3775,16 +3761,9 @@ class ChatQueryService
             return true;
         }
 
-        $domains = $matches[2] ?? [];
-        if (!is_array($domains)) {
-            return true;
-        }
+        $domains = $matches[2];
 
         foreach ($domains as $domainRaw) {
-            if (!is_string($domainRaw)) {
-                return true;
-            }
-
             $domain = mb_strtolower(trim($domainRaw));
             if ($domain === '') {
                 return true;
@@ -3903,15 +3882,7 @@ class ChatQueryService
             return false;
         }
 
-        if (!isset($matches[0]) || !is_array($matches[0])) {
-            return false;
-        }
-
         foreach ($matches[0] as $candidate) {
-            if (!is_string($candidate)) {
-                continue;
-            }
-
             $digits = preg_replace('/\D+/', '', $candidate);
             if (!is_string($digits)) {
                 continue;

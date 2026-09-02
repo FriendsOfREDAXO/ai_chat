@@ -5,8 +5,7 @@ $addon = rex_addon::get('ai_chat');
 $providerRegistry = new FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry();
 $allProviders = array_filter(
     $providerRegistry->getAll(),
-    static fn ($provider): bool => $provider instanceof FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderInterface
-        && $provider->isAvailable(),
+    static fn ($provider): bool => $provider->isAvailable(),
 );
 $enabledProviderInstances = $providerRegistry->getEnabledProviders($addon);
 
@@ -41,10 +40,10 @@ if (is_array($providersConfig)) {
 }
 
 if ($enabledProviderInstances !== []) {
-    $enabledProviders = array_values(array_map(
+    $enabledProviders = array_map(
         static fn ($provider): string => $provider->getKey(),
         $enabledProviderInstances,
-    ));
+    );
 }
 
 $sourceTypeLabels = [

@@ -866,7 +866,7 @@ class IndexerService
             }
 
             $result = $this->processTask($task);
-            $chunks += (int) ($result['chunks'] ?? 0);
+            $chunks += $result['chunks'];
             if ($result['error'] !== null) {
                 ++$errors;
                 $errorLog[] = ['label' => $label, 'error' => (string) $result['error']];
@@ -1979,8 +1979,8 @@ class IndexerService
         }
 
         foreach ($this->getEmbeddingFocusRules($sourceType) as $rule) {
-            $label = (string) ($rule['label'] ?? 'Spezialthema');
-            $pattern = (string) ($rule['pattern'] ?? '');
+            $label = $rule['label'];
+            $pattern = $rule['pattern'];
             if ($pattern !== '' && preg_match($pattern, $normalized)) {
                 $meta[] = 'Wichtige Fakten: ' . $label;
             }
@@ -2184,13 +2184,9 @@ class IndexerService
             $current = $block;
         }
 
-        if ($current !== '') {
-            $chunks[] = $current;
-        }
-
-        if ($chunks === []) {
-            return [$normalized];
-        }
+        // $current ist an dieser Stelle nie leer: jeder Codepfad oben weist ihm vor
+        // Verlassen der Schleife entweder einen nicht-leeren $block/$candidate/$sentenceBuffer zu.
+        $chunks[] = $current;
 
         $finalChunks = [];
         foreach ($chunks as $index => $chunk) {

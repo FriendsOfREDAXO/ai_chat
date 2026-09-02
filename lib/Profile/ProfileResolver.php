@@ -75,6 +75,9 @@ class ProfileResolver
             ['context' => $context],
         ));
 
-        return is_array($subject) ? array_values($subject) : $candidates;
+        // Ein Dritt-Addon-Listener an diesem Extension Point koennte theoretisch einen
+        // Nicht-Array oder eine Nicht-Liste zurueckgeben - PHPStan vertraut hier dem
+        // generischen rex_extension_point<T>-Typ, der zur Laufzeit verletzt werden kann.
+        return is_array($subject) ? array_values($subject) : $candidates; // @phpstan-ignore function.alreadyNarrowedType, arrayValues.list
     }
 }

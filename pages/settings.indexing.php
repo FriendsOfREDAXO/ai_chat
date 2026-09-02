@@ -175,8 +175,7 @@ $form->addRawField('<div id="klxm-index-provider-settings">');
 $providerRegistry = new FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry();
 $availableProviders = array_filter(
     $providerRegistry->getAll(),
-    static fn ($provider): bool => $provider instanceof FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderInterface
-        && $provider->isAvailable(),
+    static fn ($provider): bool => $provider->isAvailable(),
 );
 
 $providerField = null;

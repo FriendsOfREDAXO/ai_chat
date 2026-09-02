@@ -50,7 +50,10 @@ $addBoolSelectField = static function (rex_form_base $form, string $configKey, s
     $raw = $field->getValue();
     if (null === $raw || '' === $raw) {
         $isTrue = $defaultWhenUnset;
-    } elseif (is_bool($raw)) {
+    } elseif (is_bool($raw)) { // @phpstan-ignore function.impossibleType
+        // getValue()s Rueckgabetyp ist laut PHPDoc int|string, aber ein direkt per
+        // rex_config::set() (statt ueber dieses Formular) gespeicherter Alt-Wert kann
+        // durchaus ein natives PHP-bool sein - dieselbe Legacy-Absicherung wie im else-Zweig unten.
         $isTrue = $raw;
     } else {
         // Normalisiert Alt-Werte aus der frueheren Checkbox-Bindung (Pipe-Format "|1|") auf

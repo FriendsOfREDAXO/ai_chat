@@ -62,7 +62,6 @@ class CloudflareService implements AiServiceInterface
             throw new \Exception('Cloudflare Account ID or API Token is missing.');
         }
 
-        $texts = array_values($texts);
         if ($texts === []) {
             return [];
         }

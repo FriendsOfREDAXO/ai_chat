@@ -77,20 +77,20 @@ rex_extension::register('PACKAGES_INCLUDED', function () {
             'ART_ADDED', 'ART_UPDATED', 'ART_STATUS', 'ART_DELETED', 'ART_META_UPDATED'
         ];
 
-        if (is_callable([$listenerClass, 'handleEvent'])) {
+        if (is_callable([$listenerClass, 'handleEvent'])) { // @phpstan-ignore if.alwaysTrue
             foreach ($extensionPoints as $ep) {
                 rex_extension::register($ep, [$listenerClass, 'handleEvent'], rex_extension::LATE);
             }
         }
 
-        if (is_callable([$listenerClass, 'handleCategoryEvent'])) {
+        if (is_callable([$listenerClass, 'handleCategoryEvent'])) { // @phpstan-ignore if.alwaysTrue
             rex_extension::register('CAT_STATUS', [$listenerClass, 'handleCategoryEvent'], rex_extension::LATE);
         }
     }
 
     // YForm-Datensaetze koennen auch ueber Frontend-Formulare (yform_frontend_controller o.ae.)
     // geaendert werden, daher NICHT an einen eingeloggten Backend-User binden.
-    if (rex_addon::get('yform')->isAvailable() && is_callable([$listenerClass, 'handleYformEvent'])) {
+    if (rex_addon::get('yform')->isAvailable() && is_callable([$listenerClass, 'handleYformEvent'])) { // @phpstan-ignore booleanAnd.rightAlwaysTrue
         rex_extension::register('YFORM_DATA_ADDED', [$listenerClass, 'handleYformEvent'], rex_extension::LATE);
         rex_extension::register('YFORM_DATA_UPDATED', [$listenerClass, 'handleYformEvent'], rex_extension::LATE);
         rex_extension::register('YFORM_DATA_DELETED', [$listenerClass, 'handleYformEvent'], rex_extension::LATE);

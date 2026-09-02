@@ -234,10 +234,6 @@ final class YformProfiles
 
         $columns = [];
         foreach ($table->getValueFields() as $field) {
-            if (!$field instanceof rex_yform_manager_field) {
-                continue;
-            }
-
             $name = trim((string) $field->getName());
             if ($name === '') {
                 continue;

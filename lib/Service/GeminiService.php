@@ -62,7 +62,6 @@ class GeminiService implements AiServiceInterface
             throw new \Exception('Gemini API Key is missing.');
         }
 
-        $texts = array_values($texts);
         if ($texts === []) {
             return [];
         }

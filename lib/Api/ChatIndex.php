@@ -433,9 +433,9 @@ class ChatIndex extends rex_api_function
         $viaPath = trim((string) shell_exec($lookupCommand));
         if ($viaPath !== '') {
             // "where" kann bei mehreren Treffern mehrzeilig antworten - der erste reicht.
-            $firstLine = strtok($viaPath, "\r\n");
-
-            return false !== $firstLine ? $firstLine : null;
+            // strtok() findet auf dem bereits getrimmten, nicht-leeren $viaPath beim ersten
+            // Aufruf garantiert ein Token (es gibt keine \r\n mehr, an denen es scheitern könnte).
+            return strtok($viaPath, "\r\n");
         }
 
         if ($isWindows) {

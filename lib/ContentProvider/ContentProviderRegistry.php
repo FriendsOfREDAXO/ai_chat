@@ -39,13 +39,16 @@ class ContentProviderRegistry
             ['registry' => $this],
         ));
 
-        if (is_array($subject)) {
+        // Dritt-Addons koennen ueber die Extension Point AI_CHAT_CONTENT_PROVIDERS beliebige
+        // Daten zurueckgeben - PHPStan vertraut hier dem generischen rex_extension_point<T>-Typ,
+        // der zur Laufzeit von einem Listener verletzt werden kann, daher trotz "immer wahr" nicht entfernen.
+        if (is_array($subject)) { // @phpstan-ignore function.alreadyNarrowedType
             foreach ($subject as $key => $provider) {
-                if (!$provider instanceof ContentProviderInterface) {
+                if (!$provider instanceof ContentProviderInterface) { // @phpstan-ignore instanceof.alwaysTrue
                     continue;
                 }
 
-                $normalizedKey = trim(is_string($key) ? $key : $provider->getKey());
+                $normalizedKey = trim(is_string($key) ? $key : $provider->getKey()); // @phpstan-ignore function.alreadyNarrowedType
                 if ($normalizedKey === '') {
                     continue;
                 }
@@ -82,12 +85,7 @@ class ContentProviderRegistry
                 continue;
             }
 
-            if (!is_callable([$provider, 'getSearchIconSvg'])) {
-                continue;
-            }
-
-            $svgRaw = call_user_func([$provider, 'getSearchIconSvg'], $sourceType);
-            $svg = trim(is_string($svgRaw) ? $svgRaw : '');
+            $svg = trim($provider->getSearchIconSvg($sourceType));
             if ($svg !== '') {
                 return $svg;
             }
@@ -104,14 +102,7 @@ class ContentProviderRegistry
         $labels = [];
 
         foreach ($this->getEnabledProviders($addon) as $provider) {
-            if (!method_exists($provider, 'getSourceTypeLabels')) {
-                continue;
-            }
-
             $providerLabels = $provider->getSourceTypeLabels();
-            if (!is_array($providerLabels)) {
-                continue;
-            }
 
             foreach ($providerLabels as $sourceType => $label) {
                 $sourceType = trim((string) $sourceType);

@@ -70,7 +70,7 @@ $sql = rex_sql::factory();
 $topQueries = [];
 $noResultQueries = [];
 foreach ($scopeLabels as $scopeKey => $scopeName) {
-    $modeLabels = $scopeModeLabels[$scopeKey] ?? ['chat' => 'Fragen / Chat'];
+    $modeLabels = $scopeModeLabels[$scopeKey];
     $topQueries[$scopeKey] = [];
     $noResultQueries[$scopeKey] = [];
 
@@ -147,7 +147,7 @@ $scopeSummaryHtml = '<div class="klxmchat-statistics-summary">';
 foreach ($scopeLabels as $scopeKey => $scopeName) {
     $scopeSummaryHtml .= '<div class="klxmchat-stat-card ' . rex_escape($scopeKey === 'developer' ? 'developer' : '') . '">'
         . '<div class="label">' . rex_escape($scopeName) . '</div>'
-        . '<div class="value">' . (int) ($scopeSummary[$scopeKey] ?? 0) . '</div>'
+        . '<div class="value">' . (int) $scopeSummary[$scopeKey] . '</div>'
         . '</div>';
 }
 $scopeSummaryHtml .= '</div>';
@@ -161,7 +161,7 @@ if (rex_addon::get('echarts')->isAvailable() && class_exists(ChartRenderer::clas
 
 $body .= '<div class="row" style="margin-top: 20px;">';
 foreach ($scopeLabels as $scopeKey => $scopeName) {
-    $modeLabels = $scopeModeLabels[$scopeKey] ?? ['chat' => 'Fragen / Chat'];
+    $modeLabels = $scopeModeLabels[$scopeKey];
     $body .= '<div class="col-md-12" style="margin-bottom: 24px;">'
         . '<div class="klxmchat-stat-section">'
         . '<div class="section-head">' . rex_escape($scopeName) . '</div>'
@@ -236,7 +236,7 @@ echo '</div>';
 
 $hasAnyStats = false;
 foreach ($scopeLabels as $scopeKey => $scopeName) {
-    foreach (array_keys($scopeModeLabels[$scopeKey] ?? ['chat' => 'Fragen / Chat']) as $modeKey) {
+    foreach (array_keys($scopeModeLabels[$scopeKey]) as $modeKey) {
         if (($topQueries[$scopeKey][$modeKey] ?? []) !== []) {
             $hasAnyStats = true;
             break 2;

@@ -65,7 +65,6 @@ class OpenAiCompatibleService implements AiServiceInterface
      */
     public function getEmbeddings(array $texts): array
     {
-        $texts = array_values($texts);
         if ($texts === []) {
             return [];
         }
@@ -538,8 +537,11 @@ class OpenAiCompatibleService implements AiServiceInterface
             }
         }
 
+        // $candidates ist nicht-leer (siehe Guard oben) und die Schleife kehrt bei Erfolg
+        // sofort per return zurueck - wird dieser Punkt erreicht, hat jede Iteration eine
+        // Exception geworfen, $lastException ist also garantiert gesetzt.
         $configuredUrl = $this->baseUrl !== '' ? $this->baseUrl : 'empty';
-        throw new \Exception('Configured OpenAI-compatible API URL "' . $configuredUrl . '" appears invalid for ' . $label . '. Tried: ' . implode(', ', $candidates) . '. Last error: ' . ($lastException ? $lastException->getMessage() : 'unknown'));
+        throw new \Exception('Configured OpenAI-compatible API URL "' . $configuredUrl . '" appears invalid for ' . $label . '. Tried: ' . implode(', ', $candidates) . '. Last error: ' . $lastException->getMessage());
     }
 
     private function shouldDisableTlsVerification(string $url): bool

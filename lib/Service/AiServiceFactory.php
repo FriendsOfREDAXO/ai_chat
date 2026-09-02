@@ -30,13 +30,17 @@ class AiServiceFactory
 
         // Erlaubt Dritt-Addons, eigene Provider unter einem neuen Schlüssel zu
         // registrieren, ohne diese Factory zu patchen.
+        // Ein Dritt-Addon-Listener koennte hier theoretisch einen Nicht-Array oder eine
+        // Klasse zurueckgeben, die AiServiceInterface gar nicht implementiert - PHPStan
+        // vertraut dem generischen rex_extension_point<T>-Typ, der zur Laufzeit verletzt
+        // werden kann, daher trotz "immer wahr" nicht entfernen.
         $subject = rex_extension::registerPoint(new rex_extension_point('AI_CHAT_REGISTER_PROVIDERS', $providers));
-        if (is_array($subject)) {
+        if (is_array($subject)) { // @phpstan-ignore function.alreadyNarrowedType
             $providers = $subject;
         }
 
         $class = $providers[$provider] ?? GeminiService::class;
-        if (!is_a($class, AiServiceInterface::class, true)) {
+        if (!is_a($class, AiServiceInterface::class, true)) { // @phpstan-ignore function.alreadyNarrowedType
             $class = GeminiService::class;
         }
 
