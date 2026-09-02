@@ -197,8 +197,17 @@ if ($allProviders !== []) {
     $content .= '<p><strong>Verfügbare Content-Provider</strong></p>';
     $content .= '<ul>';
     foreach ($allProviders as $provider) {
-        $isEnabled = in_array($provider->getKey(), $enabledProviders, true);
-        $state = $isEnabled ? 'aktiv' : 'deaktiviert';
+        // "mediapool" traegt nie zum Shared Pool bei (siehe MediaPoolContentProvider::
+        // collectTasks(), rein profil-exklusiv per Design) - "aktiv"/"deaktiviert" waere
+        // hier irrefuehrend, da der Schalter unten fuer diesen Provider gar keine Wirkung
+        // hat. Stattdessen auf die Profile-Seite verweisen, wo die eigentliche Auswahl
+        // (Dateien/Kategorien je Profil) passiert.
+        if ('mediapool' === $provider->getKey()) {
+            $state = 'je Profil, siehe AI Chat → Profile';
+        } else {
+            $isEnabled = in_array($provider->getKey(), $enabledProviders, true);
+            $state = $isEnabled ? 'aktiv' : 'deaktiviert';
+        }
         $content .= '<li>' . rex_escape($provider->getLabel()) . ' <small class="text-muted">(' . rex_escape($state) . ')</small></li>';
     }
     $content .= '</ul>';

@@ -175,7 +175,12 @@ $form->addRawField('<div id="klxm-index-provider-settings">');
 $providerRegistry = new FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry();
 $availableProviders = array_filter(
     $providerRegistry->getAll(),
-    static fn ($provider): bool => $provider->isAvailable(),
+    // "mediapool" hier bewusst ausgeschlossen: der Provider traegt nie zum Shared Pool
+    // bei (siehe MediaPoolContentProvider::collectTasks(), rein profil-exklusiv per
+    // Design) - ein globales "aktivieren" haette hier keinerlei Wirkung und wuerde nur
+    // Verwirrung stiften. Die eigentliche Auswahl (Dateien/Kategorien) passiert je
+    // Profil auf der Profile-Seite.
+    static fn ($provider): bool => $provider->isAvailable() && 'mediapool' !== $provider->getKey(),
 );
 
 $providerField = null;
