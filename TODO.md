@@ -86,9 +86,9 @@ und eigener Oberflächen-Sprache.
       `collectTasks()`) und deckt alle drei Profil-Quellenarten ab -
       `yform_profile_ids` (über `YformContentProvider::collectTasksForKeys()`,
       neu, filtert `YformProfiles::getAll()` auf die gewählten Keys statt wie
-      `collectTasks()` immer alle zu nehmen), `index_source=sitemap`
+      `collectTasks()` immer alle zu nehmen), `extra_source=sitemap`
       (`sitemap_urls`, wiederverwendet `parseSitemapUrls()`/
-      `fetchSitemapUrls()`) und `index_source=mountpoint`
+      `fetchSitemapUrls()`) und `extra_source=mountpoint`
       (`mountpoint_category_id`, neue `collectArticlesUnderCategory()` -
       rekursiver Kategorie-Teilbaum wie bei den bestehenden
       `index_exclude_categories`). Jeder so erzeugte Task trägt
@@ -475,10 +475,10 @@ selbstgeschriebener, fragiler PDF-Byte-Stream-Parser; dortiges Highlighting fehl
       über den Chat/RAG-Pfad, aber nie über die Live-Suche. Neue
       `getProfileExclusiveSourceTypes(?ChatProfile $profile)` ergänzt die
       Profil-eigenen Source-Types.
-- [x] **`index_source`-Auswahl "Keine"-Option-Text aktualisiert**: erwähnte
+- [x] **`extra_source`-Auswahl "Keine"-Option-Text aktualisiert**: erwähnte
       bisher nur Shared Pool/YForm, jetzt auch PDF - inkl. Hinweis, wie man ein
       Profil für eine spezialisierte Suche (z.B. "nur PDF") konfiguriert
-      (`index_source=none` + `use_shared_scope=0` + eigene YForm-/PDF-Auswahl).
+      (`extra_source=none` + `use_shared_scope=0` + eigene YForm-/PDF-Auswahl).
 - [x] **Trefferhervorhebung**: `ChatQueryService::highlightSnippetSegment()`
       umschließt Suchbegriff-Treffer im Snippet mit `<mark>`, Rest
       `htmlspecialchars()`-escaped (Positionsermittlung auf dem Rohtext, Escaping

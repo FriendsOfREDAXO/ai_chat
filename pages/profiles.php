@@ -272,6 +272,11 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('<div class="ai-chat-settings-box">');
     $form->addRawField('<p class="ai-chat-settings-box-title">Wissens-Scope</p>');
 
+    // use_shared_scope und extra_source stehen bewusst direkt nebeneinander (statt
+    // extra_source erst nach den YForm-/PDF-Feldern) - beide bestimmen zusammen den
+    // groben Wissens-Scope des Profils ("globalen Pool nutzen?" + "eine dritte, eigene
+    // Quelle zusätzlich?"), bevor es an die konkrete Quellenauswahl (YForm/PDF) geht.
+
     // Select statt Checkbox - siehe Kommentar bei "status" oben.
     $field = $form->addSelectField('use_shared_scope');
     $field->setLabel($tooltipLabel('Gemeinsamer Wissens-Pool', 'config_profile_shared_scope_notice'));
@@ -283,42 +288,10 @@ if ('add' === $func || 'edit' === $func) {
         $field->setValue('1');
     }
 
-    $yformProfiles = YformProfiles::getAll($addon);
-    if ([] !== $yformProfiles) {
-        $field = $form->addSelectField('yform_profile_ids');
-        $field->setLabel('Eigene YForm-Quellen');
-        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).');
-        $field->setAttribute('class', 'selectpicker');
-        $field->setAttribute('data-actions-box', 'true');
-        $select = $field->getSelect();
-        $select->setMultiple();
-        $select->setSize(min(count($yformProfiles), 6));
-        foreach ($yformProfiles as $yformProfile) {
-            $select->addOption((string) ($yformProfile['label'] ?? $yformProfile['id']), (string) $yformProfile['id']);
-        }
-    } else {
-        $form->addRawField('<p class="help-block">Keine YForm-Tabellen-Mappings konfiguriert – siehe AI Chat → YForm-Tabellen, um welche anzulegen.</p>');
-    }
-
-    if (rex_addon::get('mediapool')->isAvailable()) {
-        $field = $form->addMedialistField('pdf_media_ids');
-        $field->setLabel('Eigene PDF-Dokumente');
-        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.');
-
-        $field = $form->addSelectField('pdf_category_ids');
-        $field->setLabel('PDFs aus Medienpool-Kategorien');
-        $field->setNotice('Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.');
-        $field->setAttribute('class', 'selectpicker');
-        $field->setAttribute('data-actions-box', 'true');
-        $mediaCategorySelect = new rex_media_category_select();
-        $mediaCategorySelect->setMultiple();
-        $field->setSelect($mediaCategorySelect);
-    }
-
-    $field = $form->addSelectField('index_source');
+    $field = $form->addSelectField('extra_source');
     $field->setLabel('Eigene Sitemap/Struktur-Quelle');
-    $field->setNotice('Eine dritte, optionale Inhaltsquelle für dieses Profil – zusätzlich zu „Gemeinsamer Wissens-Pool" und den YForm-/PDF-Auswahlen oben, aber unabhängig davon. „Keine" bedeutet: keine solche zusätzliche Quelle, das Profil nutzt dann ausschließlich das, was oben eingestellt ist (Shared Pool, falls aktiviert, plus die gewählten YForm-Tabellen/PDFs). Für eine ganz auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs durchsuchen) also hier „Keine" wählen UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen.');
-    $field->setAttribute('id', 'ai-chat-profile-index-source');
+    $field->setNotice('Eine dritte, optionale Inhaltsquelle für dieses Profil – zusätzlich zum „Gemeinsamer Wissens-Pool" oben und den YForm-/PDF-Auswahlen unten, aber unabhängig davon. „Keine" bedeutet: keine solche zusätzliche Quelle, das Profil nutzt dann ausschließlich das, was sonst hier eingestellt ist (Shared Pool, falls aktiviert, plus die weiter unten gewählten YForm-Tabellen/PDFs). Für eine ganz auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs durchsuchen) also hier „Keine" wählen UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen.');
+    $field->setAttribute('id', 'ai-chat-profile-extra-source');
     $select = $field->getSelect();
     $select->addOption('Keine zusätzliche Quelle', 'none');
     $select->addOption('Eigene Sitemap', 'sitemap');
@@ -392,6 +365,39 @@ if ('add' === $func || 'edit' === $func) {
     $mountpointCategorySelect->addOption('Bitte wählen…', '');
     $field->setSelect($mountpointCategorySelect);
     $form->addRawField('</div>');
+
+    $yformProfiles = YformProfiles::getAll($addon);
+    if ([] !== $yformProfiles) {
+        $field = $form->addSelectField('yform_profile_ids');
+        $field->setLabel('Eigene YForm-Quellen');
+        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).');
+        $field->setAttribute('class', 'selectpicker');
+        $field->setAttribute('data-actions-box', 'true');
+        $select = $field->getSelect();
+        $select->setMultiple();
+        $select->setSize(min(count($yformProfiles), 6));
+        foreach ($yformProfiles as $yformProfile) {
+            $select->addOption((string) ($yformProfile['label'] ?? $yformProfile['id']), (string) $yformProfile['id']);
+        }
+    } else {
+        $form->addRawField('<p class="help-block">Keine YForm-Tabellen-Mappings konfiguriert – siehe AI Chat → YForm-Tabellen, um welche anzulegen.</p>');
+    }
+
+    if (rex_addon::get('mediapool')->isAvailable()) {
+        $field = $form->addMedialistField('pdf_media_ids');
+        $field->setLabel('Eigene PDF-Dokumente');
+        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.');
+
+        $field = $form->addSelectField('pdf_category_ids');
+        $field->setLabel('PDFs aus Medienpool-Kategorien');
+        $field->setNotice('Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.');
+        $field->setAttribute('class', 'selectpicker');
+        $field->setAttribute('data-actions-box', 'true');
+        $mediaCategorySelect = new rex_media_category_select();
+        $mediaCategorySelect->setMultiple();
+        $field->setSelect($mediaCategorySelect);
+    }
+
     $form->addRawField('</div>');
 
     // Verhalten
@@ -644,7 +650,7 @@ if ('add' === $func || 'edit' === $func) {
     function initAiChatProfileForm() {
         var contextSelect = document.getElementById("ai-chat-profile-context");
         var targetModeSelect = document.getElementById("ai-chat-profile-target-mode");
-        var indexSourceSelect = document.getElementById("ai-chat-profile-index-source");
+        var extraSourceSelect = document.getElementById("ai-chat-profile-extra-source");
 
         var frontendOnly = document.getElementById("ai-chat-profile-frontend-only");
         var targetDomains = document.getElementById("ai-chat-profile-target-domains");
@@ -668,9 +674,9 @@ if ('add' === $func || 'edit' === $func) {
             }
         }
 
-        function updateIndexSourceVisibility() {
-            if (!indexSourceSelect) return;
-            var source = indexSourceSelect.value;
+        function updateExtraSourceVisibility() {
+            if (!extraSourceSelect) return;
+            var source = extraSourceSelect.value;
             if (sourceSitemap) {
                 sourceSitemap.style.display = source === "sitemap" ? "block" : "none";
             }
@@ -687,9 +693,9 @@ if ('add' === $func || 'edit' === $func) {
             targetModeSelect.addEventListener("change", updateTargetModeVisibility);
             updateTargetModeVisibility();
         }
-        if (indexSourceSelect) {
-            indexSourceSelect.addEventListener("change", updateIndexSourceVisibility);
-            updateIndexSourceVisibility();
+        if (extraSourceSelect) {
+            extraSourceSelect.addEventListener("change", updateExtraSourceVisibility);
+            updateExtraSourceVisibility();
         }
 
         // Sitemap-Gruppen-Repeater: Gruppen hinzufuegen/entfernen per Template-Klonen

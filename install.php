@@ -68,7 +68,12 @@ rex_sql_table::get(rex::getTable('ai_chat_stats'))
 // Profile/Scope-Editor: mehrere Chat-"Profile" mit eigenem Wissensstand,
 // Zielgruppe (Domain/Sprache/individuell), Sichtbarkeit und Prompt - siehe
 // FriendsOfRedaxo\AiChat\Profile\ChatProfile fuer die Feldbedeutung im Detail.
-rex_sql_table::get(rex::getTable('ai_chat_profile'))
+$profileTable = rex_sql_table::get(rex::getTable('ai_chat_profile'));
+// Vor ensureColumn() pruefen (die Spalte existiert zu diesem Zeitpunkt noch nicht
+// erst NACH ensure() unten) - steuert die einmalige Datenuebernahme weiter unten.
+$extraSourceMigrationNeeded = $profileTable->exists() && !$profileTable->hasColumn('extra_source') && $profileTable->hasColumn('index_source');
+
+$profileTable
     ->ensurePrimaryIdColumn()
     ->ensureColumn(new rex_sql_column('name', 'varchar(190)'))
     ->ensureColumn(new rex_sql_column('status', 'tinyint(1)', false, '1'))
@@ -87,7 +92,17 @@ rex_sql_table::get(rex::getTable('ai_chat_profile'))
     ->ensureColumn(new rex_sql_column('search_enabled', 'varchar(10)', true))
     ->ensureColumn(new rex_sql_column('domains', 'text', true)) // |domain1|domain2|
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
+    // use_shared_scope und extra_source gehoeren konzeptionell zusammen (beide
+    // bestimmen den Wissens-Scope des Profils: "globalen Pool nutzen?" und
+    // "zusaetzliche eigene Quelle?") - daher hier direkt nebeneinander definiert,
+    // siehe auch die entsprechend gruppierten Formularfelder in pages/profiles.php.
     ->ensureColumn(new rex_sql_column('use_shared_scope', 'tinyint(1)', false, '1'))
+    // Vormals "index_source" genannt - umbenannt wegen Namenskollision mit der
+    // gleichnamigen, aber inhaltlich anderen globalen Einstellung (AI Chat →
+    // Einstellungen → Indexierung, steuert was der SHARED POOL selbst indexiert).
+    // Alte Spalte "index_source" bleibt unten vorerst bestehen (wie sitemap_urls),
+    // wird aber nicht mehr geschrieben/gelesen - Migration direkt im Anschluss.
+    ->ensureColumn(new rex_sql_column('extra_source', 'varchar(20)', false, 'none')) // none|sitemap|mountpoint
     ->ensureColumn(new rex_sql_column('yform_profile_ids', 'text', true)) // |profilkey1|profilkey2|, referenziert yform_provider_profiles
     // Eigene PDF-Quellen aus dem Medienpool, ebenfalls rein profil-exklusiv (kein
     // Shared-Pool-Beitrag, siehe MediaPoolContentProvider). pdf_media_ids kommt aus
@@ -95,7 +110,7 @@ rex_sql_table::get(rex::getTable('ai_chat_profile'))
     // (nicht im sonst ueblichen Pipe-Format) - siehe ChatProfile::decodeCommaList().
     ->ensureColumn(new rex_sql_column('pdf_media_ids', 'text', true)) // dateiname1,dateiname2
     ->ensureColumn(new rex_sql_column('pdf_category_ids', 'text', true)) // |1|2|, Medienpool-Kategorie-IDs
-    ->ensureColumn(new rex_sql_column('index_source', 'varchar(20)', false, 'none')) // none|sitemap|mountpoint
+    ->ensureColumn(new rex_sql_column('index_source', 'varchar(20)', false, 'none')) // veraltet, siehe extra_source oben
     // sitemap_urls (Alt, unbenannte Zeilenliste) bleibt in der DB, wird von neuem Code aber
     // nicht mehr geschrieben - siehe Migration unten und ChatProfile::$sitemapGroups.
     ->ensureColumn(new rex_sql_column('sitemap_urls', 'text', true))
@@ -155,6 +170,15 @@ foreach ($sitemapMigrationSql as $row) {
     $updateSql->update();
 }
 
+// Einmalige Migration: die Spalte "index_source" wurde in "extra_source" umbenannt
+// (Namenskollision mit der gleichnamigen globalen Einstellung, siehe Kommentar oben) -
+// bestehende Werte einmalig uebernehmen, statt bereits konfigurierte eigene
+// Sitemap-/Mountpoint-Quellen stillschweigend auf den Default "none" zurueckzusetzen.
+if ($extraSourceMigrationNeeded) {
+    $extraSourceMigrationSql = rex_sql::factory();
+    $extraSourceMigrationSql->setQuery('UPDATE ' . rex::getTable('ai_chat_profile') . ' SET extra_source = index_source');
+}
+
 // Genau ein Default-Profil, das ohne jede weitere Konfiguration sofort greift
 // (context=both, target_mode=all, use_shared_scope=1) - ohne dieses Profil
 // wuerde ProfileResolver nach der Installation nirgends ein Profil finden und
@@ -171,7 +195,7 @@ if (0 === (int) $defaultProfileSql->getValue('total')) {
     $seedSql->setValue('viewer_roles', '|visitor|editor|admin|');
     $seedSql->setValue('target_mode', 'all');
     $seedSql->setValue('use_shared_scope', 1);
-    $seedSql->setValue('index_source', 'none');
+    $seedSql->setValue('extra_source', 'none');
     $seedSql->setValue('ui_language', 'de');
     $seedSql->setValue('addressing_mode', 'auto');
     $seedSql->setValue('personalization_mode', 'off');

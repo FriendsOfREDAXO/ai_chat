@@ -237,7 +237,7 @@ class IndexerService
 
     /**
      * Sammelt Tasks für profil-eigene Quellen (siehe ChatProfile::$yformProfileIds/
-     * $indexSource/$sitemapUrls/$mountpointCategoryId) - zusätzlich zum globalen
+     * $extraSource/$sitemapGroups/$mountpointCategoryId) - zusätzlich zum globalen
      * Shared Pool oben. Jeder Task bekommt 'chat_profile_id' (ID aus
      * `ai_chat_profile`, NICHT zu verwechseln mit dem YForm-Mapping-'profile_id'-
      * Schlüssel, den YformContentProvider/processTask() für ihre eigenen,
@@ -275,7 +275,7 @@ class IndexerService
                 }
             }
 
-            if ('sitemap' === $profile->indexSource && [] !== $profile->sitemapGroups) {
+            if ('sitemap' === $profile->extraSource && [] !== $profile->sitemapGroups) {
                 foreach ($profile->sitemapGroups as $group) {
                     $groupUrls = [];
                     foreach ($group['urls'] as $sitemapUrl) {
@@ -296,7 +296,7 @@ class IndexerService
                 }
             }
 
-            if ('mountpoint' === $profile->indexSource && null !== $profile->mountpointCategoryId && $profile->mountpointCategoryId > 0) {
+            if ('mountpoint' === $profile->extraSource && null !== $profile->mountpointCategoryId && $profile->mountpointCategoryId > 0) {
                 foreach (rex_clang::getAllIds() as $clangId) {
                     foreach ($this->collectArticlesUnderCategory($profile->mountpointCategoryId, $clangId) as $articleId) {
                         $tasks[] = [
@@ -343,7 +343,7 @@ class IndexerService
 
     /**
      * Alle Artikel-IDs unterhalb (inkl.) einer Kategorie, für eine bestimmte
-     * Sprache - Grundlage für ein Profil mit `index_source = mountpoint`.
+     * Sprache - Grundlage für ein Profil mit `extra_source = mountpoint`.
      * Nutzt dieselbe rekursive Kategorie-Baum-Logik wie die bestehenden
      * Kategorie-Ausschlüsse (getCategoryIdsRecursive()).
      *
@@ -1372,7 +1372,7 @@ class IndexerService
 
         $profileIds = [];
         foreach ((new ProfileRepository())->getEnabled() as $profile) {
-            if ('mountpoint' !== $profile->indexSource || null === $profile->mountpointCategoryId || $profile->mountpointCategoryId <= 0) {
+            if ('mountpoint' !== $profile->extraSource || null === $profile->mountpointCategoryId || $profile->mountpointCategoryId <= 0) {
                 continue;
             }
             if (in_array($categoryId, $this->getCategoryIdsRecursive($profile->mountpointCategoryId), true)) {
