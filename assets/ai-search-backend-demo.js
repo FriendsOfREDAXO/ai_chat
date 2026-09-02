@@ -1,6 +1,20 @@
 (function () {
   'use strict';
 
+  var i18nDict = {};
+
+  function t(key, fallback, vars) {
+    if (window.AiChatI18n && typeof window.AiChatI18n.t === 'function') {
+      return window.AiChatI18n.t(i18nDict, key, fallback, vars);
+    }
+    return fallback || key;
+  }
+
+  function findUiLanguage() {
+    var chat = document.querySelector('ai-chat');
+    return (chat && chat.getAttribute('ui-language')) || 'de';
+  }
+
   function createButton(text, className, onClick) {
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -38,13 +52,13 @@
     var input = document.createElement('input');
     input.type = 'text';
     input.className = 'form-control ai-search-demo-input';
-    input.placeholder = 'Begriff eingeben für Inline-Suche ohne Modal...';
+    input.placeholder = t('demo_inline_placeholder', 'Begriff eingeben für Inline-Suche ohne Modal...');
 
-    var searchBtn = createButton('Inline suchen', 'btn btn-primary', function () {
+    var searchBtn = createButton(t('demo_inline_search_button', 'Inline suchen'), 'btn btn-primary', function () {
       runInlineSearch();
     });
 
-    var modalBtn = createButton('Als Modal öffnen', 'btn btn-default', function () {
+    var modalBtn = createButton(t('demo_open_modal_button', 'Als Modal öffnen'), 'btn btn-default', function () {
       instance.open(input.value.trim());
     });
 
@@ -69,7 +83,7 @@
       results.innerHTML = '';
 
       if (!Array.isArray(hits) || hits.length === 0) {
-        renderInfo('Keine Treffer gefunden.');
+        renderInfo(t('search_empty_results', 'Keine Treffer gefunden.'));
         return;
       }
 
@@ -81,14 +95,14 @@
         item.rel = 'noopener noreferrer';
 
         var title = document.createElement('strong');
-        title.textContent = hit.title || 'Ohne Titel';
+        title.textContent = hit.title || t('demo_untitled', 'Ohne Titel');
 
         var meta = document.createElement('span');
         meta.className = 'ai-search-demo-result-meta';
 
-        var typeLabel = (hit.type_label || hit.type || 'Treffer');
+        var typeLabel = (hit.type_label || hit.type || t('demo_result_type_generic', 'Treffer'));
         if (typeLabel === 'sitemap_url') {
-          typeLabel = 'Seite';
+          typeLabel = t('demo_result_type_page', 'Seite');
         }
 
         meta.textContent = typeLabel;
@@ -105,11 +119,11 @@
 
       if (query === '') {
         state.lastHits = [];
-        renderInfo('Suchbegriff eingeben für Live-Treffer.');
+        renderInfo(t('demo_enter_query_hint', 'Suchbegriff eingeben für Live-Treffer.'));
         return;
       }
 
-      renderInfo('Suche läuft...');
+      renderInfo(t('demo_search_running', 'Suche läuft...'));
 
       fetch(instance.apiUrl, {
         method: 'POST',
@@ -142,7 +156,7 @@
             return;
           }
 
-          renderInfo('Inline-Suche aktuell nicht verfügbar.');
+          renderInfo(t('search_error', 'Live-Suche aktuell nicht verfügbar.'));
         });
     }
 
@@ -156,7 +170,7 @@
     input.addEventListener('input', function () {
       if (input.value.trim() === '') {
         state.lastHits = [];
-        renderInfo('Suchbegriff eingeben für Live-Treffer.');
+        renderInfo(t('demo_enter_query_hint', 'Suchbegriff eingeben für Live-Treffer.'));
       }
     });
 
@@ -166,7 +180,7 @@
     container.appendChild(wrap);
     container.appendChild(results);
 
-    renderInfo('Suchbegriff eingeben für Live-Treffer.');
+    renderInfo(t('demo_enter_query_hint', 'Suchbegriff eingeben für Live-Treffer.'));
   }
 
   function mountDropdownDemo(container, instance) {
@@ -186,34 +200,35 @@
     var launcher = document.createElement('button');
     launcher.type = 'button';
     launcher.className = 'ai-search-icon-trigger';
-    launcher.setAttribute('aria-label', 'Suche öffnen');
+    launcher.setAttribute('aria-label', t('demo_open_search_aria_label', 'Suche öffnen'));
     launcher.setAttribute('aria-haspopup', 'dialog');
     launcher.setAttribute('aria-controls', popupId);
     launcher.setAttribute('aria-expanded', 'false');
-    launcher.innerHTML = '<span aria-hidden="true" class="ai-search-icon">⌕</span><span class="ai-search-icon-text">Suche</span>';
+    launcher.innerHTML = '<span aria-hidden="true" class="ai-search-icon">⌕</span><span class="ai-search-icon-text"></span>';
+    launcher.querySelector('.ai-search-icon-text').textContent = t('search_trigger_label', 'Suche');
 
     var popup = document.createElement('div');
     popup.id = popupId;
     popup.className = 'ai-search-demo-popup';
     popup.setAttribute('role', 'dialog');
     popup.setAttribute('aria-modal', 'false');
-    popup.setAttribute('aria-label', 'Schnellsuche');
+    popup.setAttribute('aria-label', t('demo_quicksearch_label', 'Schnellsuche'));
     popup.hidden = true;
 
     var popupHead = document.createElement('div');
     popupHead.className = 'ai-search-demo-popup-head';
-    popupHead.textContent = 'Schnellsuche';
+    popupHead.textContent = t('demo_quicksearch_label', 'Schnellsuche');
 
     var input = document.createElement('input');
     input.type = 'search';
     input.className = 'form-control ai-search-demo-popup-input';
-    input.placeholder = 'Tippen für Live-Ergebnisse...';
-    input.setAttribute('aria-label', 'Suchbegriff eingeben');
+    input.placeholder = t('demo_dropdown_placeholder', 'Tippen für Live-Ergebnisse...');
+    input.setAttribute('aria-label', t('demo_query_input_aria_label', 'Suchbegriff eingeben'));
 
     var askAi = document.createElement('button');
     askAi.type = 'button';
     askAi.className = 'btn btn-primary btn-sm ai-search-demo-ask-ai';
-    askAi.textContent = 'Frag die KI';
+    askAi.textContent = t('demo_ask_ai_button', 'Frag die KI');
     askAi.hidden = true;
 
     var aiTimer = null;
@@ -293,12 +308,12 @@
       if (!Array.isArray(hits) || hits.length === 0) {
         var empty = document.createElement('div');
         empty.className = 'ai-search-demo-empty';
-        empty.textContent = 'Keine Treffer. Anfrage im Spotlight öffnen?';
+        empty.textContent = t('demo_no_results_open_spotlight', 'Keine Treffer. Anfrage im Spotlight öffnen?');
 
         var ask = document.createElement('button');
         ask.type = 'button';
         ask.className = 'btn btn-default btn-sm';
-        ask.textContent = 'Im Spotlight öffnen';
+        ask.textContent = t('demo_open_in_spotlight_button', 'Im Spotlight öffnen');
         ask.addEventListener('click', function () {
           closePopup();
           instance.open(query);
@@ -317,11 +332,11 @@
         item.rel = 'noopener noreferrer';
 
         var title = document.createElement('strong');
-        title.textContent = hit.title || 'Ohne Titel';
+        title.textContent = hit.title || t('demo_untitled', 'Ohne Titel');
 
         var meta = document.createElement('span');
         meta.className = 'ai-search-demo-result-meta';
-        meta.textContent = hit.type || 'Treffer';
+        meta.textContent = hit.type || t('demo_result_type_generic', 'Treffer');
 
         item.appendChild(title);
         item.appendChild(meta);
@@ -331,7 +346,7 @@
       var openAll = document.createElement('button');
       openAll.type = 'button';
       openAll.className = 'btn btn-default btn-sm';
-      openAll.textContent = 'Alle im Spotlight anzeigen';
+      openAll.textContent = t('demo_show_all_in_spotlight_button', 'Alle im Spotlight anzeigen');
       openAll.addEventListener('click', function () {
         closePopup();
         instance.open(query);
@@ -382,7 +397,7 @@
           list.innerHTML = '';
           var error = document.createElement('div');
           error.className = 'ai-search-demo-empty';
-          error.textContent = 'Live-Suche aktuell nicht verfügbar.';
+          error.textContent = t('search_error', 'Live-Suche aktuell nicht verfügbar.');
           list.appendChild(error);
           scheduleAskAi(query);
         });
@@ -466,7 +481,7 @@
     container.appendChild(wrap);
   }
 
-  function initDemo() {
+  function mountAll() {
     var container = document.getElementById('ai-search-demo');
     if (!container || !window.AiSearch) {
       return;
@@ -476,15 +491,27 @@
     var instance = window.AiSearch.mountDemo(container, {
       apiUrl: apiUrl,
       autoButton: false,
-      placeholder: 'Suche oder Frage im Demo-Modus...',
+      placeholder: t('demo_mount_placeholder', 'Suche oder Frage im Demo-Modus...'),
       showChatActionButton: true,
       chatActionBehavior: 'widget',
-      chatActionLabel: 'Frag die KI (Chat)'
+      chatActionLabel: t('demo_ask_ai_chat_button', 'Frag die KI (Chat)')
     });
 
     mountInlineInputDemo(document.getElementById('ai-search-demo-inline'), instance);
     mountDropdownDemo(document.getElementById('ai-search-demo-dropdown'), instance);
     mountSkinningDemo(document.getElementById('ai-search-demo-skinning'));
+  }
+
+  function initDemo() {
+    if (window.AiChatI18n && typeof window.AiChatI18n.load === 'function') {
+      window.AiChatI18n.load(findUiLanguage()).then(function (dict) {
+        i18nDict = dict || {};
+        mountAll();
+      });
+      return;
+    }
+
+    mountAll();
   }
 
   if (typeof window.jQuery !== 'undefined') {

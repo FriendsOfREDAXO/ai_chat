@@ -388,6 +388,60 @@ nach einem selbst vergebenen Namen (z.B. "Allgemein"/"News") unterscheidbar sein
       selbst noch unsicher, wie das aussehen soll; erst nach weiterer Klärung
       angehen, nicht auf Basis von Annahmen vorwegnehmen.
 
+## Phase 5 — Such-UX, Antwortsprache je Profil, Theme-Bugfixes (erledigt, 2026-09-02)
+
+- [x] **Suchen-Button**: `ai-search.js` bekommt einen expliziten Submit-Button
+      neben der Live-Suche mit Debounce (löst sofort aus, ohne Wartezeit).
+- [x] **Suchfenster schloss sich bei Text-Selektion**: Ein Maus-Drag zum
+      Markieren von Text im Suchfeld, der beim Loslassen knapp außerhalb des
+      Feldes endet, wurde fälschlich als Klick-auf-Hintergrund-schließt-Overlay
+      gewertet. Overlay schließt jetzt nur noch, wenn sowohl `mousedown` als
+      auch `click` auf dem Hintergrund selbst lagen.
+- [x] **KI-Zusammenstellung über mehrere Bereiche async statt blockierend**:
+      `search()` liefert sofort `hits` + `summary_available`; die eigentliche
+      Zusammenstellung lädt `ai-search.js` per separatem `mode=search_summary`-
+      Folgeaufruf nach (nutzt die bereits vorliegenden Treffer, keine erneute
+      DB-Suche). Eigene Beschriftung/Gestaltung (`.ai-search-answer-summary`,
+      gestrichelter Rahmen, `✦`-Präfix), damit sie nicht mit einer direkten
+      Antwort auf eine erkannte Frage verwechselt wird.
+- [x] **Antwortsprache je Profil** (`ChatProfile::$answerLanguage`, neue Spalte
+      `answer_language`): lässt die KI unabhängig von `ui_language` in einer
+      festgelegten Sprache antworten, providerübergreifend, wirkt auch auf
+      `generateFollowUpQuestions()`. Eine milde Prompt-Anweisung reichte im
+      Test nicht (Modell blieb bei starkem deutschsprachigem Kontext beim
+      Deutschen) - Formulierung explizit verstärkt ("AUCH WENN Frage und
+      Kontext auf Deutsch sind").
+- [x] **Theme-Farbfelder zeigten bei leerem Wert Schwarz statt der globalen
+      Farbe**: `input[type=color]` normalisiert einen leeren HTML-`value` beim
+      Auslesen immer auf `#000000` (Browser-Verhalten, kein Bug im Addon) -
+      Anzeige liest jetzt `getAttribute('value')` statt `.value`. Zusätzlich
+      lässt sich `.value` per JS nicht auf einen Leerstring setzen (der
+      Browser lehnt das still ab) - das Leeren beim Speichern läuft jetzt über
+      ein verstecktes Ersatzfeld statt einer direkten Wertzuweisung.
+- [x] **Eckenradius `0` wurde ignoriert**: `ProfileTheme::buildInlineStyle()`
+      nutzte `?:`, PHP behandelt den String `"0"` als falsy - auf einen
+      expliziten Leerstring-Check umgestellt.
+- [x] **`assets/ai-search-backend-demo.js` übersetzbar gemacht**: nutzte bisher
+      hartcodiertes Deutsch für alle Demo-UI-Texte (Buttons, Platzhalter,
+      ARIA-Labels). Läuft jetzt über denselben `window.AiChatI18n`-Loader wie
+      das echte Such-Widget, neue `demo_*`-Schlüssel in
+      `assets/i18n/de.json`/`en.json` (bestehende Schlüssel wie
+      `search_empty_results`/`search_error`/`search_trigger_label` werden
+      wiederverwendet, wo der Text identisch ist). Die Demo-Beispielfragen
+      ("Was macht die KLXM?" u.ä.) und die Skin-Namen (Ocean/Sunset/Forest)
+      bleiben bewusst unübersetzt (Beispielinhalt bzw. Eigennamen).
+- [x] **rexstan auf 0 Findings gebracht** (vorher 462): `variable.undefined`
+      (fehlende `@var`-Annotationen nach `require settings.shared.php`),
+      `argument.type` (`rex_addon` vs. dokumentiertem `rex_addon_interface`),
+      diverse echte Kleinbugs (curl-Typisierung, `pclose()` auf möglichem
+      `false`-Handle, `getDataset()` auf möglichem `null`, tote Methoden/
+      Codepfade) sowie ca. 110 Fälle, in denen PHPStan PHPDoc-Array-Shapes als
+      hundertprozentig sicher behandelt und dadurch echte, aus gutem Grund
+      vorhandene Absicherungen (Extension-Point-Rückgabewerte von
+      Dritt-Addons, Deployment-Robustheit in `boot.php`) als „immer wahr"
+      markiert - dort bewusst per gezieltem `@phpstan-ignore` + Begründung
+      stummgeschaltet statt die Absicherung zu entfernen.
+
 ## Offen / zur Diskussion
 
 - **Cache-Hits + „Quellen anzeigen"**: Bei aktiviertem `show_sources` (Standard
