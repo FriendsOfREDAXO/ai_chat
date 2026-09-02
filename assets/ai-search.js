@@ -949,7 +949,12 @@
 
       var snippet = document.createElement('p');
       snippet.className = 'ai-search-item-snippet';
-      snippet.textContent = isForcalHit ? formatForcalSnippet(hit.snippet || '') : (hit.snippet || '');
+      // hit.snippet ist server-seitig bereits htmlspecialchars()-escaped, mit <mark>
+      // als einzigem erlaubten Tag um Suchbegriff-Treffer (siehe
+      // ChatQueryService::highlightSnippetSegment()) - deshalb hier sicher per
+      // innerHTML statt textContent, formatForcalSnippet() macht nur reine
+      // Text-Ersetzungen (":"/"|") auf dem bereits escapten String.
+      snippet.innerHTML = isForcalHit ? formatForcalSnippet(hit.snippet || '') : (hit.snippet || '');
 
       link.appendChild(title);
       link.appendChild(meta);

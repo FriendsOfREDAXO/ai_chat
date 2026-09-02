@@ -442,6 +442,57 @@ nach einem selbst vergebenen Namen (z.B. "Allgemein"/"News") unterscheidbar sein
       markiert - dort bewusst per gezieltem `@phpstan-ignore` + Begründung
       stummgeschaltet statt die Absicherung zu entfernen.
 
+## Phase 6 — PDF-Indexierung, Trefferhervorhebung, Hintergrund-Refresh (erledigt, 2026-09-03)
+
+Ausgangspunkt: Vergleich mit `search_it` (dortige PDF-Extraktion ist ein
+selbstgeschriebener, fragiler PDF-Byte-Stream-Parser; dortiges Highlighting fehlt
+`ai_chat` bisher ganz).
+
+- [x] **`lib/Service/PdfTextExtractor.php`**: `pdftotext` (poppler, falls per
+      `shell_exec`/PATH auffindbar) mit `smalot/pdfparser`-Fallback (neue
+      Composer-Abhängigkeit, `vendor/` committed wie bei `forcal`/`pdfout` u.a.
+      auf dieser Instanz üblich). Extrahierter Text wird auf gültiges UTF-8
+      bereinigt (`mb_substitute_character('none')` + Convert-Roundtrip) - ohne
+      das brach der Embedding-Request bei mindestens einer real getesteten PDF
+      mit „Malformed UTF-8 characters" ab.
+- [x] **`lib/ContentProvider/MediaPoolContentProvider.php`**: neuer
+      `ContentProviderInterface`-Provider, rein profil-exklusiv
+      (`collectTasks()` liefert bewusst `[]`, kein Shared-Pool-Beitrag).
+      `resolveAbsoluteUrl()` prefixt `rex_media::getUrl()` mit `rex::getServer()`
+      (analog zum bestehenden Muster in `IndexerService::indexArticle()`s
+      HTTP-Zweig) - ohne das landeten bei einer per Konsole angestoßenen
+      Indexierung relative statt klickbare Such-Ergebnis-Links im Index.
+- [x] **`ChatProfile::$pdfMediaIds`/`$pdfCategoryIds`** (neue Spalten
+      `pdf_media_ids`/`pdf_category_ids`) + Felder auf `pages/profiles.php`
+      (`addMedialistField()`/`rex_media_category_select`, native REDAXO-Widgets,
+      dasselbe Muster wie das bestehende `theme_avatar`-Feld).
+      `IndexerService::collectProfileTasks()` löst Kategorien zu Dateinamen auf
+      und stempelt Tasks wie beim YForm-Pendant mit `chat_profile_id`.
+- [x] **Reale Lücke beim Testen gefunden und behoben**: `ChatQueryService::search()`
+      filterte `source_type IN (...)` bisher ausschließlich anhand der global
+      aktivierten Shared-Pool-Provider (`getEnabledFrontendProviderSourceTypes()`)
+      - ein Profil mit exklusiven PDF- oder YForm-Quellen fand diese dadurch zwar
+      über den Chat/RAG-Pfad, aber nie über die Live-Suche. Neue
+      `getProfileExclusiveSourceTypes(?ChatProfile $profile)` ergänzt die
+      Profil-eigenen Source-Types.
+- [x] **`index_source`-Auswahl "Keine"-Option-Text aktualisiert**: erwähnte
+      bisher nur Shared Pool/YForm, jetzt auch PDF - inkl. Hinweis, wie man ein
+      Profil für eine spezialisierte Suche (z.B. "nur PDF") konfiguriert
+      (`index_source=none` + `use_shared_scope=0` + eigene YForm-/PDF-Auswahl).
+- [x] **Trefferhervorhebung**: `ChatQueryService::highlightSnippetSegment()`
+      umschließt Suchbegriff-Treffer im Snippet mit `<mark>`, Rest
+      `htmlspecialchars()`-escaped (Positionsermittlung auf dem Rohtext, Escaping
+      erst beim Zusammenbauen - kein Regex auf bereits escaptem Text). Client
+      (`ai-search.js`) nutzt jetzt `innerHTML` statt `textContent` für Snippets.
+- [x] **`IndexerService::sync()` erweitert** um `?callable $onProgress`/
+      `?callable $shouldStop` (analog zu `runFull()`) sowie `chunks`/`total`/
+      `cancelled`/`error_log` im Rückgabewert - Grundlage für den nächsten Punkt.
+- [x] **„Refresh (inkrementell)" läuft jetzt immer über den Hintergrund-Worker**
+      (`Api\ReindexWorker` mit neuem `mode=incremental`/`max_items` in
+      `IndexRunStore`) statt als einzelner blockierender Request im Browser-Tab -
+      selbe Verfügbarkeitsprüfung/Deaktivierung wie „Im Hintergrund indexieren"
+      bei fehlendem `shell_exec`/curl/wget.
+
 ## Offen / zur Diskussion
 
 - **Cache-Hits + „Quellen anzeigen"**: Bei aktiviertem `show_sources` (Standard

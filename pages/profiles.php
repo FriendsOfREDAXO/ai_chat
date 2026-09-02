@@ -300,12 +300,27 @@ if ('add' === $func || 'edit' === $func) {
         $form->addRawField('<p class="help-block">Keine YForm-Tabellen-Mappings konfiguriert – siehe AI Chat → YForm-Tabellen, um welche anzulegen.</p>');
     }
 
+    if (rex_addon::get('mediapool')->isAvailable()) {
+        $field = $form->addMedialistField('pdf_media_ids');
+        $field->setLabel('Eigene PDF-Dokumente');
+        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.');
+
+        $field = $form->addSelectField('pdf_category_ids');
+        $field->setLabel('PDFs aus Medienpool-Kategorien');
+        $field->setNotice('Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.');
+        $field->setAttribute('class', 'selectpicker');
+        $field->setAttribute('data-actions-box', 'true');
+        $mediaCategorySelect = new rex_media_category_select();
+        $mediaCategorySelect->setMultiple();
+        $field->setSelect($mediaCategorySelect);
+    }
+
     $field = $form->addSelectField('index_source');
     $field->setLabel('Eigene Sitemap/Struktur-Quelle');
-    $field->setNotice('Eine zusätzliche, exklusiv diesem Profil zugeordnete Inhaltsquelle – unabhängig vom Shared Pool und den YForm-Quellen oben.');
+    $field->setNotice('Eine zusätzliche, exklusiv diesem Profil zugeordnete Inhaltsquelle – unabhängig vom Shared Pool und den YForm-/PDF-Quellen oben. "Keine" wählen und oben bei "Gemeinsamer Wissens-Pool" auf "Nicht nutzen" stellen, um eine spezialisierte Suche ausschließlich über die gewählten YForm-Tabellen und/oder PDFs anzubieten (z.B. eine reine PDF-Suche oder ein Profil, das nur eine bestimmte YForm-Tabelle durchsucht).');
     $field->setAttribute('id', 'ai-chat-profile-index-source');
     $select = $field->getSelect();
-    $select->addOption('Keine (nur Shared Pool / YForm oben)', 'none');
+    $select->addOption('Keine (nur Shared Pool / YForm / PDF oben)', 'none');
     $select->addOption('Eigene Sitemap', 'sitemap');
     $select->addOption('Struktur-Mountpoint (Kategorie-Teilbaum)', 'mountpoint');
     if ('add' === $func && '' === (string) $field->getValue()) {

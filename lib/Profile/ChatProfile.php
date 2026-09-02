@@ -16,6 +16,8 @@ final class ChatProfile
      * @param list<string> $domains yrewrite-Domainnamen
      * @param list<int> $clangs rex_clang-IDs
      * @param list<string> $yformProfileIds Profil-Keys aus yform_provider_profiles (Strings, keine IDs)
+     * @param list<string> $pdfMediaIds Medienpool-Dateinamen (rex_media.filename), einzeln ausgewaehlte PDFs
+     * @param list<int> $pdfCategoryIds Medienpool-Kategorie-IDs, deren PDF-Dateien mit indexiert werden
      * @param list<array{label: string, description: string, is_timely: bool, urls: list<string>}> $sitemapGroups
      *        Benannte Sitemap-Gruppen (leeres label = unbenannt) - siehe pages/profiles.php (Repeater-UI)
      *        und IndexerService::collectProfileTasks()/ai_chat_index.source_label. $description ist ein
@@ -39,6 +41,8 @@ final class ChatProfile
         public readonly array $clangs,
         public readonly bool $useSharedScope,
         public readonly array $yformProfileIds,
+        public readonly array $pdfMediaIds,
+        public readonly array $pdfCategoryIds,
         public readonly string $indexSource,
         public readonly array $sitemapGroups,
         public readonly ?int $mountpointCategoryId,
@@ -80,6 +84,8 @@ final class ChatProfile
             clangs: self::decodeIntList($row['clangs'] ?? null),
             useSharedScope: (bool) $row['use_shared_scope'],
             yformProfileIds: self::decodeStringList($row['yform_profile_ids'] ?? null),
+            pdfMediaIds: self::decodeCommaList($row['pdf_media_ids'] ?? null),
+            pdfCategoryIds: self::decodeIntList($row['pdf_category_ids'] ?? null),
             indexSource: (string) $row['index_source'],
             sitemapGroups: self::decodeSitemapGroups($row['sitemap_groups'] ?? null),
             mountpointCategoryId: null !== $row['mountpoint_category_id'] ? (int) $row['mountpoint_category_id'] : null,
@@ -204,6 +210,20 @@ final class ChatProfile
     private static function decodeIntList(mixed $raw): array
     {
         return array_map('intval', self::decodeStringList($raw));
+    }
+
+    /**
+     * rex_form_base::addMedialistField() (genutzt fuer pdf_media_ids in pages/profiles.php)
+     * speichert komma-getrennt, nicht im sonst ueblichen Pipe-Format - siehe
+     * rex_form_widget_medialist_element/rex_var_medialist im mediapool-Addon.
+     *
+     * @return list<string>
+     */
+    private static function decodeCommaList(mixed $raw): array
+    {
+        $trimmed = trim((string) $raw, ',');
+
+        return '' === $trimmed ? [] : array_values(array_filter(explode(',', $trimmed), static fn (string $v): bool => '' !== $v));
     }
 
     private static function nullableString(mixed $raw): ?string

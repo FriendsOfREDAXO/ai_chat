@@ -59,14 +59,20 @@ class ReindexWorker extends rex_api_function
 
         try {
             $service = new IndexerService();
-            $result = $service->runFull(
-                static function (array $progress): void {
-                    IndexRunStore::write(array_merge(IndexRunStore::read(), $progress, ['status' => 'running']));
-                },
-                static function (): bool {
-                    return (bool) (IndexRunStore::read()['cancel_requested'] ?? false);
-                },
-            );
+            $onProgress = static function (array $progress): void {
+                IndexRunStore::write(array_merge(IndexRunStore::read(), $progress, ['status' => 'running']));
+            };
+            $shouldStop = static function (): bool {
+                return (bool) (IndexRunStore::read()['cancel_requested'] ?? false);
+            };
+
+            $mode = (string) ($state['mode'] ?? 'full');
+            if ('incremental' === $mode) {
+                $maxItems = (int) ($state['max_items'] ?? 0);
+                $result = $service->sync($maxItems, $onProgress, $shouldStop);
+            } else {
+                $result = $service->runFull($onProgress, $shouldStop);
+            }
 
             IndexRunStore::write(array_merge(IndexRunStore::read(), $result, [
                 'status' => $result['cancelled'] ? 'cancelled' : 'done',

@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+### Neu (PDF-/Dokument-Indexierung aus dem Medienpool)
+- Profile können jetzt PDF-Dateien aus dem Medienpool indexieren – einzeln ausgewählte
+  Dokumente und/oder ganze Medienpool-Kategorien, exklusiv für das jeweilige Profil (kein
+  globaler „alle PDFs indexieren"-Modus). Neue Felder „Eigene PDF-Dokumente" (nativer
+  REDAXO-Mehrfach-Datei-Picker) und „PDFs aus Medienpool-Kategorien" auf der Profil-Seite.
+- Textextraktion nutzt, falls auf dem Server vorhanden, `pdftotext` (poppler-utils) für
+  bessere Qualität bei komplexem Layout, sonst die reine PHP-Bibliothek
+  `smalot/pdfparser` (kein Systembinary nötig, läuft auf jedem Hosting). Kein OCR –
+  gescannte/reine Bild-PDFs liefern leeren Text und werden übersprungen statt einen
+  Fehler auszulösen.
+- Extrahierter Text wird vor der Weiterverarbeitung auf gültiges UTF-8 bereinigt –
+  manche PDFs (v.a. mit ungewöhnlichen internen Font-/Encoding-Deklarationen) liefern
+  sonst Byte-Sequenzen, an denen der anschließende Embedding-Request scheitern würde.
+- Die Live-Suche (`search()`) berücksichtigt jetzt auch exklusiv indexierte Quellen
+  (PDFs UND YForm-Tabellen) unabhängig davon, ob der jeweilige Content-Provider zusätzlich
+  für den globalen Shared Pool aktiviert ist – vorher tauchten profil-exklusive Inhalte im
+  Chat/RAG-Pfad zwar auf, waren aber für die Live-Suche unsichtbar.
+
+### Neu (Trefferhervorhebung in der Suche)
+- Suchergebnis-Snippets markieren den gefundenen Suchbegriff jetzt optisch
+  (`<mark>`-Hervorhebung mit der Akzentfarbe des Widgets). Serverseitig sauber
+  HTML-escaped, damit ein Suchbegriff mit `<`/`&`/Anführungszeichen die Darstellung nicht
+  durcheinanderbringen oder Markup einschleusen kann.
+
+### Geändert (Inkrementelles Refresh läuft jetzt immer im Hintergrund)
+- „Refresh (inkrementell)" lief bisher als einzelner, synchroner Request im Browser-Tab
+  (Timeout-Risiko bei größerem Index, Tab musste offen bleiben). Läuft jetzt wie „Im
+  Hintergrund indexieren" über den entkoppelten Server-Worker (`Api\ReindexWorker`, jetzt
+  mit `mode=incremental`) – Fortschritt kommt live aus `IndexRunStore`, der Tab kann
+  geschlossen werden. Braucht dieselbe Server-Voraussetzung (shell_exec + curl/wget) wie
+  der Hintergrund-Button und ist entsprechend deaktiviert, wenn die nicht verfügbar ist.
+
 ## [1.0.0] - 2026-09-02
 
 Kompletter Neuanfang: Das Addon heißt jetzt `ai_chat` (vormals `klxmchat`/„KLXM

@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\AiChat\Service;
 
 use FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry;
+use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Db\VectorCapability;
@@ -259,6 +260,21 @@ class IndexerService
                 }
             }
 
+            if ([] !== $profile->pdfMediaIds || [] !== $profile->pdfCategoryIds) {
+                $filenames = $profile->pdfMediaIds;
+                if ([] !== $profile->pdfCategoryIds) {
+                    $filenames = array_merge($filenames, $this->resolvePdfFilenamesForCategories($profile->pdfCategoryIds));
+                }
+
+                if ([] !== $filenames) {
+                    $mediaProvider = new MediaPoolContentProvider();
+                    foreach ($mediaProvider->collectTasksForKeys(array_values(array_unique($filenames))) as $task) {
+                        $task['chat_profile_id'] = $profile->id;
+                        $tasks[] = $task;
+                    }
+                }
+            }
+
             if ('sitemap' === $profile->indexSource && [] !== $profile->sitemapGroups) {
                 foreach ($profile->sitemapGroups as $group) {
                     $groupUrls = [];
@@ -298,6 +314,34 @@ class IndexerService
     }
 
     /**
+     * Dateinamen aller PDF-Dateien in den angegebenen Medienpool-Kategorien
+     * (nicht rekursiv - jede gewünschte Kategorie muss vom Profil einzeln
+     * gewählt werden, siehe pages/profiles.php).
+     *
+     * @param list<int> $categoryIds
+     * @return list<string>
+     */
+    private function resolvePdfFilenamesForCategories(array $categoryIds): array
+    {
+        if (!class_exists(\rex_media::class)) {
+            return [];
+        }
+
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray(
+            'SELECT filename FROM ' . \rex::getTable('media') . ' WHERE category_id IN (' . implode(',', array_fill(0, count($categoryIds), '?')) . ') AND filetype = ?',
+            [...$categoryIds, 'application/pdf'],
+        );
+
+        $filenames = [];
+        foreach ($rows as $row) {
+            $filenames[] = (string) $row['filename'];
+        }
+
+        return $filenames;
+    }
+
+    /**
      * Alle Artikel-IDs unterhalb (inkl.) einer Kategorie, für eine bestimmte
      * Sprache - Grundlage für ein Profil mit `index_source = mountpoint`.
      * Nutzt dieselbe rekursive Kategorie-Baum-Logik wie die bestehenden
@@ -329,13 +373,13 @@ class IndexerService
     }
 
     /**
-     * @return array{processed: int, skipped: int, errors: int}
+     * @return array{processed: int, skipped: int, errors: int, total: int, chunks: int, cancelled: bool, error_log: list<array{label: string, error: string}>}
      */
-    public function sync(int $maxItems = 0): array
+    public function sync(int $maxItems = 0, ?callable $onProgress = null, ?callable $shouldStop = null): array
     {
         $tasks = $this->collectTasks();
-        $stats = ['processed' => 0, 'skipped' => 0, 'errors' => 0];
-        
+        $stats = ['processed' => 0, 'skipped' => 0, 'errors' => 0, 'total' => count($tasks), 'chunks' => 0, 'cancelled' => false, 'error_log' => []];
+
         // Get all existing source_ids and their updatedates from DB - inkl. profile_id im
         // Dedup-Schluessel (siehe Kommentar bei $key unten): ohne das wuerde ein Chunk, der
         // sowohl im Shared Pool (profile_id NULL) als auch exklusiv fuer ein Profil indexiert
@@ -350,6 +394,21 @@ class IndexerService
         }
 
         foreach ($tasks as $task) {
+            if ($shouldStop !== null && $shouldStop()) {
+                $stats['cancelled'] = true;
+                break;
+            }
+
+            if ($onProgress !== null) {
+                $onProgress([
+                    'processed' => $stats['processed'],
+                    'total' => $stats['total'],
+                    'chunks' => $stats['chunks'],
+                    'errors' => $stats['errors'],
+                    'current_label' => self::describeTask($task),
+                ]);
+            }
+
             if ($maxItems > 0 && $stats['processed'] >= $maxItems) {
                 $stats['skipped'] += 1; // count remaining as skipped
                 continue;
@@ -432,7 +491,12 @@ class IndexerService
                     }
 
                     // Process (Insert new)
-                    $this->processTask($task);
+                    $result = $this->processTask($task);
+                    $stats['chunks'] += $result['chunks'];
+                    if ($result['error'] !== null) {
+                        $stats['errors']++;
+                        $stats['error_log'][] = ['label' => self::describeTask($task), 'error' => (string) $result['error']];
+                    }
                     $stats['processed']++;
                 } else {
                     $stats['skipped']++;
@@ -440,8 +504,19 @@ class IndexerService
 
             } catch (\Exception $e) {
                 $stats['errors']++;
+                $stats['error_log'][] = ['label' => self::describeTask($task), 'error' => $e->getMessage()];
                 \rex_logger::logException($e);
             }
+        }
+
+        if ($onProgress !== null) {
+            $onProgress([
+                'processed' => $stats['processed'],
+                'total' => $stats['total'],
+                'chunks' => $stats['chunks'],
+                'errors' => $stats['errors'],
+                'current_label' => null,
+            ]);
         }
 
         return $stats;

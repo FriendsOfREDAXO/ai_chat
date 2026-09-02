@@ -85,7 +85,7 @@ if ($rawConfiguredLabels !== '') {
 // Toolbar mit Buttons für schnellen Zugriff
 $toolbar = '<button type="button" id="ai-chat-start-btn-toolbar" class="btn btn-primary" style="margin-right: 5px;"><i class="rex-icon fa-play"></i> ' . $addon->i18n('index_button') . '</button>';
 $toolbar .= '<button type="button" id="ai-chat-start-background-btn-toolbar" class="btn btn-info" style="margin-right: 5px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '"><i class="rex-icon fa-cloud-upload"></i> ' . $addon->i18n('index_background_button') . '</button>';
-$toolbar .= '<button type="button" id="ai-chat-refresh-btn-toolbar" class="btn btn-default" style="margin-right: 5px;"><i class="rex-icon fa-refresh"></i> ' . $addon->i18n('index_refresh_button') . '</button>';
+$toolbar .= '<button type="button" id="ai-chat-refresh-btn-toolbar" class="btn btn-default" style="margin-right: 5px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '"><i class="rex-icon fa-refresh"></i> ' . $addon->i18n('index_refresh_button') . '</button>';
 $toolbar .= '<button type="button" id="ai-chat-cancel-btn-toolbar" class="btn btn-warning" style="margin-right: 15px;" disabled><i class="rex-icon fa-stop"></i> ' . $addon->i18n('index_btn_cancel') . '</button>';
 
 $fragment = new rex_fragment();
@@ -514,7 +514,7 @@ $content .= '<p class="klxm-index-actiongroup-title">' . $addon->i18n('index_gro
 $content .= '<p style="margin-bottom:4px;">';
 $content .= '<button type="button" id="ai-chat-start-btn" class="btn btn-primary">' . $addon->i18n('index_button') . '</button> ';
 $content .= '<button type="button" id="ai-chat-start-background-btn" class="btn btn-info" style="margin-left:6px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '"><i class="rex-icon fa-cloud-upload"></i> ' . $addon->i18n('index_background_button') . '</button> ';
-$content .= '<button type="button" id="ai-chat-refresh-btn" class="btn btn-default" style="margin-left:6px;">' . $addon->i18n('index_refresh_button') . '</button> ';
+$content .= '<button type="button" id="ai-chat-refresh-btn" class="btn btn-default" style="margin-left:6px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '">' . $addon->i18n('index_refresh_button') . '</button> ';
 $content .= '<button type="button" id="ai-chat-cancel-btn" class="btn btn-warning" style="margin-left:6px;" disabled>' . $addon->i18n('index_btn_cancel') . '</button>';
 $content .= '</p>';
 $content .= '<p style="margin-top:4px; margin-bottom:0;">';

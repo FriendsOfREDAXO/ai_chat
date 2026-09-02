@@ -235,6 +235,15 @@ class ChatIndex extends rex_api_function
             $this->sendJsonClean(['success' => false, 'error' => 'Es läuft bereits eine Hintergrund-Indizierung.']);
         }
 
+        $mode = rex_request('mode', 'string', 'full');
+        if (!in_array($mode, ['full', 'incremental'], true)) {
+            $mode = 'full';
+        }
+        $maxItems = rex_request('max_items', 'int', 0);
+        if ($maxItems < 0) {
+            $maxItems = 0;
+        }
+
         $token = bin2hex(random_bytes(16));
         IndexRunStore::write([
             'status' => 'running',
@@ -247,6 +256,8 @@ class ChatIndex extends rex_api_function
             'error_log' => [],
             'token' => $token,
             'cancel_requested' => false,
+            'mode' => $mode,
+            'max_items' => $maxItems,
         ]);
 
         $server = rtrim(rex::getServer(), '/');

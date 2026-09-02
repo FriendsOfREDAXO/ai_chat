@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\AiChat\Service;
 
 use FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry;
+use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Db\VectorCapability;
 use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
@@ -1159,6 +1160,35 @@ class ChatQueryService
     }
 
     /**
+     * Ein Profil kann YForm-Tabellen und/oder Medienpool-PDFs exklusiv fuer sich indexieren
+     * (ChatProfile::$yformProfileIds/$pdfMediaIds/$pdfCategoryIds), unabhaengig davon, ob der
+     * jeweilige Content-Provider auch global fuer den Shared Pool aktiviert ist
+     * (getEnabledFrontendProviderSourceTypes() liest nur diese globale Einstellung). Ohne diese
+     * Ergaenzung waeren exklusiv indexierte Inhalte fuer die Live-Suche (search()) unsichtbar -
+     * source_type IN (...) wuerde sie aus dem WHERE herausfiltern, obwohl sie erfolgreich
+     * indexiert wurden und ueber den Chat/RAG-Pfad (ohne diese Einschraenkung) bereits gefunden
+     * werden.
+     *
+     * @return list<string>
+     */
+    private function getProfileExclusiveSourceTypes(?ChatProfile $profile): array
+    {
+        if (null === $profile) {
+            return [];
+        }
+
+        $types = [];
+        foreach ($profile->yformProfileIds as $yformProfileId) {
+            $types[] = YformProfiles::sourceTypeForProfile($yformProfileId);
+        }
+        if ([] !== $profile->pdfMediaIds || [] !== $profile->pdfCategoryIds) {
+            $types[] = 'mediapool_pdf';
+        }
+
+        return $types;
+    }
+
+    /**
      * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}> $context
      * @return array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}>
      */
@@ -2249,6 +2279,7 @@ class ChatQueryService
             $allowedSourceTypes = array_values(array_unique(array_merge(
                 ['article', 'sitemap_url'],
                 $this->getEnabledFrontendProviderSourceTypes(),
+                $this->getProfileExclusiveSourceTypes($profile),
             )));
         } elseif ($scope === 'developer') {
             $allowedSourceTypes = ['addon_docs', 'github_docs'];
@@ -2833,11 +2864,11 @@ class ChatQueryService
         $position = mb_stripos($plainLower, $needleLower);
 
         if ($position === false) {
-            return mb_substr($plain, 0, 180);
+            return $this->highlightSnippetSegment(mb_substr($plain, 0, 180), $searchTerms);
         }
 
         $start = max(0, (int) $position - 70);
-        $snippet = mb_substr($plain, $start, 220);
+        $snippet = $this->highlightSnippetSegment(mb_substr($plain, $start, 220), $searchTerms);
 
         if ($start > 0) {
             $snippet = '... ' . $snippet;
@@ -2866,16 +2897,18 @@ class ChatQueryService
             }
 
             $start = max(0, (int) $position - 45);
-            $chunk = mb_substr($plain, $start, 140);
-            if ($start > 0) {
-                $chunk = '... ' . $chunk;
-            }
+            $chunkText = mb_substr($plain, $start, 140);
 
-            $key = mb_strtolower($chunk);
+            $key = mb_strtolower($chunkText);
             if (isset($seen[$key])) {
                 continue;
             }
             $seen[$key] = true;
+
+            $chunk = $this->highlightSnippetSegment($chunkText, $terms);
+            if ($start > 0) {
+                $chunk = '... ' . $chunk;
+            }
             $contexts[] = $chunk;
 
             if (count($contexts) >= 3) {
@@ -2888,6 +2921,69 @@ class ChatQueryService
         }
 
         return implode(' | ', $contexts);
+    }
+
+    /**
+     * Escaped den rohen Text-Abschnitt fuer die HTML-Ausgabe und umschliesst dabei
+     * jedes Vorkommen eines der $terms mit <mark>...</mark> (case-insensitive,
+     * ueberlappende Treffer werden nur einmal markiert). <mark> ist das einzige Tag,
+     * das hier je erzeugt wird - alles andere laeuft durch htmlspecialchars(), damit
+     * der Client das Ergebnis gefahrlos per innerHTML einsetzen kann (siehe
+     * assets/ai-search.js) statt es wie bisher als reinen Text zu behandeln.
+     *
+     * @param list<string> $terms
+     */
+    private function highlightSnippetSegment(string $text, array $terms): string
+    {
+        if ('' === $text) {
+            return '';
+        }
+
+        $textLower = mb_strtolower($text);
+        $textLength = mb_strlen($text);
+
+        /** @var list<array{0: int, 1: int}> $ranges */
+        $ranges = [];
+        foreach ($terms as $term) {
+            $term = trim((string) $term);
+            if ('' === $term) {
+                continue;
+            }
+
+            $termLength = mb_strlen($term);
+            $termLower = mb_strtolower($term);
+            $offset = 0;
+            while ($offset < $textLength) {
+                $position = mb_stripos($textLower, $termLower, $offset);
+                if (false === $position) {
+                    break;
+                }
+                $ranges[] = [$position, $termLength];
+                $offset = $position + $termLength;
+            }
+        }
+
+        if ([] === $ranges) {
+            return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+        }
+
+        usort($ranges, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+
+        $html = '';
+        $cursor = 0;
+        foreach ($ranges as [$start, $length]) {
+            if ($start < $cursor) {
+                // Ueberlappt einen bereits markierten Bereich - überspringen.
+                continue;
+            }
+
+            $html .= htmlspecialchars(mb_substr($text, $cursor, $start - $cursor), ENT_QUOTES, 'UTF-8');
+            $html .= '<mark>' . htmlspecialchars(mb_substr($text, $start, $length), ENT_QUOTES, 'UTF-8') . '</mark>';
+            $cursor = $start + $length;
+        }
+        $html .= htmlspecialchars(mb_substr($text, $cursor), ENT_QUOTES, 'UTF-8');
+
+        return $html;
     }
 
     private function isMultiContextSnippetEnabled(): bool

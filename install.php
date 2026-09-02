@@ -89,6 +89,12 @@ rex_sql_table::get(rex::getTable('ai_chat_profile'))
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
     ->ensureColumn(new rex_sql_column('use_shared_scope', 'tinyint(1)', false, '1'))
     ->ensureColumn(new rex_sql_column('yform_profile_ids', 'text', true)) // |profilkey1|profilkey2|, referenziert yform_provider_profiles
+    // Eigene PDF-Quellen aus dem Medienpool, ebenfalls rein profil-exklusiv (kein
+    // Shared-Pool-Beitrag, siehe MediaPoolContentProvider). pdf_media_ids kommt aus
+    // rex_form_base::addMedialistField() und wird daher komma-getrennt gespeichert
+    // (nicht im sonst ueblichen Pipe-Format) - siehe ChatProfile::decodeCommaList().
+    ->ensureColumn(new rex_sql_column('pdf_media_ids', 'text', true)) // dateiname1,dateiname2
+    ->ensureColumn(new rex_sql_column('pdf_category_ids', 'text', true)) // |1|2|, Medienpool-Kategorie-IDs
     ->ensureColumn(new rex_sql_column('index_source', 'varchar(20)', false, 'none')) // none|sitemap|mountpoint
     // sitemap_urls (Alt, unbenannte Zeilenliste) bleibt in der DB, wird von neuem Code aber
     // nicht mehr geschrieben - siehe Migration unten und ChatProfile::$sitemapGroups.

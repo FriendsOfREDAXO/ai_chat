@@ -19,6 +19,7 @@ class ContentProviderRegistry
         $providers = [
             'forcal' => new ForcalContentProvider(),
             'yform' => new YformContentProvider(),
+            'mediapool' => new MediaPoolContentProvider(),
         ];
 
         $knowledgebaseProviderClass = 'FriendsOfREDAXO\\Knowledgebase\\ContentProvider\\KnowledgebaseContentProvider';

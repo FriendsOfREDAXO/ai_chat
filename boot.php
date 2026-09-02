@@ -13,6 +13,14 @@ use FriendsOfRedaxo\AiChat\Profile\ProfileResolver;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
 
+// smalot/pdfparser fuer die PDF-Indexierung (MediaPoolContentProvider) - falls composer
+// install im Addon-Verzeichnis nie gelaufen ist (z.B. manuelles Deployment ohne vendor/),
+// bleibt die Klasse einfach ungeladen; MediaPoolContentProvider::isAvailable() prueft
+// class_exists() und deaktiviert sich dann selbst, kein Fataler Fehler.
+if (is_file(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
 $addon = rex_addon::get('ai_chat');
 
 // Kein Seitenrecht (steuert keine eigene Unterseite, sondern nur ob der automatisch

@@ -154,14 +154,19 @@
     // aktiv ist - verhindert, dass z.B. während einer laufenden Foreground-
     // Indexierung zusätzlich noch ein Hintergrundlauf gestartet wird.
     function setRunButtonsDisabled(disabled) {
-        ['ai-chat-start-btn', 'ai-chat-start-btn-toolbar', 'ai-chat-refresh-btn', 'ai-chat-refresh-btn-toolbar'].forEach(function (id) {
+        ['ai-chat-start-btn', 'ai-chat-start-btn-toolbar'].forEach(function (id) {
             const btn = el(id);
             if (btn) btn.disabled = disabled;
         });
-        // Die Hintergrund-Buttons bleiben von einem "Sperren" ausgenommen, wenn
-        // sie ohnehin schon wegen fehlender Verfügbarkeit deaktiviert sind -
-        // updateBackgroundButtonState() ist die alleinige Quelle für DIESEN Fall.
-        ['ai-chat-start-background-btn', 'ai-chat-start-background-btn-toolbar'].forEach(function (id) {
+        // Hintergrund-Buttons UND Refresh (das jetzt ebenfalls immer über den
+        // Hintergrund-Worker läuft, siehe handleRefresh()) bleiben von einem
+        // "Sperren" ausgenommen, wenn sie ohnehin schon wegen fehlender
+        // Verfügbarkeit deaktiviert sind - checkBackgroundAvailability() ist die
+        // alleinige Quelle für DIESEN Fall.
+        [
+            'ai-chat-start-background-btn', 'ai-chat-start-background-btn-toolbar',
+            'ai-chat-refresh-btn', 'ai-chat-refresh-btn-toolbar',
+        ].forEach(function (id) {
             const btn = el(id);
             if (btn && backgroundAvailable) btn.disabled = disabled;
         });
@@ -775,11 +780,12 @@
         handleStartBackgroundClick();
     }
 
-    async function runBackground() {
+    async function runBackground(mode, startLabel) {
+        mode = mode || 'full';
         backgroundMode = true;
-        setStatus('Hintergrund-Indizierung wird gestartet…', '');
+        setStatus(startLabel || 'Hintergrund-Indizierung wird gestartet…', '');
 
-        const startData = await apiFetch(getApiBase() + '&action=start_background', { method: 'POST', timeout: 15000 });
+        const startData = await apiFetch(getApiBase() + '&action=start_background&mode=' + encodeURIComponent(mode), { method: 'POST', timeout: 15000 });
         if (!startData.success) {
             throw new Error(startData.error || 'Hintergrundlauf konnte nicht gestartet werden.');
         }
@@ -856,12 +862,19 @@
         });
     }
 
+    // Läuft wie "Im Hintergrund indexieren" ueber Api\ReindexWorker (siehe
+    // runBackground()/pollBackgroundStatus()), nur mit IndexerService::sync() statt
+    // runFull() - ein laengeres inkrementelles Refresh blockiert dadurch weder den
+    // Browser-Tab noch riskiert es ein PHP-Timeout auf Shared-Hosting-Umgebungen.
     async function handleRefresh() {
         ensureConfigLoaded();
         cancelled = false;
         successCount = 0;
         errorCount = 0;
         errorLog = [];
+        indexedChunks = 0;
+        totalCount = 0;
+        currentTaskIndex = 0;
         startTime = Date.now();
         lastActivityTime = Date.now();
 
@@ -869,9 +882,8 @@
         setStatusBadge('running-fg', config.refreshRunning);
 
         showProgress(true);
-        updateProgress(10);
+        updateProgress(0);
         setDetail('');
-        setStatus(config.refreshRunning || 'Inkrementelles Refresh läuft…', '');
         startHeartbeat();
 
         const bar = el('ai-chat-progress-bar');
@@ -881,21 +893,23 @@
         }
 
         try {
-            const data = await apiFetch(getApiBase() + '&action=refresh', { timeout: 900000 });
-            if (!data.success) {
-                throw new Error(data.error || 'Refresh fehlgeschlagen');
-            }
+            await runBackground('incremental', config.refreshRunning || 'Inkrementelles Refresh wird gestartet…');
 
-            const stats = data.stats || {};
-            const processed = Number(stats.processed || 0);
-            const skipped = Number(stats.skipped || 0);
-            const errors = Number(stats.errors || 0);
+            // pollBackgroundStatus() aktualisiert processed/chunks/errors laufend,
+            // liest aber "skipped" nicht mit ein (nur fuer den Vollbericht am Ende
+            // relevant) - dafuer einmalig den finalen Stand direkt nachfragen.
+            const finalData = await apiFetch(getApiBase() + '&action=background_status', { timeout: 15000 });
+            const processed = Number(finalData.processed || 0);
+            const skipped = Number(finalData.skipped || 0);
+            const errors = Number(finalData.errors || 0);
 
             successCount = processed;
             errorCount = errors;
 
             updateProgress(100);
             stopHeartbeat();
+            stopBackgroundPoll();
+            showBackgroundHint(false);
 
             if (bar) {
                 bar.classList.remove('active');
@@ -910,20 +924,21 @@
             setStatus(status, errors > 0 ? 'warning' : 'success');
             setStatusBadge(errors > 0 ? 'warning' : 'success', errors > 0 ? undefined : (config.refreshDone || 'Refresh fertig'));
 
-            // Inkrementelles Refresh ändert die Gesamtzahl der Abschnitte um einen
-            // nicht direkt bekannten Betrag (geänderte Seiten können mehr oder
-            // weniger Chunks als vorher ergeben) - statt eine Reload-Aufforderung
-            // anzuzeigen, einfach den echten aktuellen Stand nachfragen.
+            // finalData.chunks ist nur die waehrend dieses Laufs neu geschriebene Anzahl
+            // (aus IndexerService::sync()), nicht die tatsaechliche Gesamtgroesse des
+            // Index - dafuer wie zuvor separat den echten aktuellen Stand nachfragen.
             try {
                 const countData = await apiFetch(getApiBase() + '&action=count', { timeout: 15000 });
                 if (countData && countData.success) {
                     updateIndexCountBadge(countData.total);
                 }
-            } catch (e) {
+            } catch (e2) {
                 // Anzeige bleibt dann einfach auf dem alten Stand - kein Blocker.
             }
         } catch (e) {
             stopHeartbeat();
+            stopBackgroundPoll();
+            showBackgroundHint(false);
             if (cancelled) {
                 setStatus('Refresh abgebrochen.', 'warning');
                 setStatusBadge('cancelled');
@@ -1197,7 +1212,13 @@
     // das erst nach dem Klick zu entscheiden (das war vorher am "Jetzt
     // indexieren"-Button selbst nicht erkennbar).
     async function checkBackgroundAvailability() {
-        const buttons = [el('ai-chat-start-background-btn'), el('ai-chat-start-background-btn-toolbar')].filter(Boolean);
+        // Refresh (inkrementell) laeuft jetzt ebenfalls immer ueber Api\ReindexWorker
+        // (siehe handleRefresh()) statt eines synchronen Inline-Requests, braucht also
+        // dieselbe Verfuegbarkeitspruefung wie "Im Hintergrund indexieren".
+        const buttons = [
+            el('ai-chat-start-background-btn'), el('ai-chat-start-background-btn-toolbar'),
+            el('ai-chat-refresh-btn'), el('ai-chat-refresh-btn-toolbar'),
+        ].filter(Boolean);
         if (buttons.length === 0) {
             return;
         }

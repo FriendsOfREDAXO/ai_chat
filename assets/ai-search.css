@@ -404,6 +404,13 @@ body.rex-theme-dark #ai-search-root {
   opacity: 0.9;
 }
 
+#ai-search-root .ai-search-item-snippet mark {
+  background: color-mix(in srgb, var(--ai-search-accent) 30%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 .ai-search-demo-box {
   border: 1px solid #d9e0ea;
   background: #f8fbff;
