@@ -34,6 +34,14 @@
   geschlossen werden. Braucht dieselbe Server-Voraussetzung (shell_exec + curl/wget) wie
   der Hintergrund-Button und ist entsprechend deaktiviert, wenn die nicht verfügbar ist.
 
+### Behoben (Live-Suche ignorierte den Profil-Scope komplett)
+- **`search()` filterte nie nach `profile_id`**: Ein Profil mit „Nicht nutzen" bei
+  „Gemeinsamer Wissens-Pool" (isolierter Wissensstand) bekam in der Live-Suche trotzdem
+  Treffer aus dem Shared Pool und aus fremden Profilen zu sehen, sobald der Quellentyp
+  passte – der Chat/RAG-Pfad (`findSimilarContent()`) hatte diese Profil-Grenze schon
+  immer, die Suche kannte sie gar nicht. Jetzt dieselbe Regel: `use_shared_scope=1` sieht
+  Shared Pool + eigene Quellen, `use_shared_scope=0` ausschließlich die eigenen.
+
 ## [1.0.0] - 2026-09-02
 
 Kompletter Neuanfang: Das Addon heißt jetzt `ai_chat` (vormals `klxmchat`/„KLXM
