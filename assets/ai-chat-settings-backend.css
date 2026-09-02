@@ -1,0 +1,68 @@
+/* Styles for the klxmchat backend settings subpages (settings.*.php) */
+
+.ai-chat-help-icon {
+    margin-left: 4px;
+    color: #6d7d8b;
+    cursor: help;
+    opacity: 0.85;
+}
+.ai-chat-help-icon:hover {
+    opacity: 1;
+}
+body.rex-theme-dark .ai-chat-help-icon {
+    color: #9db3c6;
+}
+
+.ai-chat-settings-box {
+    margin: 15px 0 20px;
+    padding: 15px;
+    border: 1px solid #d7e0e7;
+    background: #f8fbfd;
+    border-radius: 6px;
+}
+.ai-chat-settings-box-title {
+    margin: 0 0 12px;
+    font-weight: 600;
+    color: #2f4050;
+}
+
+.ai-chat-settings-sidebar .panel-body {
+    background: #fff;
+}
+.ai-chat-settings-sidebar ul,
+.ai-chat-settings-sidebar ol {
+    padding-left: 20px;
+    margin-bottom: 0;
+}
+
+body.rex-theme-dark .ai-chat-settings-box,
+body.rex-theme-dark .ai-chat-settings-sidebar {
+    background: #1f2a35;
+    border-color: #435563;
+    color: #eaf2ff;
+}
+body.rex-theme-dark .ai-chat-settings-box-title {
+    color: #edf4ff;
+}
+body.rex-theme-dark .ai-chat-settings-sidebar .panel-heading {
+    background: #243140;
+    border-color: #3b4755;
+    color: #edf4ff;
+}
+
+@media (prefers-color-scheme: dark) {
+    body.rex-has-theme:not(.rex-theme-light) .ai-chat-settings-box,
+    body.rex-has-theme:not(.rex-theme-light) .ai-chat-settings-sidebar {
+        background: #1f2a35;
+        border-color: #435563;
+        color: #eaf2ff;
+    }
+    body.rex-has-theme:not(.rex-theme-light) .ai-chat-settings-box-title {
+        color: #edf4ff;
+    }
+    body.rex-has-theme:not(.rex-theme-light) .ai-chat-settings-sidebar .panel-heading {
+        background: #243140;
+        border-color: #3b4755;
+        color: #edf4ff;
+    }
+}

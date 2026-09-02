@@ -1,0 +1,186 @@
+.klxmchat-statistics-shell {
+    --klxm-stat-surface: #ffffff;
+    --klxm-stat-surface-alt: #f6f9ff;
+    --klxm-stat-surface-strong: #edf4ff;
+    --klxm-stat-border: #dfeafc;
+    --klxm-stat-border-strong: #dfeafc;
+    --klxm-stat-heading: #22406d;
+    --klxm-stat-text: #1f2d3d;
+    --klxm-stat-muted: #65758a;
+    --klxm-stat-table-head: #f5f9ff;
+    --klxm-stat-table-border: #e5edf9;
+    --klxm-stat-shadow: rgba(27, 38, 58, 0.04);
+    --klxm-stat-blue: #4a90e2;
+    --klxm-stat-purple: #7a5af8;
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--klxm-stat-text);
+}
+
+body.rex-theme-dark .klxmchat-statistics-shell {
+    --klxm-stat-surface: #1e2631;
+    --klxm-stat-surface-alt: #202d3b;
+    --klxm-stat-surface-strong: #243447;
+    --klxm-stat-border: #3a4654;
+    --klxm-stat-border-strong: #495b6d;
+    --klxm-stat-heading: #dfeaf7;
+    --klxm-stat-text: #edf4ff;
+    --klxm-stat-muted: #b9c7d6;
+    --klxm-stat-table-head: #243447;
+    --klxm-stat-table-border: #495b6d;
+    --klxm-stat-shadow: rgba(0, 0, 0, 0.28);
+    --klxm-stat-blue: #60a5fa;
+    --klxm-stat-purple: #9b8cff;
+}
+
+@media (prefers-color-scheme: dark) {
+    body.rex-has-theme:not(.rex-theme-light) .klxmchat-statistics-shell {
+        --klxm-stat-surface: #1e2631;
+        --klxm-stat-surface-alt: #202d3b;
+        --klxm-stat-surface-strong: #243447;
+        --klxm-stat-border: #3a4654;
+        --klxm-stat-border-strong: #495b6d;
+        --klxm-stat-heading: #dfeaf7;
+        --klxm-stat-text: #edf4ff;
+        --klxm-stat-muted: #b9c7d6;
+        --klxm-stat-table-head: #243447;
+        --klxm-stat-table-border: #495b6d;
+        --klxm-stat-shadow: rgba(0, 0, 0, 0.28);
+        --klxm-stat-blue: #60a5fa;
+        --klxm-stat-purple: #9b8cff;
+    }
+}
+
+.klxmchat-statistics-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 12px 0;
+}
+
+.klxmchat-statistics-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.klxmchat-stat-card {
+    background: linear-gradient(180deg, var(--klxm-stat-surface) 0%, var(--klxm-stat-surface-alt) 100%);
+    border: 1px solid var(--klxm-stat-border);
+    border-left: 4px solid var(--klxm-stat-blue);
+    border-radius: 0;
+    box-shadow: 0 4px 12px var(--klxm-stat-shadow);
+    padding: 16px 18px;
+    min-height: 110px;
+}
+
+.klxmchat-stat-card.developer {
+    border-left-color: var(--klxm-stat-purple);
+}
+
+.klxmchat-stat-card .label {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--klxm-stat-muted);
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.klxmchat-stat-card .value {
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 700;
+    color: var(--klxm-stat-text);
+}
+
+.klxmchat-stat-section {
+    background: var(--klxm-stat-surface);
+    border: 1px solid var(--klxm-stat-border);
+    border-radius: 0;
+    box-shadow: 0 4px 12px var(--klxm-stat-shadow);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.klxmchat-stat-section .section-head {
+    background: linear-gradient(180deg, var(--klxm-stat-surface-strong) 0%, var(--klxm-stat-surface-strong) 100%);
+    border-bottom: 1px solid var(--klxm-stat-border);
+    padding: 12px 16px;
+    font-weight: 700;
+    color: var(--klxm-stat-heading);
+}
+
+.klxmchat-stat-card-panel {
+    background: var(--klxm-stat-surface);
+    border: 1px solid var(--klxm-stat-border);
+    border-radius: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+.klxmchat-stat-card-panel .panel-heading {
+    background: var(--klxm-stat-table-head);
+    border-bottom: 1px solid var(--klxm-stat-table-border);
+    color: var(--klxm-stat-heading);
+    padding: 10px 12px;
+    font-weight: 700;
+}
+
+.klxmchat-stat-card-panel .panel-body {
+    padding: 12px;
+    background: var(--klxm-stat-surface);
+}
+
+.klxmchat-stat-list-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--klxm-stat-muted);
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.klxmchat-stat-table {
+    margin-bottom: 0;
+    background: transparent;
+    color: var(--klxm-stat-text);
+}
+
+.klxmchat-stat-table th,
+.klxmchat-stat-table td {
+    padding: 7px 8px;
+    vertical-align: middle;
+    border-color: var(--klxm-stat-table-border);
+    color: var(--klxm-stat-text);
+}
+
+.klxmchat-stat-table thead th {
+    background: var(--klxm-stat-table-head);
+    color: var(--klxm-stat-heading);
+}
+
+.klxmchat-stat-table tbody tr td:first-child {
+    font-weight: 500;
+}
+
+.klxmchat-stat-table tbody tr td:last-child {
+    text-align: right;
+    width: 70px;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+    .klxmchat-statistics-toolbar {
+        display: block;
+    }
+
+    .klxmchat-statistics-toolbar > div {
+        float: none !important;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}

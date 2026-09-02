@@ -1,0 +1,315 @@
+ai_chat_title = AI Chat
+ai_chat_config = Einstellungen
+ai_chat_config_frontend_enabled = Chat im Frontend anzeigen
+ai_chat_config_frontend_search_enabled = Suche im Frontend aktivieren
+ai_chat_config_frontend_search_enabled_notice = Aktiviert das eigenständige Such-Widget (ai-search) im Frontend, unabhängig von der Chat-Bubble oben.
+ai_chat_config_search_ai_summary_enabled = KI-Zusammenstellung in der Suche
+ai_chat_config_search_ai_summary_enabled_notice = Zeigt oberhalb der Trefferliste eine kurze KI-generierte Zusammenfassung über die relevantesten Punkte je Bereich - nur wenn kein Bereich-Filter aktiv ist und die Treffer mehrere benannte Sitemap-Gruppen abdecken. Löst einen zusätzlichen KI-Aufruf pro Suche aus (Kosten/Latenz).
+ai_chat_config_visibility_section_title = Sichtbarkeit & Zugriff
+ai_chat_config_visibility_profiles_hint = Wo/für wen Chat und Suche im Frontend erscheinen (Domains, Sprachen, Testmodus für bestimmte Rollen), wird jetzt je <a href="%s">Profil</a> festgelegt – Chat und Suche teilen sich dabei dasselbe Profil.
+ai_chat_config_profile_priority_notice = Bei mehreren gleichzeitig passenden Profilen (z.B. "alle Sprachen" und "nur Englisch" treffen beide auf einen englischsprachigen Besucher zu) gewinnt die höchste Priorität. Bei Gleichstand entscheidet die niedrigere ID (das älteste Profil).
+ai_chat_config_profile_target_mode_notice = Steuert, ob dieses Profil auf allen, oder nur auf bestimmten Domains/Sprachen im Frontend erscheint. Reine Anzeige-Filterung - die Indexierung selbst bleibt davon unabhängig, Inhalte anderer Domains/Sprachen können weiterhin als Quelle in Antworten auftauchen.
+ai_chat_config_profile_shared_scope_notice = "Zusätzlich nutzen": Dieses Profil sieht die normale, global konfigurierte Indexierung PLUS seine eigenen Quellen. "Nicht nutzen": Es sieht ausschließlich seine eigenen Quellen - z.B. für einen thematisch komplett getrennten Assistenten, der nichts von der übrigen Website wissen soll.
+ai_chat_config_profile_custom_prompt_notice = Der Prompt bestimmt Tonfall und Verhalten der KI-Antworten (z.B. "Du bist ein Assistent für Bewerber..."). Leer lassen, um die global konfigurierte Einstellung (Einstellungen → Verhalten → Chat) zu übernehmen.
+ai_chat_config_backend_enabled = Chat im Backend (Admin) anzeigen
+ai_chat_config_api_section_title = API-Zugriff
+ai_chat_config_behavior_general_section_title = Allgemein & Sicherheit
+ai_chat_config_behavior_chat_section_title = Chat
+ai_chat_config_behavior_profiles_hint = Diese Einstellungen sind die globalen <strong>Standardwerte</strong>: Begrüßung, Prompt, Anrede und Personalisierung wirken nur, wenn ein aufgelöstes <a href="%s">Profil</a> dafür keinen eigenen Wert gesetzt hat. Reset-Countdown und Verlauf-kopieren werden inzwischen ausschließlich je Profil festgelegt (Box "Verhalten" dort).
+ai_chat_config_behavior_search_section_title = Suche
+ai_chat_config_api_public_enabled = Public API Endpunkt aktivieren
+ai_chat_config_api_public_enabled_notice = Achtung: Dieser Endpunkt ist wirklich öffentlich – ganz ohne Token und ohne Origin-Prüfung. Einmal aktiviert, kann jeder von überall darauf zugreifen, nicht nur die eigene Website. Nur aktivieren, wenn genau das gewollt ist.
+ai_chat_config_api_token_hint = Für authentifizierten Zugriff (mit Token statt öffentlich) das Addon „api" nutzen: Tokens werden dort unter <a href="%s">API → Token</a> angelegt, mit dem Scope <code>ai_chat/chat/query</code>.
+ai_chat_config_api_token_hint_unavailable = Für authentifizierten Zugriff (mit Token statt öffentlich) wird das Addon „api" (FriendsOfRedaxo) benötigt – aktuell nicht installiert.
+ai_chat_config_frontend_allowed_ips = Erlaubte IPs (Testing)
+ai_chat_config_frontend_allowed_ips_notice = Kommagetrennte Liste von IP-Adressen. Wenn gesetzt, wird der Chat nur für diese IPs angezeigt. Leer lassen für alle.
+ai_chat_config_frontend_search_current_page_only = Nur aktuelle Seite durchsuchen
+ai_chat_config_search_source_type_labels = Bezeichnungen für Such-Filter
+ai_chat_config_search_source_type_labels_notice = Format pro Zeile: source_type=Label. Beispiel: sitemap_url=Seiten. Diese Labels werden in der Spotlight-Filterleiste angezeigt.
+ai_chat_config_search_multi_context_snippets = Live-Suche: mehrere Fundstellen-Kontexte anzeigen
+ai_chat_config_search_multi_context_snippets_notice = Optional. Zeigt pro Treffer mehrere Textausschnitte mit Fundstellen statt nur eines einzelnen Teasers.
+ai_chat_config_frontend_greeting = Begrüßungstext (Widget)
+ai_chat_config_frontend_greeting_notice = Der Text, der beim Öffnen des Chat-Fensters als erste Nachricht angezeigt wird.
+ai_chat_config_personalization_mode = Personalisierung (Du/Sie)
+ai_chat_config_personalization_mode_off = Deaktiviert
+ai_chat_config_personalization_mode_simple = Nur Du/Sie Abfrage
+ai_chat_config_personalization_mode_name = Du/Sie Abfrage + Vorname
+ai_chat_config_personalization_notice = Fragt den Nutzer beim Start, ob er geduzt oder gesiezt werden möchte.
+ai_chat_config_frontend_addressing_mode = Antwortstil (Frontend)
+ai_chat_config_frontend_addressing_mode_auto = Automatisch (aus Kontext)
+ai_chat_config_frontend_addressing_mode_formal = Immer Sie
+ai_chat_config_frontend_addressing_mode_informal = Immer Du
+ai_chat_config_frontend_addressing_mode_neutral = Neutral (ohne direkte Anrede)
+ai_chat_config_frontend_addressing_mode_notice = Steuert die direkte Ansprache in Antworten. Gilt für Chat- und Such-KI-Antworten im Frontend.
+ai_chat_config_rate_limit = Rate Limit (Anfragen/Minute)
+ai_chat_config_rate_limit_notice = Maximale Anzahl an Anfragen pro IP-Adresse pro Minute. 0 = deaktiviert.
+ai_chat_config_max_message_length_frontend = Maximale Nachrichtenlänge (Frontend)
+ai_chat_config_max_message_length_frontend_notice = Maximale Anzahl an Zeichen pro Nachricht im Frontend-Chat. Verhindert übermäßig lange Eingaben (z.B. eingefügte Textwände oder Missbrauchsversuche). 0 = keine Begrenzung.
+ai_chat_config_max_message_length_backend = Maximale Nachrichtenlänge (Backend/Developer-Chat)
+ai_chat_config_max_message_length_backend_notice = Maximale Anzahl an Zeichen pro Nachricht im Backend-/Developer-Chat. Bewusst großzügiger als im Frontend, da hier z.B. Code oder Logs eingefügt werden können. 0 = keine Begrenzung.
+ai_chat_config_frontend_prompt = System Prompt (Frontend)
+ai_chat_config_frontend_prompt_notice = Definieren Sie hier die Rolle und Anweisungen für die KI.
+ai_chat_config_frontend_additional_context = Zusätzlicher Kontext
+ai_chat_config_frontend_additional_context_notice = Dieser Text wird immer an den System-Prompt angehängt (z.B. allgemeine Infos, Öffnungszeiten).
+ai_chat_config_privacy_email_domain_whitelist = Datenschutz: Erlaubte E-Mail-Domains
+ai_chat_config_privacy_email_domain_whitelist_notice = Optional. Pro Zeile oder kommagetrennt Domains erlauben (z.B. klxm.de oder @klxm.de). Diese E-Mail-Domains werden nicht als sensible Eingabe blockiert.
+ai_chat_config_spam_badwords = Zusätzliche Spam-/Werbe-Begriffe
+ai_chat_config_spam_badwords_notice = Optional, pro Zeile oder kommagetrennt. Enthält eine Nutzeranfrage einen dieser Begriffe (unabhängig von Groß-/Kleinschreibung), wird sie als Spam/Werbung abgelehnt und nie an die KI weitergegeben. Ergänzt eine bereits eingebaute Grundliste typischer Spam-Muster (Pharma-Spam, SEO-/Backlink-Spam, Casino/Glücksspiel, Kredit-/Finanz-Betrug, Krypto-Versprechen, Erwachseneninhalte).
+ai_chat_config_error_message = Fehler-Nachricht (Überlastung)
+ai_chat_config_error_message_notice = Diese Nachricht wird angezeigt, wenn die KI nicht erreichbar ist oder Limits überschritten wurden.
+ai_chat_config_sources_title = Titel der Link-Sektion
+ai_chat_config_sources_title_notice = Standard: "Links:"
+ai_chat_config_show_sources = Quellen/Links in Antworten anzeigen
+ai_chat_config_show_sources_notice = Wenn deaktiviert, werden keine Quellen-Links unter den Antworten ausgegeben.
+ai_chat_config_suggest_followup_questions = Vorgeschlagene Folgefragen anzeigen
+ai_chat_config_suggest_followup_questions_notice = Nach jeder Antwort werden 2–3 klickbare Folgefragen generiert. Benötigt einen zusätzlichen KI-Aufruf pro Nachricht.
+ai_chat_config_stream_enabled = Live-Antworten streamen (SSE)
+ai_chat_config_stream_enabled_notice = Wenn aktiviert, wird die Antwort Wort für Wort angezeigt, sobald das KI-Modell sie liefert. Unterstützt der gewählte Provider oder Browser kein Streaming, fällt der Chat automatisch auf die normale Antwort zurück.
+ai_chat_config_appearance = Erscheinungsbild
+ai_chat_config_position = Position
+ai_chat_config_position_bottom_right = Unten Rechts
+ai_chat_config_position_bottom_left = Unten Links
+ai_chat_config_primary_color = Hauptfarbe
+ai_chat_config_avatar = Avatar (Medienpool)
+ai_chat_config_theme_section_title = Theme-Editor
+ai_chat_config_theme_section_notice = Weitere Farben und der Eckenradius des Frontend-Chats. Nur die Website-Chat-Instanz wird davon beeinflusst, der Backend-Chat bleibt unverändert.
+ai_chat_config_header_bg_color = Header-Hintergrundfarbe
+ai_chat_config_chat_bg_color = Chat-Hintergrundfarbe
+ai_chat_config_text_color = Textfarbe
+ai_chat_config_bot_message_bg_color = Bot-Nachrichten-Hintergrund
+ai_chat_config_border_radius = Eckenradius (px)
+ai_chat_config_border_radius_notice = Rundung der Chat-Fenster-Ecken in Pixel, z. B. 12 für abgerundet oder 0 für eckig.
+ai_chat_config_theme_preview_label = Live-Vorschau:
+ai_chat_config_gemini_api_key = Gemini API Key
+ai_chat_config_gemini_api_key_notice = Hier den API Key von Google Gemini eintragen.
+ai_chat_config_provider = KI Provider
+ai_chat_config_cloudflare_account_id = Cloudflare Account ID
+ai_chat_config_cloudflare_api_token = Cloudflare API Token
+ai_chat_config_cloudflare_notice = Benötigt Workers AI Zugriff.
+ai_chat_config_cloudflare_model = Cloudflare Chat-Modell
+ai_chat_config_cloudflare_model_notice = Modell-ID für Antworten, z.B. @cf/meta/llama-3.1-8b-instruct. Bei Deprecation wird automatisch auf alternative Modelle gewechselt.
+ai_chat_config_cloudflare_load_models = Verfügbare Modelle laden
+ai_chat_config_ai_platform_hint = Nutzt das ai_platform-Addon statt eigener API-Keys – Zugangsdaten und Modellauswahl werden dort zentral je Profil verwaltet.
+ai_chat_config_ai_platform_text_profile_id = ai_platform-Profil (Text)
+ai_chat_config_ai_platform_embedding_profile_id = ai_platform-Profil (Embedding)
+ai_chat_config_ai_platform_profile_none = Kein Profil ausgewählt
+ai_chat_config_github_token = GitHub Personal Access Token
+ai_chat_config_github_token_notice = Optional, aber empfohlen für höhere Rate-Limits (Classic Token mit 'repo' scope).
+ai_chat_config_github_repos = GitHub Repositories
+ai_chat_config_github_repos_notice = Ein Repository pro Zeile (z.B. redaxo/docs). Indexiert .md Dateien.
+ai_chat_config_indexing = Indexquellen & Crawler
+ai_chat_config_live_reindex_enabled = Automatische Live-Reindizierung bei Änderungen
+ai_chat_config_live_reindex_enabled_notice = Wenn aktiviert (Standard), werden Artikel, Slices, Kategorien und gemappte YForm-Datensätze automatisch neu indexiert bzw. entfernt, sobald sie im Backend (oder bei YForm auch im Frontend) geändert, gelöscht oder auf offline/online gestellt werden – ohne manuellen Klick auf „Neu indexieren“. Deaktivieren, falls sehr viele/häufige Änderungen die Embedding-API stark belasten und lieber gesammelt per Cronjob/Button neu indexiert werden soll.
+ai_chat_config_index_frontend = Frontend Seiten indexieren
+ai_chat_config_index_article_status = Artikel-Status
+ai_chat_config_index_article_status_notice = Welche Artikel sollen indexiert werden?
+ai_chat_config_index_article_status_online = Nur Online-Artikel (empfohlen)
+ai_chat_config_index_article_status_all = Online + Offline (alle)
+ai_chat_config_index_article_status_offline = Nur Offline-Artikel
+ai_chat_config_index_exclude_articles = Artikel ausschließen
+ai_chat_config_index_exclude_articles_notice = Einzelne Artikel, die NICHT indexiert werden sollen (z.B. Datenschutz, Impressum).
+ai_chat_config_index_exclude_categories = Kategorien ausschließen
+ai_chat_config_index_exclude_categories_notice = Alle Artikel in diesen Kategorien (und deren Unterkategorien) werden vom Index ausgeschlossen. Auch der Start-Artikel der Kategorie selbst wird ausgeschlossen.
+ai_chat_config_index_respect_yrewrite_seo = yrewrite-SEO-Einstellungen berücksichtigen
+ai_chat_config_index_respect_yrewrite_seo_notice = Artikel, die yrewrite per Feld „Indexierung und Sitemap" (yrewrite_index) explizit aus der Sitemap/Suchmaschinen-Indexierung ausschließt (NoIndex / NoIndex+Follow), werden dann auch hier nicht indexiert. Gilt nur für die interne Strukturindexierung, nicht für den HTTP-Crawler-Modus.
+ai_chat_config_index_method = Indexierungs-Methode
+ai_chat_config_index_method_notice = "Intern" rendert den Artikel serverseitig direkt über die REDAXO-Kernklasse rex_article_content (kein Datenbank-Objekt, sondern derselbe PHP-Renderer, der auch das Frontend erzeugt) – schnell, ohne eigenen HTTP-Request, funktioniert aber nur für lokale REDAXO-Artikel. "HTTP Crawler" ruft die Seite stattdessen wie ein Browser per HTTP ab und liest den gerenderten HTML-Output aus – langsamer, aber nützlich wenn z.B. Cache/Reverse-Proxy/individuelle Ausgabelogik den finalen Frontend-Inhalt verändern und "Intern" davon abweichende Ergebnisse liefern würde.
+ai_chat_config_index_method_internal = Intern (REDAXO-Renderer, schnell)
+ai_chat_config_index_method_http = HTTP Crawler (ruft die Seite wie im Browser ab)
+ai_chat_config_index_http_selector = Content CSS Selector
+ai_chat_config_index_http_selector_notice = CSS-Selektor für den Hauptinhalt, OHNE Anführungszeichen eingeben (z.B. main, article, .content oder #content). Mehrere Selektoren durch Komma getrennt möglich, z.B. main, article. Standard: body (kompletter Seiteninhalt).
+ai_chat_config_index_http_exclude_selectors = Ausschluss-Selektoren
+ai_chat_config_index_http_exclude_selectors_notice = OPTIONAL. CSS-Selektoren (ohne Anführungszeichen, durch Komma getrennt), deren Inhalt vor der Indexierung entfernt wird – auch wenn er innerhalb des Haupt-Selektors liegt. Nützlich um wiederkehrende Navigations-, Footer- oder Cookie-Banner-Texte aus dem Index fernzuhalten. Beispiel: nav, footer, .cookie-banner
+ai_chat_config_embedding_context_hint = Embedding-Kontext-Hinweis (global)
+ai_chat_config_embedding_context_hint_notice = OPTIONAL. Freier Text, der bei jedem indexierten Inhalt (egal welche Quelle) zusätzlich zum Embedding-Text mitgeführt wird, um der KI generelle Prioritäten für diese Website mitzugeben. Es muss inhaltlich nichts Bestimmtes auf der Website vorhanden sein – der Text wird einfach immer mit ins Embedding aufgenommen. Beispiel: "Dies ist die Website eines Vereins/Verbands. Kontakt-, Ansprechpartner- und Terminangaben sind für Besucher besonders wichtig und sollten bevorzugt gefunden werden."
+ai_chat_config_embedding_context_hint_sources = Source-spezifische Kontext-Hinweise
+ai_chat_config_embedding_context_hint_sources_notice = OPTIONAL. Wie der globale Kontext-Hinweis, aber nur für einen bestimmten Quelltyp (überschreibt/ergänzt den globalen Text für diesen Typ). Ein Eintrag pro Zeile im Format source_type=Hinweis. Gültige source_type-Werte: article (REDAXO-Artikel), sitemap_url (per Sitemap indexierte Seite), addon_docs, github_docs, forcal_entry oder ein auf der YForm-Mappings-Seite konfigurierter Profil-Schlüssel. Beispiele:
+article=Dies ist redaktioneller Inhalt der eigenen Website.
+sitemap_url=Diese Seite wurde über die externe Sitemap eingebunden.
+addon_docs=Dies ist technische Dokumentation für Entwickler, nicht für Website-Besucher.
+ai_chat_config_embedding_focus_rules = Embedding-Fokus-Regeln (global)
+ai_chat_config_embedding_focus_rules_notice = OPTIONAL. Ein Eintrag pro Zeile im Format Label|Begriff1|Begriff2|Begriff3. Voraussetzung: Mindestens einer der Begriffe muss tatsächlich im (bereits indexierten) Seitentext vorkommen – dann wird beim Embedding automatisch "Wichtige Fakten: Label" ergänzt, was passende Nutzerfragen zu diesem Thema besser treffen lässt. Ohne passende Begriffe im Inhalt greift die Regel einfach nicht, es muss also nichts extra auf der Website angelegt werden. Beispiele:
+Kontakt-/Ansprechpartnerinformationen|kontakt|ansprechpartner|telefon|email|e-mail|adresse
+Öffnungs-/Sprechzeiten|öffnungszeiten|sprechzeiten|geöffnet
+Termine & Veranstaltungen|termin|veranstaltung|kalender|event
+Mitgliedschaft & Beitritt|mitglied|beitritt|aufnahmeantrag|beitrag
+Dokumente & Formulare|formular|antrag|satzung|download|pdf
+ai_chat_config_embedding_focus_rules_sources = Source-spezifische Fokus-Regeln
+ai_chat_config_embedding_focus_rules_sources_notice = OPTIONAL. Wie die globalen Fokus-Regeln, aber nur für einen bestimmten Quelltyp aktiv. Ein Eintrag pro Zeile im Format source_type=Label|Begriff1|Begriff2. Gültige source_type-Werte: article, sitemap_url, addon_docs, github_docs, forcal_entry oder ein YForm-Profil-Schlüssel. Beispiele:
+article=Kontakt|telefon|email|ansprechpartner
+sitemap_url=Formulare|antrag|download|pdf
+ai_chat_config_index_content_providers = Zusätzliche Content-Provider
+ai_chat_config_index_content_providers_notice = Optional. Aktivieren Sie externe Content-Quellen für die Indexierung.
+ai_chat_config_index_content_provider_forcal = forcal Termine indexieren
+ai_chat_config_index_content_provider_forcal_unavailable = forcal ist nicht installiert oder nicht aktiviert. Der optionale forcal-Provider ist deshalb nicht verfügbar.
+ai_chat_config_index_content_provider_yform = YForm-Tabellen indexieren
+ai_chat_config_index_content_provider_knowledgebase = Knowledgebase-Beiträge indexieren
+ai_chat_config_index_content_provider_knowledgebase_unavailable = knowledgebase ist vorhanden, aber nicht aktiviert. Aktivieren Sie das AddOn in REDAXO, damit der Provider auswählbar wird.
+ai_chat_config_index_content_providers_unavailable = Weder forcal noch YForm sind installiert oder aktiviert. Deshalb sind keine optionalen Content-Provider verfügbar.
+ai_chat_config_yform_provider_profiles = YForm-Mappings
+ai_chat_config_yform_provider_profiles_notice = Die YForm-Mappings werden auf der Seite YForm-Tabellen gepflegt. Nur explizit angelegte Profile werden indexiert.
+ai_chat_config_forcal_url_schema = forcal URL-Schema (optional)
+ai_chat_config_forcal_url_schema_notice = Definiert die Ziel-URL für forcal Treffer. Platzhalter: {id}, {slug}, {title}, {start_date}, {end_date}. Beispiele: /termine/{id}-{slug} oder /kalender/detail?id={id}. Leer = internes forcal://entry/{id}.
+ai_chat_config_forcal_intent_keywords = forcal Intent-Keywords
+ai_chat_config_forcal_intent_keywords_notice = Eine Zeile pro Begriff. Diese Keywords aktivieren den Termin-Fallback in der Chatbox (z.B. termin, termine, kalender, event, demnächst, nächste, letzte, zuletzt, vergangen). Begriffe wie "letzte"/"zuletzt"/"vergangen" sorgen zusätzlich dafür, dass nach dem VERGANGENEN statt dem nächsten Termin gesucht wird.
+ai_chat_config_index_addons_mode = Addon Dokumentation
+ai_chat_config_index_addons_mode_all = Alle Addons
+ai_chat_config_index_addons_mode_selected = Ausgewählte Addons
+ai_chat_config_index_addons_mode_none = Keine Addons
+ai_chat_config_index_addons_list = Addon Auswahl
+ai_chat_config_index_addons_section_notice = Diese Zusatzquelle (Addon-Docs, GitHub-Dokumentation) ist unabhängig von der gewählten Indexierungs-Quelle und wird immer berücksichtigt.
+ai_chat_index_title = Content Indexierung
+ai_chat_index_description = Hier können Sie den Content der Website indexieren lassen, damit der Chatbot darauf zugreifen kann.
+ai_chat_index_button = Jetzt indexieren
+ai_chat_index_background_button = Im Hintergrund indexieren
+ai_chat_index_background_button_notice = Prüfe Verfügbarkeit…
+ai_chat_index_background_button_unavailable = Auf diesem Server nicht möglich: %s
+ai_chat_index_background_button_available = Läuft serverseitig weiter, auch wenn Sie diesen Tab schließen.
+ai_chat_index_refresh_button = Refresh (inkrementell)
+ai_chat_index_clear_button = Index leeren
+ai_chat_index_clear_confirm = Sind Sie sicher, dass Sie den gesamten Index löschen möchten?
+ai_chat_index_clear_cache_button = Cache leeren
+ai_chat_index_clear_cache_confirm = Sind Sie sicher, dass Sie den Antwort-Cache löschen möchten?
+ai_chat_index_success = Indexierung erfolgreich gestartet.
+ai_chat_cronjob_index_name = AI Chat: Content Indexierung (Inkrementell)
+ai_chat_cronjob_mode_label = Modus
+ai_chat_cronjob_mode_incremental = Inkrementell (nur geänderte Inhalte)
+ai_chat_cronjob_mode_full = Vollständige Neu-Indexierung
+ai_chat_cronjob_update_github_label = GitHub-Quellen aktualisieren
+ai_chat_cronjob_update_github_yes = Ja, ZIP-Archive neu herunterladen
+ai_chat_cronjob_max_items_label = Max. Items pro Lauf
+ai_chat_cronjob_max_items_notice = Begrenzt die Serverlast pro Cronjob-Ausführung. Empfohlen für langsame Modelle (z.B. gemma3:27b).
+ai_chat_cronjob_max_items_unlimited = Unbegrenzt
+
+ai_chat_config_openai_base_url = Base URL (Optional)
+ai_chat_config_openai_base_url_notice = Leer lassen für das originale OpenAI. Nur nötig für kompatible Dienste wie Ollama (z.B. http://localhost:11434) oder OpenWebUI.
+ai_chat_config_openai_api_key = API Key
+ai_chat_config_openai_api_key_notice = Optional, falls der Service keine Auth benötigt.
+ai_chat_config_openai_model = Model Name
+ai_chat_config_openai_model_notice = z.B. llama3, gpt-4o, mistral
+ai_chat_config_openai_embedding_model = Embedding Model
+ai_chat_config_openai_embedding_model_notice = z.B. all-MiniLM-L6-v2 (Muss vom Provider unterstützt werden)
+
+ai_chat_config_advanced = Erweiterte KI-Parameter
+ai_chat_config_openai_timeout = Request-Timeout
+ai_chat_config_openai_timeout_notice = Maximale Wartezeit pro Anfrage an das KI-Modell. Lokale Modelle (z.B. gemma3:27b) benötigen oft 60–180 Sekunden.
+ai_chat_config_ai_temperature = Kreativität (Temperature)
+ai_chat_config_ai_temperature_notice = Niedrig = präzise und wiederholbare Antworten. Hoch = kreativer, aber weniger vorhersehbar. Für FAQ-Bots empfohlen: 0.1–0.3.
+ai_chat_config_ai_max_tokens = Max. Antwortlänge (Tokens)
+ai_chat_config_ai_max_tokens_notice = Begrenzt die maximale Länge der KI-Antwort. 1 Token ≈ 0,75 Wörter. Bei langen Antworten höheren Wert wählen.
+ai_chat_config_rag_results = Kontext-Chunks (RAG)
+ai_chat_config_rag_results_notice = Anzahl der Index-Einträge, die als Kontext an das Modell übergeben werden. Mehr Chunks = besserer Kontext, aber längerer Prompt und langsamere Antwort.
+ai_chat_config_rag_candidate_limit = RAG-Kandidatenfenster
+ai_chat_config_rag_candidate_limit_notice = Maximale Anzahl an indexierten Textabschnitten, die pro Anfrage für den Ähnlichkeitsvergleich herangezogen werden. Nur relevant für den PHP-Fallback-Vergleich (ohne natives MariaDB-Vektor-Retrieval, siehe Indexierungs-Seite): Ist dieser Wert dort kleiner als die Gesamtzahl deiner indexierten Abschnitte, werden manche Inhalte beim Vergleich gar nicht erst berücksichtigt – das kann zu unpassenden oder zufällig wirkenden Antworten/Links führen, im Zweifel lieber höher wählen. Mit aktivem nativen Vektor-Retrieval sortiert die Datenbank bereits über den gesamten Index, bevor dieser Wert greift – hier unkritisch.
+ai_chat_config_cache_similarity = Cache-Schwellwert (Ähnlichkeit)
+ai_chat_config_cache_similarity_notice = Ab welchem Ähnlichkeitswert eine gecachte Antwort wiederverwendet wird. 0.95 = Standard. 1.00 = Cache deaktiviert.
+ai_chat_config_cache_candidate_limit = Cache-Kandidatenfenster
+ai_chat_config_cache_candidate_limit_notice = Wie viele zuletzt genutzte Cache-Einträge werden vor dem Vergleich berücksichtigt. Ein kleineres Fenster reduziert ähnliche Mehrdeutigkeiten und hält den Cache fokussierter.
+ai_chat_config_faq_precache_enabled = FAQ-Vorcaching aktivieren (optional)
+ai_chat_config_faq_precache_enabled_notice = Wenn aktiv, dürfen vorberechnete Frage-Antwort-Kombinationen genutzt werden. Standard: deaktiviert. Dieser Schalter betrifft nur das Vorcaching und deaktiviert nicht die normale KI-Antwortgenerierung.
+ai_chat_config_faq_precache_questions = Vorcache-Fragen (eine pro Zeile)
+ai_chat_config_faq_precache_questions_notice = Diese Fragen werden für das optionale Cache-Vorwärmen verwendet. Leere Zeilen und mit # beginnende Zeilen werden ignoriert.
+
+ai_chat_index_provider_hint = Hinweis: Wenn Sie den KI-Provider wechseln (z.B. von Gemini zu OpenAI), müssen Sie den 'Index leeren' und neu erstellen, da die Vektoren (Embeddings) nicht kompatibel sind.
+
+ai_chat_index_current_size = Aktuelle Indexgröße (Abschnitte)
+ai_chat_index_current_size_hint = Ein Abschnitt (Chunk) ist ein Textstück einer Seite/eines Artikels – eine einzelne Seite kann in mehrere Abschnitte zerlegt werden. Diese Zahl ist deshalb meist höher als die Anzahl der Seiten/Artikel selbst und wird während einer laufenden Indexierung live aktualisiert.
+ai_chat_index_rag_limit_warning = Dein Index enthält %d Textabschnitte, das RAG-Kandidatenfenster ist aber nur auf %d gestellt. Manche Inhalte werden dadurch beim Ähnlichkeitsvergleich gar nicht erst berücksichtigt – das kann zu unpassend wirkenden Antworten/Links führen.
+ai_chat_index_rag_limit_optimize_button = RAG-Kandidatenfenster automatisch optimieren
+ai_chat_index_waiting = Warten auf Start…
+ai_chat_index_background_hint = Die Indexierung läuft jetzt im Hintergrund auf dem Server. Sie können diesen Tab schließen oder etwas anderes machen – der Fortschritt hier aktualisiert sich automatisch weiter, wenn Sie zurückkommen.
+ai_chat_index_status_idle = Bereit
+ai_chat_index_status_running_foreground = Läuft im Browser
+ai_chat_index_status_running_background = Läuft im Hintergrund
+ai_chat_index_status_done = Fertig
+ai_chat_index_status_done_with_errors = Fertig mit Fehlern
+ai_chat_index_status_cancelled = Abgebrochen
+ai_chat_index_status_error = Fehler
+ai_chat_index_group_indexing = Indexierung
+ai_chat_index_group_maintenance = Wartung
+ai_chat_index_btn_cancel = Abbrechen
+ai_chat_index_btn_retry = Erneut indexieren
+
+ai_chat_config_frontend_mode = Standard-Anzeigemodus
+ai_chat_config_frontend_mode_bubble = Floating Bubble (Schwebend)
+ai_chat_config_frontend_mode_inline = Inline (Fest eingebettet)
+ai_chat_config_frontend_mode_anchored = Ohne Bubble (eigener Auslöser)
+ai_chat_config_frontend_mode_notice = "Ohne Bubble": kein schwebender Chat-Button, der Chat öffnet sich stattdessen an einem selbst platzierten Element mit der Klasse "aichat" oder der ID "aichat" (z.B. ein eigener Button im Menü). Öffnet sich automatisch nach oben oder unten - je nachdem, wo auf dem Bildschirm gerade Platz ist - und bleibt an dieser Position fixiert.
+ai_chat_config_frontend_allow_scope_switch = Scope-Switch erlauben
+ai_chat_config_frontend_allow_scope_switch_notice = Erlaubt es Nutzern, zwischen Frontend- und Entwickler-Suche umzuschalten.
+ai_chat_config_section_access = Betrieb & Zugriff
+ai_chat_config_section_behavior = Antworten, Suche & Kontext
+ai_chat_config_section_appearance = Darstellung & UX
+ai_chat_config_settings_intro_title = Konfiguration mit klarer Reihenfolge
+ai_chat_config_settings_intro_text = Arbeiten Sie von oben nach unten: zuerst Betrieb und Antwortverhalten, dann Provider und KI-Parameter, zum Schluss Quellen und Indexierung.
+ai_chat_config_jumpmenu_title = Direkt zu einem Bereich springen
+ai_chat_config_section_access_hint = Wer, wo und wann Chat und Suche sehen dürfen – Sichtbarkeit, Domains/Sprachen und öffentliche API
+ai_chat_config_section_behavior_hint = Wie Chat und Suche sich verhalten – allgemeine Sicherheits-Guards, Chat-Ton/-Prompt/-Personalisierung und Such-Feineinstellungen, klar getrennt
+ai_chat_config_section_appearance_hint = Widget-Darstellung, Position, Scope-Switch und visuelle Einstellungen
+ai_chat_config_section_provider_hint = Provider auswählen, Zugangsdaten pflegen und Verbindung testen
+ai_chat_config_section_advanced_hint = Timeout, Temperature, Token-Limit, RAG und Cache-Schwellwerte
+ai_chat_config_section_indexing_hint = Quellen, Crawler, Dokumentation, Sitemap und Zusatzinhalte für den Index
+ai_chat_config_sidebar_quickstart_title = Schnellstart
+ai_chat_config_sidebar_quickstart_intro = Diese Reihenfolge ist für die erste Einrichtung am sinnvollsten.
+ai_chat_config_sidebar_quickstart_step_access = Zuerst Betrieb und Zugriff festlegen: Frontend, Backend, API und Personalisierung
+ai_chat_config_sidebar_quickstart_step_behavior = Danach Antwortverhalten, Suchoptionen, Prompt und Zusatzkontext definieren
+ai_chat_config_sidebar_quickstart_step_appearance = Anschließend Darstellung, Position und UX des Widgets festlegen
+ai_chat_config_sidebar_quickstart_step_provider = Dann KI-Provider auswählen, Zugangsdaten eintragen und Verbindung testen
+ai_chat_config_sidebar_quickstart_step_advanced = Danach erweiterte KI-Parameter wie Timeout, RAG und Cache-Schwellen abstimmen
+ai_chat_config_sidebar_quickstart_step_index = Zum Schluss Indexquellen wählen und anschließend Index oder FAQ-Cache gezielt aufbauen
+ai_chat_config_sidebar_index_modes_title = Indexierungsmodi
+ai_chat_config_sidebar_index_modes_structure = Nutzt lokale REDAXO-Inhalte, Dokumentation, GitHub-Quellen und aktivierte Provider.
+ai_chat_config_sidebar_index_modes_sitemap = Indexiert Struktur-Artikel nicht, sondern nur URLs aus der externen Sitemap. Addon-Docs, GitHub-Quellen und aktivierte Provider bleiben davon unberührt und werden weiterhin indexiert.
+ai_chat_config_sidebar_index_modes_structure_sitemap = Kombiniert lokale Inhalte mit URLs aus der externen Sitemap.
+ai_chat_config_sidebar_precache_title = FAQ-Vorcaching
+ai_chat_config_sidebar_precache_text = Vorcaching ist optional. Nur wenn es aktiviert ist und Vorcache-Fragen hinterlegt sind, kann der Cache gezielt vorgewärmt werden.
+
+ai_chat_config_sidebar_tips_access_title = Empfehlungen
+ai_chat_config_sidebar_tips_access_text = Für den Einstieg reicht: Frontend-Chat aktivieren, Backend-Chat nur für eingeloggte Redakteure.||Personalisierung zunächst auf "Aus" lassen und erst aktivieren, wenn der Chat inhaltlich rund läuft.||Öffentliche API nur aktivieren, wenn ein externes System wirklich direkt zugreifen muss – sonst unnötiges Sicherheitsrisiko.||IP-Whitelist ist nur für interne Tests sinnvoll, nicht als alleinige Absicherung im Livebetrieb.
+
+ai_chat_config_sidebar_tips_behavior_title = Empfehlungen
+ai_chat_config_sidebar_tips_behavior_text = Rate-Limit 10 Anfragen/Minute ist ein guter Startwert gegen Missbrauch; bei echten Lastspitzen später erhöhen.||Den System-Prompt so konkret wie möglich formulieren: Rolle, Tonfall, und was der Assistent NICHT tun soll.||Quellen anzeigen erhöht das Vertrauen der Nutzer – nur deaktivieren, wenn die Links optisch stören.||Folgefragen sind ein "Nice-to-have", kosten aber einen zusätzlichen KI-Aufruf pro Antwort.
+
+ai_chat_config_sidebar_tips_appearance_title = Empfehlungen
+ai_chat_config_sidebar_tips_appearance_text = Bubble-Modus passt für die meisten Websites, Inline eignet sich eher für dedizierte Kontakt-/FAQ-Seiten.||Primärfarbe unbedingt an das Corporate Design anpassen, sonst wirkt der Chat wie ein Fremdkörper.||Avatar ist optional, erhöht aber die Wiedererkennbarkeit im Chatverlauf.
+
+ai_chat_config_sidebar_tips_provider_title = Empfehlungen
+ai_chat_config_sidebar_tips_provider_text = Google Gemini: einfachster Einstieg mit nutzbarem kostenlosem Kontingent.||OpenAI-kompatibel (Ollama/OpenWebUI): sinnvoll, wenn Daten aus Datenschutzgründen nicht extern verarbeitet werden dürfen.||Cloudflare Workers AI: gut geeignet bei sehr hohem oder global verteiltem Traffic.||Nach jeder Änderung an Zugangsdaten immer zuerst "Verbindung testen" klicken, bevor produktiv geschaltet wird.
+
+ai_chat_config_sidebar_tips_advanced_title = Empfehlungen
+ai_chat_config_sidebar_tips_advanced_text = Ohne natives MariaDB-Vektor-Retrieval (siehe Indexierungs-Seite) MUSS das RAG-Kandidatenfenster größer sein als die Gesamtzahl indexierter Textabschnitte – sonst werden manche Inhalte beim Vergleich nie berücksichtigt. Mit aktivem Vektor-Retrieval unkritisch, die Datenbank sortiert bereits über den gesamten Index.||ai_temperature 0.3 für einen sachlichen Assistenten, 0.7 nur wenn bewusst kreativere/variantenreichere Antworten gewünscht sind.||cache_similarity 0.95 ist ein guter Kompromiss; niedriger nur bei sehr ähnlich formulierten Standardfragen.||FAQ-Vorcaching lohnt sich erst, wenn wiederkehrende Fragen aus den Statistiken bekannt sind.
+
+ai_chat_config_sidebar_tips_indexing_title = Empfehlungen
+ai_chat_config_sidebar_tips_indexing_text = Für die meisten Websites reicht "Lokale Inhalte" – externe Sitemap nur zusätzlich nutzen, wenn weitere Domains eingebunden werden sollen.||chunk_size 1000 / chunk_overlap 200 ist ein guter Standard; kleinere Chunks bei sehr kurzen Fakteninhalten (z.B. Kontaktseiten) verwenden.||Nach größeren Content-Änderungen die Indexierungs-Seite öffnen und bei Bedarf "RAG-Kandidatenfenster automatisch optimieren" nutzen.||Ausschluss-Selektoren (nav, footer, .cookie-banner) sind nur im HTTP-Crawler-Modus relevant, nicht im internen Renderer.
+
+ai_chat_config_index_source = Indexierungs-Quelle
+ai_chat_config_index_source_notice = Bestimmt nur, ob REDAXO-Struktur-Artikel und/oder externe Sitemap-URLs indexiert werden. Addon-Dokumentation, GitHub-Quellen und aktivierte Content-Provider (z.B. forcal, YForm) laufen davon unabhängig immer mit.
+ai_chat_config_index_source_structure = Lokale Inhalte (REDAXO, Doku, Provider)
+ai_chat_config_index_source_sitemap = Nur externe Sitemap
+ai_chat_config_index_source_structure_sitemap = Lokale Inhalte + externe Sitemap
+ai_chat_config_index_sitemap_section_title = Externe Sitemap einbinden
+ai_chat_config_index_sitemap_section_notice = Dieser Bereich wird angezeigt, sobald ein Modus mit Sitemap-Anteil gewählt ist.
+ai_chat_config_index_sitemap_url = Sitemap-URLs
+ai_chat_config_index_sitemap_url_notice = Eine vollständige Sitemap-URL pro Zeile (z.B. https://example.com/sitemap.xml). Mehrere Sitemaps möglich, z.B. für getrennte Bereiche/Subdomains – Duplikate zwischen den Sitemaps werden automatisch herausgefiltert. Eine Sitemap-Index-Datei (mit verschachtelten &lt;sitemap&gt;-Einträgen) wird je Zeile ohnehin schon automatisch rekursiv aufgelöst.
+ai_chat_config_index_embedding_section_title = Chunking & Feinsteuerung Embeddings (gilt für alle Quellen)
+ai_chat_config_index_embedding_section_notice = Chunk-Größe/Overlap sowie Kontext-Hinweise und Fokus-Regeln wirken auf jede indexierte Quelle (Struktur-Artikel, Sitemap-URLs, Provider) und sind daher unabhängig von der gewählten Indexierungs-Quelle einstellbar. Änderungen wirken erst auf neu indexierte bzw. re-indexierte Inhalte.
+ai_chat_config_chunk_size = Chunk-Größe (Zeichen)
+ai_chat_config_chunk_size_notice = Länge eines einzelnen Textabschnitts, der als Embedding gespeichert wird. Kleinere Chunks liefern präzisere, thematisch fokussiertere Treffer (z.B. für kurze Fakten wie Kontaktdaten), größere Chunks liefern mehr umgebenden Kontext. Empfehlung: 1000 Zeichen.
+ai_chat_config_chunk_overlap = Chunk-Overlap (Zeichen)
+ai_chat_config_chunk_overlap_notice = Wie viele Zeichen vom Ende des vorherigen Chunks am Anfang des nächsten Chunks wiederholt werden. Verhindert, dass zusammengehörige Informationen (z.B. Name und Telefonnummer eines Ansprechpartners) durch einen Chunk-Schnitt getrennt und dadurch schlechter gefunden werden.
+ai_chat_index_reload_hint = ↻ Seite neu laden für aktuelle Zahl
+ai_chat_index_delay_label = Pause zwischen Tasks:
+ai_chat_index_delay_none = Keine Pause
+ai_chat_index_delay_hint = Verhindert Überlastung von Ollama / OpenWebUI bei langsamen Modellen.
+ai_chat_index_error_log = Fehler-Log:
+ai_chat_index_error_log_partial = Bisher aufgetretene Fehler:
+ai_chat_index_refresh_running = Inkrementelles Refresh läuft…
+ai_chat_index_refresh_done = Refresh fertig
+ai_chat_index_warm_cache_button = Cache vorwärmen
+ai_chat_index_warm_cache_confirm = Soll der FAQ-Cache jetzt mit den konfigurierten Fragen vorgewärmt werden?
+ai_chat_index_warm_cache_running = Cache-Vorwärmung läuft…
+ai_chat_index_warm_cache_done = Cache-Vorwärmung abgeschlossen
+
+ai_chat_index_github_title = GitHub Quellen (Dokumentation)
+ai_chat_index_github_notice = Die konfigurierten GitHub-Quellen müssen einmalig oder bei Änderungen synchronisiert werden. Dabei werden die ZIP-Archive heruntergeladen und entpackt.
+ai_chat_index_github_button = GitHub ZIPs jetzt laden/aktualisieren

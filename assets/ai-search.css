@@ -1,0 +1,547 @@
+#ai-search-root {
+  --ai-search-overlay-bg: rgba(10, 12, 16, 0.46);
+  --ai-search-panel-bg: rgba(248, 248, 251, 0.88);
+  --ai-search-panel-border: rgba(0, 0, 0, 0.12);
+  --ai-search-text: #1f2937;
+  --ai-search-muted: #556179;
+  --ai-search-accent: #0b65d8;
+  --ai-search-chip-bg: #e5eaf2;
+  --ai-search-chip-active-bg: #0b65d8;
+  --ai-search-chip-active-text: #ffffff;
+  --ai-search-shadow: 0 24px 90px rgba(0, 0, 0, 0.28);
+}
+
+body.rex-theme-dark #ai-search-root {
+  --ai-search-overlay-bg: rgba(0, 0, 0, 0.52);
+  --ai-search-panel-bg: rgba(31, 39, 49, 0.92);
+  --ai-search-panel-border: rgba(255, 255, 255, 0.12);
+  --ai-search-text: #e7edf4;
+  --ai-search-muted: #afbdcf;
+  --ai-search-accent: #56a8ff;
+  --ai-search-chip-bg: #334356;
+  --ai-search-chip-active-bg: #56a8ff;
+  --ai-search-chip-active-text: #0f1822;
+}
+
+@media (prefers-color-scheme: dark) {
+  body.rex-has-theme:not(.rex-theme-light) #ai-search-root {
+    --ai-search-overlay-bg: rgba(0, 0, 0, 0.52);
+    --ai-search-panel-bg: rgba(31, 39, 49, 0.92);
+    --ai-search-panel-border: rgba(255, 255, 255, 0.12);
+    --ai-search-text: #e7edf4;
+    --ai-search-muted: #afbdcf;
+    --ai-search-accent: #56a8ff;
+    --ai-search-chip-bg: #334356;
+    --ai-search-chip-active-bg: #56a8ff;
+    --ai-search-chip-active-text: #0f1822;
+  }
+}
+
+#ai-search-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+}
+
+#ai-search-root .ai-search-trigger {
+  position: fixed;
+  right: 22px;
+  top: 22px;
+  z-index: 2147483001;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #0b65d8 0%, #1f82ff 100%);
+  box-shadow: 0 10px 25px rgba(11, 101, 216, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#ai-search-root .ai-search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--ai-search-overlay-bg);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+
+#ai-search-root .ai-search-overlay.open {
+  display: block;
+}
+
+#ai-search-root .ai-search-panel {
+  width: min(920px, calc(100vw - 28px));
+  margin: 10vh auto 0;
+  max-height: min(80vh, 760px);
+  border-radius: 18px;
+  border: 1px solid var(--ai-search-panel-border);
+  background: var(--ai-search-panel-bg);
+  box-shadow: var(--ai-search-shadow);
+  overflow: auto;
+}
+
+#ai-search-root .ai-search-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ai-search-panel-border);
+}
+
+#ai-search-root .ai-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: none;
+  font-size: 24px;
+  line-height: 1.3;
+  color: var(--ai-search-text);
+  background: transparent;
+}
+
+#ai-search-root .ai-search-submit {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ai-search-accent);
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-submit:hover {
+  filter: brightness(1.08);
+}
+
+#ai-search-root .ai-search-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 16px 14px;
+  border-bottom: 1px solid var(--ai-search-panel-border);
+}
+
+#ai-search-root .ai-search-actions {
+  padding: 8px 10px 0;
+}
+
+#ai-search-root .ai-search-chat-action {
+  --ai-search-chat-brand: var(--ai-search-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px 6px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ai-search-chat-brand);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--ai-search-chat-brand) 40%, transparent);
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-chat-action:hover {
+  filter: brightness(1.04);
+}
+
+#ai-search-root .ai-search-chat-action-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--ai-search-chat-brand);
+  flex: 0 0 28px;
+}
+
+#ai-search-root .ai-search-chat-action-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#ai-search-root .ai-search-chat-action-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+#ai-search-root .ai-search-chat-action-text {
+  line-height: 1;
+}
+
+#ai-search-root .ai-search-answer-host {
+  padding: 8px 10px 0;
+}
+
+#ai-search-root .ai-search-answer {
+  border: 1px solid var(--ai-search-panel-border);
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.08);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+#ai-search-root .ai-search-answer-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ai-search-muted);
+  margin-bottom: 6px;
+}
+
+/* Bereich-uebergreifende KI-Zusammenstellung (fetchSearchSummary()) statt einer echten
+   Frage-Antwort (fetchChatAnswer()) - gestrichelter statt durchgezogener Rahmen und ein
+   dezenter Akzent-Farbton signalisieren "grobe Orientierung ueber mehrere Bereiche", nicht
+   "direkte Antwort auf deine Frage". */
+#ai-search-root .ai-search-answer-summary {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--ai-search-accent) 8%, transparent);
+}
+
+#ai-search-root .ai-search-answer-summary .ai-search-answer-title {
+  color: var(--ai-search-accent);
+}
+
+#ai-search-root .ai-search-answer-summary .ai-search-answer-title::before {
+  content: '✦ ';
+}
+
+#ai-search-root .ai-search-answer-body {
+  color: var(--ai-search-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#ai-search-root .ai-search-answer-body p {
+  margin: 0 0 8px;
+}
+
+#ai-search-root .ai-search-answer-body p:last-child {
+  margin-bottom: 0;
+}
+
+#ai-search-root .ai-search-answer-body a {
+  color: var(--ai-search-accent);
+}
+
+#ai-search-root .ai-search-answer-loading-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ai-search-muted);
+  font-size: 13px;
+}
+
+#ai-search-root .ai-search-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#ai-search-root .ai-search-loading-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ai-search-accent);
+  opacity: 0.45;
+  animation: ai-search-dot-pulse 1.1s ease-in-out infinite;
+}
+
+#ai-search-root .ai-search-loading-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+#ai-search-root .ai-search-loading-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes ai-search-dot-pulse {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+#ai-search-root .ai-search-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ai-search-text);
+  background: var(--ai-search-chip-bg);
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-chip.active {
+  background: var(--ai-search-chip-active-bg);
+  color: var(--ai-search-chip-active-text);
+}
+
+/* Trennt die source_type-Chips von der zweiten Facette (benannte Sitemap-Gruppen, z.B.
+   "News") - eigene, unabhaengig filterbare Facette, siehe ChatQueryService::search(). */
+#ai-search-root .ai-search-chip-separator {
+  display: inline-block;
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--ai-search-chip-bg);
+}
+
+#ai-search-root .ai-search-chip-label {
+  font-style: italic;
+}
+
+#ai-search-root .ai-search-results {
+  max-height: none;
+  overflow: visible;
+  padding: 8px;
+}
+
+#ai-search-root .ai-search-empty {
+  padding: 38px 24px;
+  text-align: center;
+  color: var(--ai-search-muted);
+}
+
+#ai-search-root .ai-search-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 6px;
+}
+
+#ai-search-root .ai-search-item:hover {
+  border-color: var(--ai-search-panel-border);
+  background: rgba(127, 127, 127, 0.08);
+}
+
+#ai-search-root .ai-search-item-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--ai-search-text);
+}
+
+#ai-search-root .ai-search-item-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#ai-search-root .ai-search-item-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ai-search-accent);
+  opacity: 0.95;
+}
+
+#ai-search-root .ai-search-item-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+#ai-search-root .ai-search-item-event {
+  border-color: color-mix(in srgb, var(--ai-search-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--ai-search-accent) 5%, transparent);
+}
+
+#ai-search-root .ai-search-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--ai-search-muted);
+}
+
+#ai-search-root .ai-search-item-type {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 600;
+  color: var(--ai-search-accent);
+  background: color-mix(in srgb, var(--ai-search-accent) 14%, transparent);
+}
+
+#ai-search-root .ai-search-item-date {
+  opacity: 0.9;
+}
+
+#ai-search-root .ai-search-item-snippet {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ai-search-text);
+  opacity: 0.9;
+}
+
+.ai-search-demo-box {
+  border: 1px solid #d9e0ea;
+  background: #f8fbff;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.ai-search-demo-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  background: #0b65d8;
+}
+
+.ai-search-demo-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ai-search-demo-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-search-demo-skins {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#ai-search-demo-dropdown {
+  position: relative;
+}
+
+.ai-search-icon-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #b9c3d2;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #2e3b4f;
+}
+
+.ai-search-icon-trigger:focus {
+  outline: 2px solid #0b65d8;
+  outline-offset: 2px;
+}
+
+.ai-search-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ai-search-demo-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(420px, 100%);
+  border: 1px solid #cfd8e4;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(32, 50, 74, 0.2);
+  padding: 10px;
+  z-index: 80;
+}
+
+.ai-search-demo-popup-head {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6a7a93;
+  margin-bottom: 8px;
+}
+
+.ai-search-demo-popup-input {
+  margin-bottom: 8px;
+}
+
+.ai-search-demo-ask-ai {
+  margin-bottom: 8px;
+}
+
+.ai-search-demo-popup-results {
+  display: grid;
+  gap: 6px;
+}
+
+.ai-search-demo-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #233247;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.ai-search-demo-result:hover,
+.ai-search-demo-result:focus {
+  border-color: #0b65d8;
+  text-decoration: none;
+}
+
+.ai-search-demo-result-meta {
+  display: block;
+  font-size: 12px;
+  color: #61748f;
+  margin-top: 2px;
+}
+
+.ai-search-demo-empty {
+  font-size: 13px;
+  color: #61748f;
+  padding: 4px 0;
+}
+
+@media (max-width: 720px) {
+  #ai-search-root .ai-search-panel {
+    margin-top: 22px;
+  }
+
+  #ai-search-root .ai-search-input {
+    font-size: 20px;
+  }
+
+  .ai-search-demo-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ai-search-demo-popup {
+    width: 100%;
+    left: 0;
+  }
+}

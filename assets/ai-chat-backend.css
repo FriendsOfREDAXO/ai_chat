@@ -1,0 +1,37 @@
+/**
+ * KLXM Chat - Backend Theme Support
+ * Support for REDAXO Light, Dark and Auto themes
+ */
+
+/* --- Dark Mode Overrides (Explicit) --- */
+body.rex-theme-dark ai-chat {
+    --ai-chat-bg: #202b35;
+    --ai-chat-text: #dfe3e6;
+    --ai-chat-header-bg: rgba(0, 0, 0, 0.2);
+    --ai-chat-bot-msg-bg: rgba(255, 255, 255, 0.05);
+    --ai-chat-input-bg: rgba(0, 0, 0, 0.2);
+    --ai-chat-input-text: #fff;
+    --ai-chat-input-border: rgba(255, 255, 255, 0.1);
+}
+
+/* --- Auto Mode Overrides (System Preference = Dark) --- */
+@media (prefers-color-scheme: dark) {
+    body.rex-has-theme:not(.rex-theme-light) ai-chat {
+        --ai-chat-bg: #202b35;
+        --ai-chat-text: #dfe3e6;
+        --ai-chat-header-bg: rgba(0, 0, 0, 0.2);
+        --ai-chat-bot-msg-bg: rgba(255, 255, 255, 0.05);
+        --ai-chat-input-bg: rgba(0, 0, 0, 0.2);
+        --ai-chat-input-text: #fff;
+        --ai-chat-input-border: rgba(255, 255, 255, 0.1);
+    }
+}
+
+.rex-footer .klxm-footer {
+    display: block;
+    clear: both;
+    margin: 8px 0 6px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.9;
+}

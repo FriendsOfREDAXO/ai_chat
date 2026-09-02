@@ -1,0 +1,69 @@
+package: ai_chat
+version: '1.0.0'
+author: 'KLXM Crossmedia GmbH'
+supportpage: https://github.com/FriendsOfRedaxo/ai_chat
+
+requires:
+    php: '>=8.1'
+    redaxo: '^5.20.0'
+
+page:
+    title: 'AI Chat'
+    perm: 'ai_chat[]'
+    subpages:
+        statistics: { title: 'Statistiken' }
+        profiles: { title: 'Profile', perm: 'ai_chat[chatadmin]' }
+        content: { title: 'Indexierung', perm: 'ai_chat[chatadmin]' }
+        triggers: { title: 'Trigger & Antworten' }
+        cache: { title: 'Cache-Fragen', perm: 'ai_chat[chatadmin]' }
+        yform: { title: 'YForm-Tabellen', perm: 'ai_chat[chatadmin]' }
+        demo: { title: 'Demos & Beispiele' }
+        settings:
+            title: 'Einstellungen'
+            perm: 'ai_chat[chatadmin]'
+            itemClass: 'pull-left'
+            subpages:
+                access: { title: 'Zugriff & Steuerung' }
+                behavior: { title: 'Verhalten & Antworten' }
+                appearance: { title: 'Erscheinungsbild' }
+                provider: { title: 'KI-Provider' }
+                advanced: { title: 'Erweiterte KI-Parameter' }
+                indexing: { title: 'Indexierung & Chunking' }
+        help: { title: 'Hilfe', subPath: README.md, itemClass: 'pull-right' }
+
+console_commands:
+    ai_chat:reindex: FriendsOfRedaxo\AiChat\Console\ReindexCommand
+
+default_config:
+    provider: gemini
+    frontend_search_enabled: '|1|'
+    frontend_visibility: all
+    ai_temperature: '0.7'
+    ai_max_tokens: 2048
+    openai_timeout: 120
+    rag_results: 3
+    rag_candidate_limit: 800
+    chunk_size: 1000
+    chunk_overlap: 200
+    cache_similarity: '0.95'
+    cache_candidate_limit: 150
+    show_sources: '|1|'
+    suggest_followup_questions: false
+    stream_enabled: false
+    stats_logging_enabled: true
+    live_reindex_enabled: true
+    index_respect_yrewrite_seo: true
+    frontend_mode: bubble
+    rate_limit: 10
+    max_message_length_frontend: 2000
+    max_message_length_backend: 20000
+    frontend_greeting: 'Hallo! Wie kann ich Ihnen helfen?'
+    frontend_prompt: 'Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.'
+    sources_title: 'Links:'
+    position: bottom-right
+    primary_color: '#007bff'
+    header_bg_color: '#f8f9fa'
+    chat_bg_color: '#ffffff'
+    text_color: '#333333'
+    bot_message_bg_color: '#f1f3f5'
+    border_radius: 12
