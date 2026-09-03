@@ -2,41 +2,12 @@
 
 use FriendsOfREDAXO\ECharts\ChartRenderer;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
-use FriendsOfRedaxo\AiChat\Service\SystemCheckService;
 
 $addon = rex_addon::get('ai_chat');
 
-// Systemcheck und Nutzungsstatistik bewusst auf einer Seite statt verstreut (Vektor-Status
-// vorher nur auf der Indexierung-Seite, Hintergrund-Voraussetzungen nur als Fehlermeldung
-// beim Versuch) - eine Landing-Page, auf der sofort sichtbar ist, ob der Server die
-// Voraussetzungen erfuellt UND wie das Addon tatsaechlich genutzt wird.
-$statusBadgeClass = [
-    'ok' => 'label-success',
-    'warning' => 'label-warning',
-    'error' => 'label-danger',
-];
-$statusLabel = [
-    'ok' => 'OK',
-    'warning' => 'Hinweis',
-    'error' => 'Fehler',
-];
-$systemCheckHtml = '<div class="klxmchat-statistics-shell" style="margin-bottom: 20px;">';
-$systemCheckPanel = new rex_fragment();
-$systemCheckPanel->setVar('title', 'Systemcheck');
-$systemCheckBody = '<table class="table table-striped klxmchat-stat-table">'
-    . '<thead><tr><th style="width:180px;">Prüfung</th><th style="width:90px;">Status</th><th>Details</th></tr></thead><tbody>';
-foreach (SystemCheckService::runChecks() as $check) {
-    $systemCheckBody .= '<tr>'
-        . '<td>' . rex_escape($check['label']) . '</td>'
-        . '<td><span class="label ' . $statusBadgeClass[$check['status']] . '">' . $statusLabel[$check['status']] . '</span></td>'
-        . '<td>' . rex_escape($check['message']) . '</td>'
-        . '</tr>';
-}
-$systemCheckBody .= '</tbody></table>';
-$systemCheckPanel->setVar('body', $systemCheckBody, false);
-$systemCheckHtml .= $systemCheckPanel->parse('core/page/section.php');
-$systemCheckHtml .= '</div>';
-echo $systemCheckHtml;
+// Der Systemcheck (Server-/Voraussetzungs-Diagnose) lebt jetzt unter Einstellungen ->
+// Systemcheck statt hier - eine Diagnose-Frage ("laeuft die Umgebung korrekt?"), keine
+// Nutzungsauswertung. Diese Seite zeigt seitdem ausschliesslich die Nutzungsstatistik.
 
 $resetToken = rex_csrf_token::factory('ai_chat_stats_reset');
 if (rex_request('reset_stats', 'string', '') !== '') {

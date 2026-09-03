@@ -17,19 +17,24 @@ page:
         content: { title: 'Indexierung', perm: 'ai_chat[chatadmin]' }
         triggers: { title: 'Trigger & Antworten' }
         cache: { title: 'Cache-Fragen', perm: 'ai_chat[chatadmin]' }
-        yform: { title: 'YForm-Tabellen', perm: 'ai_chat[chatadmin]' }
         demo: { title: 'Demos & Beispiele' }
+        hauptprofil:
+            title: 'Hauptprofil'
+            perm: 'ai_chat[chatadmin]'
+            subpages:
+                behavior: { title: 'Verhalten & Antworten' }
+                appearance: { title: 'Erscheinungsbild & Suche' }
         settings:
             title: 'Einstellungen'
             perm: 'ai_chat[chatadmin]'
             itemClass: 'pull-left'
             subpages:
-                access: { title: 'Global: Zugriff & Sicherheit' }
-                provider: { title: 'Global: KI-Provider & Parameter' }
-                indexing: { title: 'Global: Indexierungs-Quellen' }
-                retrieval: { title: 'Global: Chunking & Retrieval' }
-                behavior: { title: 'Hauptprofil: Verhalten & Antworten' }
-                appearance: { title: 'Hauptprofil: Erscheinungsbild & Suche' }
+                access: { title: 'Zugriff & Sicherheit' }
+                provider: { title: 'KI-Provider & Parameter' }
+                indexing: { title: 'Indexierungs-Quellen' }
+                systemcheck: { title: 'Systemcheck' }
+                retrieval: { title: 'Chunking & Retrieval' }
+                yform: { title: 'YForm-Tabellen' }
         help: { title: 'Hilfe', subPath: README.md, itemClass: 'pull-right' }
 
 console_commands:

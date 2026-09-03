@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Geändert (Navigation: Hauptprofil als eigener Reiter, YForm-Tabellen und Systemcheck unter Einstellungen)
+- **Hauptprofil** ist jetzt ein eigener Hauptreiter (vorher zwei Unterseiten innerhalb von
+  "Einstellungen") mit seinen beiden Seiten "Verhalten & Antworten" und "Erscheinungsbild &
+  Suche" - macht deutlicher, dass es sich um profilspezifische Fallback-Werte handelt statt
+  um instanzweite Einstellungen.
+- **YForm-Tabellen** ist jetzt eine Unterseite von "Einstellungen" statt ein eigener
+  Hauptreiter - eine reine Konfigurationsseite (welche YForm-Tabellen indexiert werden),
+  kein täglich genutzter Arbeitsbereich wie Profile/Themes/Indexierung.
+- **Systemcheck** (Server-/Voraussetzungs-Diagnose: PHP-/REDAXO-Version, PDF-Extraktion,
+  Hintergrund-Indexierung, native Vektorsuche, KI-Provider) ist jetzt eine eigene Unterseite
+  von "Einstellungen" statt Teil der Statistiken-Seite - eine Diagnose-Frage ("läuft die
+  Umgebung korrekt?"), keine Nutzungsauswertung. Die Statistiken-Seite zeigt seitdem
+  ausschließlich die Nutzungsstatistik.
+- Da "Einstellungen" nach dem Auslagern von Hauptprofil/YForm-Tabellen nur noch echte
+  instanzweite Einstellungen enthält, entfällt das bisherige "Global:"-Präfix in den
+  Reiter-Titeln (z.B. "Global: Zugriff & Sicherheit" → "Zugriff & Sicherheit") - es wäre ab
+  jetzt auf jeder einzelnen Unterseite redundant.
+
 ### Geändert (Streaming ist global, Folgefragen/Quellenanzeige sind jetzt je Profil einstellbar)
 - **"Live-Antworten streamen (SSE)"** stand bisher auf der "Hauptprofil: Verhalten"-Seite,
   obwohl es schon immer ausnahmslos für alle Profile gleichermaßen galt (reine

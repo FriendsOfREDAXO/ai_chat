@@ -169,7 +169,7 @@ if (isset($availableProviders['forcal'])) {
 
 if (isset($availableProviders['yform'])) {
 
-    $form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_yform_provider_profiles_notice') . ' <a href="' . rex_url::backendPage('ai_chat/yform') . '">YForm-Mappings öffnen</a></p>');
+    $form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_yform_provider_profiles_notice') . ' <a href="' . rex_url::backendPage('ai_chat/settings/yform') . '">YForm-Mappings öffnen</a></p>');
 }
 
 // Wie bei den Profilen (pages/profiles.php): kein Haekchen in der Liste oben, die Auswahl

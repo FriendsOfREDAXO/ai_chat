@@ -449,7 +449,7 @@ if ('add' === $func || 'edit' === $func) {
         $select->addOption($label, $value);
     }
     $field->setNotice(sprintf(
-        'Wie die KI den Besucher anspricht. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        'Wie die KI den Besucher anspricht. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
         $addressingModeLabels[$currentGlobalAddressingMode] ?? $currentGlobalAddressingMode
     ));
 
@@ -467,7 +467,7 @@ if ('add' === $func || 'edit' === $func) {
         $select->addOption($label, $value);
     }
     $field->setNotice(sprintf(
-        'Ob/wie die KI den Besucher zu Beginn nach Anrede bzw. Namen fragt, um beides in spätere Antworten einzubauen. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        'Ob/wie die KI den Besucher zu Beginn nach Anrede bzw. Namen fragt, um beides in spätere Antworten einzubauen. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
         $personalizationModeLabels[$currentGlobalPersonalizationMode] ?? $currentGlobalPersonalizationMode
     ));
 
@@ -481,7 +481,7 @@ if ('add' === $func || 'edit' === $func) {
     $select->addOption('An', '1');
     $select->addOption('Aus', '0');
     $field->setNotice(sprintf(
-        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
         $triStateOnOffLabel($currentGlobalSuggestFollowup)
     ));
 
@@ -493,7 +493,7 @@ if ('add' === $func || 'edit' === $func) {
     $select->addOption('An', '1');
     $select->addOption('Aus', '0');
     $field->setNotice(sprintf(
-        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
         $triStateOnOffLabel($currentGlobalShowSources)
     ));
 

@@ -133,7 +133,8 @@ if (rex::isBackend() && rex::getUser()) {
 
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
-        && rex_be_controller::getCurrentPagePart(2) === 'yform'
+        && rex_be_controller::getCurrentPagePart(2) === 'settings'
+        && rex_be_controller::getCurrentPagePart(3) === 'yform'
     ) {
         rex_view::addJsFile($addon->getAssetsUrl('ai-yform-mapping.js?v=' . $assetVersion('ai-yform-mapping.js')));
     }
@@ -151,7 +152,7 @@ if (rex::isBackend() && rex::getUser()) {
 
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
-        && rex_be_controller::getCurrentPagePart(2) === 'settings'
+        && in_array(rex_be_controller::getCurrentPagePart(2), ['settings', 'hauptprofil'], true)
     ) {
         rex_view::addCssFile($addon->getAssetsUrl('ai-chat-settings-backend.css?v=' . $assetVersion('ai-chat-settings-backend.css')));
     }
