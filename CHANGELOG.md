@@ -1,6 +1,24 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2026-09-03
+
+### Behoben (Trigger-Zusatzinhalt: Markdown wurde nicht gerendert, KI widersprach dem Trigger)
+- Ein per Trigger angehängter Zusatzinhalt (z. B. eine Öffnungszeiten-Tabelle) landete als
+  unformatierter Markdown-Rohtext in der Antwort (Überschriften/Tabellen-Syntax wie `##`
+  und `| Tag | Öffnungszeiten |` blieb sichtbar statt zu rendern). Ursache:
+  `removeUnwantedGreetingPrefix()` fasste mit `\s{2,}` versehentlich nicht nur doppelte
+  Leerzeichen, sondern auch Leerzeilen im GESAMTEN Antworttext zusammen - der Trigger-Inhalt
+  verschmolz dadurch mit dem Fließtext zu einem einzigen Absatz, bevor Parsedown ihn sah, und
+  konnte weder Überschrift noch Tabelle mehr als eigenen Block erkennen. Betrifft jetzt nur
+  noch echten horizontalen Whitespace (Leerzeichen/Tabs), Zeilenumbrüche/Absätze bleiben erhalten.
+- Zusätzlich behauptete die KI teils fälschlich, ihr fehle die Information, obwohl direkt im
+  Anschluss der exakt passende Trigger-Inhalt angezeigt wurde - die KI wusste beim Formulieren
+  ihrer eigenen Antwort schlicht nichts vom gleich folgenden Trigger-Block. Ein Trigger-Treffer
+  wird jetzt VOR der Antwortgenerierung geprüft: die KI bekommt einen Prompt-Hinweis, dass
+  gleich zusätzlicher Inhalt folgt (ohne dessen Inhalt vorwegzunehmen oder zu wiederholen), und
+  ein Trigger-Treffer verhindert außerdem den separaten "dazu liegen mir keine Informationen
+  vor"-Fallback, der sonst bei dünnem RAG-Kontext zur eigentlichen KI-Antwort gar nicht erst
+  gekommen wäre.
 
 ### Behoben (Interner Renderer indexierte Editor-/Bearbeitungsansicht statt echter Frontend-Ausgabe)
 - Bei der Indexierungs-Methode „Intern (REDAXO-Renderer)" landete teils sichtbare

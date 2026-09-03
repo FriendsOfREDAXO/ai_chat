@@ -518,6 +518,16 @@ class ChatQueryService
 
         $userEmbedding = $aiService->getEmbedding($retrievalMessage);
 
+        // Trigger VOR der Antwortgenerierung pruefen (nicht erst danach, siehe unten) - ein
+        // Treffer zaehlt als eigene, verlaessliche Antwortquelle: er darf sowohl den
+        // "reicht der Kontext nicht"-Fallback unten verhindern (der Trigger beantwortet die
+        // Frage ja gerade, auch wenn der RAG-Kontext dazu duenn ist) als auch der KI per
+        // Prompt-Hinweis mitteilen, dass es dazu bereits einen Extra-Block gibt - sonst
+        // behauptet die KI mangels eigenem Wissen faelschlich, ihr fehle die Information,
+        // obwohl direkt im Anschluss der (unveraendert woertlich angehaengte, siehe unten)
+        // Trigger-Inhalt mit genau dieser Information folgt.
+        $triggerContent = $this->checkTriggers($message);
+
         $answer = '';
         $fromCache = false;
         // Wird gesetzt, sobald [[ACTION:...]]-Tokens bereits live während des Streamings
@@ -538,7 +548,7 @@ class ChatQueryService
             $context = $this->ensureForcalContextForIntent($context, $retrievalMessage, $scope, $ragResults);
             $context = $this->ensureProviderContextByKeyword($context, $retrievalMessage, $scope, $ragResults);
 
-            if (!$this->hasSufficientAnswerContext($context, $retrievalMessage, $scope)) {
+            if ($triggerContent === '' && !$this->hasSufficientAnswerContext($context, $retrievalMessage, $scope)) {
                 $answer = $this->buildInsufficientContextAnswer($scope);
                 $answer = $this->normalizeAnswerMarkdown($answer);
                 $answerHtml = $this->parseMarkdown($answer);
@@ -554,6 +564,14 @@ class ChatQueryService
             $providerInstructions = $this->getProviderInstructionsForContext($context);
             if ($providerInstructions !== '') {
                 $modelPrompt .= "\n\nProvider-Hinweise:\n" . $providerInstructions;
+            }
+            if ($triggerContent !== '') {
+                $modelPrompt .= "\n\nHinweis: Zu dieser Anfrage ist ein hinterlegter Zusatzinhalt vorhanden "
+                    . '(z.B. Öffnungszeiten, Kontaktdaten o.ä.), der direkt im Anschluss an deine Antwort '
+                    . 'automatisch angezeigt wird. Behaupte deshalb NICHT, dass dir diese Information fehlt '
+                    . 'oder im Kontext nicht enthalten ist. Beantworte die Frage kurz allgemein bzw. verweise '
+                    . 'darauf, dass die Details direkt im Anschluss folgen - wiederhole den Zusatzinhalt nicht '
+                    . 'selbst.';
             }
 
             if ($onChunk !== null && method_exists($aiService, 'generateAnswerStream')) {
@@ -594,7 +612,6 @@ class ChatQueryService
             $answer = $this->removeSourcesSection($answer);
         }
 
-        $triggerContent = $this->checkTriggers($message);
         if ($triggerContent !== '') {
             $answer .= "\n\n" . $triggerContent;
         }
@@ -3450,7 +3467,15 @@ class ChatQueryService
             }
         }
 
-        $cleaned = preg_replace('/\s{2,}/u', ' ', $cleaned) ?: $cleaned;
+        // NUR horizontalen Whitespace zusammenfassen (Leerzeichen/Tabs, die eine entfernte
+        // Phrase hinterlassen hat) - NICHT \s{2,}, das wuerde auch Zeilenumbrueche treffen und
+        // damit jede Leerzeile (Absatz-/Block-Trennung) im kompletten Answer zu einem einzelnen
+        // Leerzeichen zusammenfalten. Traf u.a. per Trigger angehaengten Markdown-Inhalt (siehe
+        // checkTriggers() weiter oben): dessen Ueberschriften/Tabellen verschmolzen dadurch mit
+        // dem Fliesstext zu einem einzigen Absatz, Parsedown erkannte weder "##"-Ueberschrift
+        // noch "| Tabelle |" mehr als eigenen Block und liess die Markdown-Syntax als sichtbaren
+        // Rohtext stehen (siehe GitHub/Oli: Trigger-Antwort mit Oeffnungszeiten-Tabelle).
+        $cleaned = preg_replace('/[ \t]{2,}/u', ' ', $cleaned) ?: $cleaned;
 
         return ltrim($cleaned);
     }
