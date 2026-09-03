@@ -154,7 +154,7 @@
     // aktiv ist - verhindert, dass z.B. während einer laufenden Foreground-
     // Indexierung zusätzlich noch ein Hintergrundlauf gestartet wird.
     function setRunButtonsDisabled(disabled) {
-        ['ai-chat-start-btn', 'ai-chat-start-btn-toolbar'].forEach(function (id) {
+        ['ai-chat-start-btn'].forEach(function (id) {
             const btn = el(id);
             if (btn) btn.disabled = disabled;
         });
@@ -164,13 +164,13 @@
         // Verfügbarkeit deaktiviert sind - checkBackgroundAvailability() ist die
         // alleinige Quelle für DIESEN Fall.
         [
-            'ai-chat-start-background-btn', 'ai-chat-start-background-btn-toolbar',
-            'ai-chat-refresh-btn', 'ai-chat-refresh-btn-toolbar',
+            'ai-chat-start-background-btn',
+            'ai-chat-refresh-btn',
         ].forEach(function (id) {
             const btn = el(id);
             if (btn && backgroundAvailable) btn.disabled = disabled;
         });
-        ['ai-chat-cancel-btn', 'ai-chat-cancel-btn-toolbar'].forEach(function (id) {
+        ['ai-chat-cancel-btn'].forEach(function (id) {
             const btn = el(id);
             if (btn) btn.disabled = !disabled;
         });
@@ -377,12 +377,10 @@
 
             switch (target.id) {
                 case 'ai-chat-start-btn':
-                case 'ai-chat-start-btn-toolbar':
                     event.preventDefault();
                     handleStart();
                     break;
                 case 'ai-chat-start-background-btn':
-                case 'ai-chat-start-background-btn-toolbar':
                     event.preventDefault();
                     handleStartBackgroundClick();
                     break;
@@ -391,7 +389,6 @@
                     handleForceResetBackground();
                     break;
                 case 'ai-chat-refresh-btn':
-                case 'ai-chat-refresh-btn-toolbar':
                     event.preventDefault();
                     handleRefresh();
                     break;
@@ -412,7 +409,6 @@
                     handleOptimizeRag();
                     break;
                 case 'ai-chat-cancel-btn':
-                case 'ai-chat-cancel-btn-toolbar':
                     event.preventDefault();
                     handleCancel();
                     break;
@@ -1216,8 +1212,8 @@
         // (siehe handleRefresh()) statt eines synchronen Inline-Requests, braucht also
         // dieselbe Verfuegbarkeitspruefung wie "Im Hintergrund indexieren".
         const buttons = [
-            el('ai-chat-start-background-btn'), el('ai-chat-start-background-btn-toolbar'),
-            el('ai-chat-refresh-btn'), el('ai-chat-refresh-btn-toolbar'),
+            el('ai-chat-start-background-btn'),
+            el('ai-chat-refresh-btn'),
         ].filter(Boolean);
         if (buttons.length === 0) {
             return;

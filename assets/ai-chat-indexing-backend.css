@@ -1,0 +1,436 @@
+/* Styles fuer pages/content.php (Indexierung) - eigene Datei statt eines ueber
+   250 Zeilen langen <style>-Blocks direkt im PHP-Output, analog zu
+   ai-chat-settings-backend.css fuer die settings- und hauptprofil-Seiten. */
+
+/* ── Kopfbereich mit Animation ───────────────────────────────────────────
+   Gleiche Technik wie der cke5-Addon-Header (Aurora-Blobs per radial-gradient
+   + Scan-Lichtstrahl per linear-gradient, beides reines CSS/@keyframes, keine
+   Bild-/Lottie-Datei) - hier thematisch auf "Indexierung/Scannen von Inhalten"
+   uebertragen statt auf CKEditor-Branding. Immer dunkel, unabhaengig vom
+   REDAXO-Theme der Seite, wie im Original. */
+.ai-chat-index-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 2rem;
+    background: radial-gradient(ellipse 150% 250% at 8% 60%, #062a2a 0%, #081018 45%, #0a1e2e 100%);
+    color: #e8f7f2;
+    margin: -15px -15px 15px;
+    min-height: 110px;
+    gap: 1.5rem;
+    overflow: hidden;
+    border-radius: 7px 7px 0 0;
+}
+
+.ai-chat-index-header::before {
+    content: '';
+    position: absolute;
+    inset: -30%;
+    background:
+        radial-gradient(ellipse 55% 80% at 15% 50%, rgba(56, 189, 248, 0.26) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 70% at 82% 25%, rgba(33, 163, 102, 0.24) 0%, transparent 55%),
+        radial-gradient(ellipse 35% 60% at 55% 110%, rgba(20, 184, 166, 0.18) 0%, transparent 50%);
+    filter: blur(28px);
+    animation: aiChatIndexAurora 16s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes aiChatIndexAurora {
+    0%, 100% { opacity: 0.85; transform: scale(1) translate(0, 0); }
+    30% { opacity: 1; transform: scale(1.06) translate(-3%, -2%); }
+    65% { opacity: 0.9; transform: scale(0.97) translate(2%, 1%); }
+}
+
+/* Scan-Lichtstrahl - passt inhaltlich besonders gut: die Seite indexiert/
+   "scannt" Inhalte, der Lichtstrahl macht das optisch spuerbar. */
+.ai-chat-index-header .ai-chat-index-scan {
+    position: absolute;
+    top: 0;
+    left: -15%;
+    width: 80px;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(56, 189, 248, 0.14) 40%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(33, 163, 102, 0.14) 60%,
+        transparent 100%);
+    animation: aiChatIndexScanMove 9s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 3;
+}
+
+@keyframes aiChatIndexScanMove {
+    0%   { left: -15%; opacity: 0; }
+    8%   { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { left: 108%; opacity: 0; }
+}
+
+.ai-chat-index-header .header-icon {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.35));
+    animation: aiChatIndexIconFloat 7s ease-in-out infinite;
+}
+
+.ai-chat-index-header .header-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes aiChatIndexIconFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    35% { transform: translateY(-6px) rotate(-4deg); }
+    70% { transform: translateY(3px) rotate(3deg); }
+}
+
+.ai-chat-index-header .header-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ai-chat-index-header h1 {
+    padding: 0;
+    margin: 0;
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.2em;
+    background: linear-gradient(90deg,
+        #e8f7f2 0%,
+        #38bdf8 30%,
+        #21a366 52%,
+        #14b8a6 72%,
+        #e8f7f2 100%);
+    background-size: 250% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: aiChatIndexTitleShimmer 7s linear infinite;
+}
+
+.ai-chat-index-header h1::before {
+    display: none;
+}
+
+@keyframes aiChatIndexTitleShimmer {
+    0%   { background-position: 150% center; }
+    100% { background-position: -50% center; }
+}
+
+.ai-chat-index-header .header-subtitle {
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-chat-index-header::before,
+    .ai-chat-index-header .ai-chat-index-scan,
+    .ai-chat-index-header .header-icon,
+    .ai-chat-index-header h1 {
+        animation: none;
+    }
+}
+
+/* ── Erfolgs-Banner nach abgeschlossener Indexierung ─────────────────── */
+.ai-chat-success-state {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(37, 166, 96, 0.28);
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.12), rgba(17, 160, 122, 0.08));
+    box-shadow: 0 10px 25px rgba(40, 167, 69, 0.12);
+    animation: klxmSuccessReveal 0.6s ease-out;
+}
+.ai-chat-success-badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #21a366, #17a2b8);
+    box-shadow: 0 10px 18px rgba(33, 163, 102, 0.28);
+    animation: klxmSuccessBadge 0.7s ease-out;
+}
+.ai-chat-success-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #1b4d3a;
+    font-size: 1.02em;
+}
+.ai-chat-success-copy strong {
+    font-size: 1.3em;
+    letter-spacing: 0.02em;
+}
+@keyframes klxmSuccessReveal {
+    0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes klxmSuccessBadge {
+    0% { transform: scale(0.6); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); }
+}
+body.rex-theme-dark .ai-chat-success-copy {
+    color: #d3f5e6;
+}
+
+/* ── Statuszeile ──────────────────────────────────────────────────────── */
+.klxm-index-statusbar {
+    margin-bottom: 14px;
+}
+.klxm-index-statusbar .label {
+    font-size: 0.95em;
+    padding: 5px 10px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+/* Kein eigenes Rot/Gruen/etc. definiert - die Bootstrap-"label"-Kontextklassen
+   (label-default/-primary/-info/-success/-warning/-danger) kommen aus dem
+   REDAXO-Backend-Theme selbst und passen sich damit automatisch an
+   Light/Dark-Mode an, statt hier fest codierte Farben zu riskieren. */
+#ai-chat-status-badge .rex-icon {
+    margin-right: 3px;
+}
+#ai-chat-status-badge.klxm-status-running .rex-icon {
+    animation: klxmStatusSpin 1.2s linear infinite;
+}
+@keyframes klxmStatusSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Aktions-Gruppen (Indexierung/Wartung) ───────────────────────────── */
+.klxm-index-actiongroup {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid rgba(120, 130, 140, 0.25);
+    border-radius: 8px;
+}
+.klxm-index-actiongroup-title {
+    margin: 0 0 8px;
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.65;
+}
+.klxm-index-actiongroup-maintenance {
+    margin-top: 12px;
+}
+
+/* ── GitHub-Sync-Hinweis - theme-/dark-mode-faehig statt hartcodiertem
+   Hellblau, das im Dunkelmodus wie ein Fremdkoerper wirkte. ─────────── */
+.ai-chat-index-github-box {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(75, 154, 217, 0.08);
+    border-left: 4px solid #4b9ad9;
+    border-radius: 4px;
+}
+body.rex-theme-dark .ai-chat-index-github-box {
+    background: rgba(75, 154, 217, 0.12);
+    border-left-color: #409be4;
+}
+
+/* ── Fortschritts-Karte ──────────────────────────────────────────────
+   Farbpalette 1:1 aus dem REDAXO-Backend-Theme uebernommen (be_style
+   _variables.scss: $color-a-dark #324050, $color-b #4b9ad9, $color-d
+   #5bb585, $brand-warning #cfb550, $brand-danger #d9534f) statt eigener
+   Farben, inkl. denselben Dunkelmodus-Gegenstuecken aus
+   _variables-dark.scss - damit fuegt sich das optisch in die bestehende
+   REDAXO-Farbwelt statt wie ein Fremdkoerper zu wirken. */
+.klxm-progress-card {
+    margin-top: 20px;
+    padding: 20px 22px;
+    border-radius: 10px;
+    border: 1px solid rgba(50, 64, 80, 0.14);
+    background: linear-gradient(135deg, rgba(75, 154, 217, 0.07), rgba(50, 64, 80, 0.03));
+    transition: background 0.4s ease, border-color 0.4s ease;
+}
+.klxm-progress-card--success {
+    border-color: rgba(91, 181, 133, 0.35);
+    background: linear-gradient(135deg, rgba(91, 181, 133, 0.12), rgba(75, 154, 217, 0.05));
+}
+.klxm-progress-card--warning {
+    border-color: rgba(207, 181, 80, 0.4);
+    background: linear-gradient(135deg, rgba(207, 181, 80, 0.14), rgba(50, 64, 80, 0.03));
+}
+.klxm-progress-card--error {
+    border-color: rgba(217, 83, 79, 0.35);
+    background: linear-gradient(135deg, rgba(217, 83, 79, 0.12), rgba(50, 64, 80, 0.03));
+}
+.klxm-progress-card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.klxm-progress-card-headline {
+    flex: 1;
+    min-width: 0;
+}
+.klxm-progress-card-headline #ai-chat-status-text {
+    margin: 0;
+    font-size: 1.15em;
+    font-weight: 600;
+}
+.klxm-progress-card-headline #ai-chat-heartbeat {
+    margin: 2px 0 0;
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+.klxm-progress-card-detail {
+    margin: 10px 0 0;
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+/* Zwei gegenlaeufig rotierende Ringe statt des winzigen drehenden Icons im
+   Badge zuvor - dasselbe Grundprinzip wie REDAXOs eigener PJAX-Ladeindikator
+   (be_style .rex-ajax-loader-element), nur als eigenstaendiges Element
+   innerhalb der Karte statt vollflaechig ueber die Seite gelegt. */
+.klxm-donut {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    display: none;
+}
+.klxm-donut::before,
+.klxm-donut::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    border-radius: 50%;
+    border: 4px solid transparent;
+}
+.klxm-donut::before {
+    border-top-color: #324050;
+    border-right-color: #324050;
+    animation: klxmDonutSpin 2.2s linear infinite;
+    opacity: 0.85;
+}
+.klxm-donut::after {
+    border-top-color: #4b9ad9;
+    animation: klxmDonutSpin 1s linear infinite;
+}
+@keyframes klxmDonutSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Kurzes "Aufblitzen" bei Zahlen, die sich live aktualisieren (Index-
+   groesse, Fortschritt) - macht sichtbar, dass gerade wirklich etwas
+   passiert, statt dass sich Zahlen kommentarlos aendern. */
+.klxm-pulse {
+    display: inline-block;
+    animation: klxmPulse 0.5s ease;
+}
+@keyframes klxmPulse {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.3); color: #4b9ad9; }
+    100% { transform: scale(1); }
+}
+
+/* Dunkelmodus-Werte, zweifach ausgeschrieben statt per Sass-Mixin geteilt
+   (hier reines CSS): einmal fuer explizit gewaehltes Dunkel-Theme
+   (body.rex-theme-dark), einmal fuer Betriebssystem-Praeferenz ohne
+   expliziten Gegenbefehl (body:not(.rex-theme-light) unter
+   prefers-color-scheme: dark) - exakt dasselbe Muster wie be_style
+   selbst in _loader.scss fuer den eigenen PJAX-Ladeindikator nutzt. */
+body.rex-theme-dark .klxm-progress-card {
+    border-color: rgba(75, 154, 217, 0.22);
+    background: linear-gradient(135deg, rgba(75, 154, 217, 0.1), rgba(21, 28, 34, 0.4));
+}
+body.rex-theme-dark .klxm-progress-card--success {
+    border-color: rgba(13, 106, 56, 0.5);
+    background: linear-gradient(135deg, rgba(13, 106, 56, 0.22), rgba(21, 28, 34, 0.4));
+}
+body.rex-theme-dark .klxm-progress-card--warning {
+    border-color: rgba(120, 100, 30, 0.6);
+    background: linear-gradient(135deg, rgba(120, 100, 30, 0.28), rgba(21, 28, 34, 0.4));
+}
+body.rex-theme-dark .klxm-progress-card--error {
+    border-color: rgba(128, 25, 25, 0.55);
+    background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
+}
+body.rex-theme-dark .klxm-donut::before {
+    border-top-color: #151c22;
+    border-right-color: #151c22;
+}
+body.rex-theme-dark .klxm-donut::after {
+    border-top-color: #409be4;
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .klxm-progress-card {
+        border-color: rgba(75, 154, 217, 0.22);
+        background: linear-gradient(135deg, rgba(75, 154, 217, 0.1), rgba(21, 28, 34, 0.4));
+    }
+    body:not(.rex-theme-light) .klxm-progress-card--success {
+        border-color: rgba(13, 106, 56, 0.5);
+        background: linear-gradient(135deg, rgba(13, 106, 56, 0.22), rgba(21, 28, 34, 0.4));
+    }
+    body:not(.rex-theme-light) .klxm-progress-card--warning {
+        border-color: rgba(120, 100, 30, 0.6);
+        background: linear-gradient(135deg, rgba(120, 100, 30, 0.28), rgba(21, 28, 34, 0.4));
+    }
+    body:not(.rex-theme-light) .klxm-progress-card--error {
+        border-color: rgba(128, 25, 25, 0.55);
+        background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
+    }
+    body:not(.rex-theme-light) .klxm-donut::before {
+        border-top-color: #151c22;
+        border-right-color: #151c22;
+    }
+    body:not(.rex-theme-light) .klxm-donut::after {
+        border-top-color: #409be4;
+    }
+}
+
+/* ── Quellen-/Provider-Uebersicht ─────────────────────────────────────── */
+.ai-chat-index-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+.ai-chat-index-stats-grid h4 {
+    margin: 0 0 8px;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.65;
+}
+.ai-chat-index-stats-grid ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.ai-chat-index-stats-grid li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(120, 130, 140, 0.15);
+}
+.ai-chat-index-stats-grid li:last-child {
+    border-bottom: none;
+}

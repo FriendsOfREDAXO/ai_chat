@@ -82,16 +82,6 @@ if ($rawConfiguredLabels !== '') {
     }
 }
 
-// Toolbar mit Buttons für schnellen Zugriff
-$toolbar = '<button type="button" id="ai-chat-start-btn-toolbar" class="btn btn-primary" style="margin-right: 5px;"><i class="rex-icon fa-play"></i> ' . $addon->i18n('index_button') . '</button>';
-$toolbar .= '<button type="button" id="ai-chat-start-background-btn-toolbar" class="btn btn-info" style="margin-right: 5px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '"><i class="rex-icon fa-cloud-upload"></i> ' . $addon->i18n('index_background_button') . '</button>';
-$toolbar .= '<button type="button" id="ai-chat-refresh-btn-toolbar" class="btn btn-default" style="margin-right: 5px;" disabled title="' . rex_escape($addon->i18n('index_background_button_notice')) . '"><i class="rex-icon fa-refresh"></i> ' . $addon->i18n('index_refresh_button') . '</button>';
-$toolbar .= '<button type="button" id="ai-chat-cancel-btn-toolbar" class="btn btn-warning" style="margin-right: 15px;" disabled><i class="rex-icon fa-stop"></i> ' . $addon->i18n('index_btn_cancel') . '</button>';
-
-$fragment = new rex_fragment();
-$fragment->setVar('body', $toolbar, false);
-echo $fragment->parse('core/page/section.php');
-
 // (JS wird global über boot.php geladen und per rex:ready initialisiert)
 
 // Config for JS – injected via data attribute (no inline JS)
@@ -124,7 +114,31 @@ $jsConfig = json_encode([
     'sourceTypeLabels'  => $sourceTypeLabels,
 ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT);
 
-$content = '';
+// Animierter Kopfbereich statt der bisherigen nackten Titelzeile - Technik 1:1
+// vom cke5-Addon-Header uebernommen (Aurora-Blobs + Scan-Lichtstrahl, reines
+// CSS/@keyframes, siehe assets/ai-chat-indexing-backend.css), inhaltlich aber
+// auf "Indexierung/Scannen von Inhalten" uebertragen statt CKEditor-Branding.
+// Traegt den Seitentitel selbst, die umschliessende rex_fragment bekommt
+// deshalb bewusst KEINEN eigenen Titel mehr (sonst stuende "Indexierung"
+// doppelt da).
+$content = '
+<div class="ai-chat-index-header">
+    <div class="ai-chat-index-scan"></div>
+    <div class="header-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="9" y="7" width="34" height="44" rx="4" fill="#38bdf8" fill-opacity="0.16" stroke="#38bdf8" stroke-width="2"/>
+            <line x1="16" y1="19" x2="36" y2="19" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round"/>
+            <line x1="16" y1="27" x2="36" y2="27" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+            <line x1="16" y1="35" x2="29" y2="35" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+            <circle cx="43" cy="43" r="12" fill="#0a1e2e" stroke="#21a366" stroke-width="3"/>
+            <line x1="52" y1="52" x2="59" y2="59" stroke="#21a366" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+    </div>
+    <div class="header-content">
+        <h1>' . rex_escape($addon->i18n('index_title')) . '</h1>
+        <div class="header-subtitle">' . rex_escape($addon->i18n('index_description')) . '</div>
+    </div>
+</div>';
 
 // Hidden config element – read by ai-chat-indexer.js via data attribute
 $content .= '<div id="ai-chat-indexer-config" data-config=\'' . $jsConfig . '\' style="display:none"></div>';
@@ -141,7 +155,6 @@ foreach ($sql as $row) {
     $total += $count;
 }
 
-$content .= '<p>' . $addon->i18n('index_description') . '</p>';
 $content .= rex_view::info($addon->i18n('index_provider_hint'));
 
 // Zentrale Statusanzeige: EIN Element, das den aktuellen Lauf-Zustand eindeutig
@@ -170,32 +183,36 @@ if ($total > $ragCandidateLimit && !\FriendsOfRedaxo\AiChat\Db\VectorCapability:
         . '</div>';
 }
 
+// Drei Uebersichten (Fundstellen je Quellentyp, aktivierte/verfuegbare Content-
+// Provider) nebeneinander statt drei lose untereinander gestapelter, unstyled
+// <ul>-Bloecke - gleiches Kachel-Raster fuer alle drei sorgt fuer einheitliches
+// visuelles Gewicht statt eines optischen Bruchs zwischen Statuszeile/
+// Fortschritts-Karte (beide gestylt) und diesen Listen (bisher gar nicht).
+$statsColumns = '';
 if (!empty($stats)) {
-    $content .= '<ul>';
+    $statsColumns .= '<div><h4>' . rex_escape($addon->i18n('index_stats_by_source_type')) . '</h4><ul>';
     foreach ($stats as $type => $count) {
         $label = $sourceTypeLabels[$type] ?? ucfirst(str_replace('_', ' ', (string) $type));
-        $content .= '<li>' . rex_escape($label) . ': ' . (int) $count . '</li>';
+        $statsColumns .= '<li><span>' . rex_escape($label) . '</span><strong>' . (int) $count . '</strong></li>';
     }
-    $content .= '</ul>';
+    $statsColumns .= '</ul></div>';
 }
 
 if ($enabledProviderInstances !== []) {
-    $content .= '<p><strong>Aktivierte Content-Provider</strong></p>';
-    $content .= '<ul>';
+    $statsColumns .= '<div><h4>Aktivierte Content-Provider</h4><ul>';
     foreach ($enabledProviderInstances as $provider) {
         $count = 0;
         foreach ($provider->getSupportedSourceTypes() as $sourceType) {
             $count += (int) ($stats[$sourceType] ?? 0);
         }
 
-        $content .= '<li>' . rex_escape($provider->getLabel()) . ': ' . $count . '</li>';
+        $statsColumns .= '<li><span>' . rex_escape($provider->getLabel()) . '</span><strong>' . $count . '</strong></li>';
     }
-    $content .= '</ul>';
+    $statsColumns .= '</ul></div>';
 }
 
 if ($allProviders !== []) {
-    $content .= '<p><strong>Verfügbare Content-Provider</strong></p>';
-    $content .= '<ul>';
+    $statsColumns .= '<div><h4>Verfügbare Content-Provider</h4><ul>';
     foreach ($allProviders as $provider) {
         // "mediapool" hat kein Haekchen in der Content-Provider-Liste (siehe
         // pages/settings.indexing.php) - die PDF-/Kategorie-Auswahl dort IST die
@@ -204,20 +221,24 @@ if ($allProviders !== []) {
         if ('mediapool' === $provider->getKey()) {
             $hasGlobalPdfSelection = '' !== trim((string) $addon->getConfig('pdf_media_ids'))
                 || '' !== trim((string) $addon->getConfig('pdf_category_ids'));
-            $state = $hasGlobalPdfSelection ? 'aktiv' : 'deaktiviert (siehe auch AI Chat → Profile für profil-eigene PDFs)';
+            $state = $hasGlobalPdfSelection ? 'aktiv' : 'deaktiviert (siehe AI Chat → Profile)';
         } else {
             $isEnabled = in_array($provider->getKey(), $enabledProviders, true);
             $state = $isEnabled ? 'aktiv' : 'deaktiviert';
         }
-        $content .= '<li>' . rex_escape($provider->getLabel()) . ' <small class="text-muted">(' . rex_escape($state) . ')</small></li>';
+        $statsColumns .= '<li><span>' . rex_escape($provider->getLabel()) . '</span><small class="text-muted">' . rex_escape($state) . '</small></li>';
     }
-    $content .= '</ul>';
+    $statsColumns .= '</ul></div>';
+}
+
+if ('' !== $statsColumns) {
+    $content .= '<div class="ai-chat-settings-box"><div class="ai-chat-index-stats-grid">' . $statsColumns . '</div></div>';
 }
 
 // GitHub Update Button anzeigen falls Repos konfiguriert
 $githubRepos = (string) $addon->getConfig('github_repos', '');
 if (!empty(trim($githubRepos))) {
-    $content .= '<div style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-left: 4px solid #007bff; border-radius: 4px;">';
+    $content .= '<div class="ai-chat-index-github-box">';
     $content .= '<h4>' . $addon->i18n('index_github_title') . '</h4>';
     $content .= '<p>' . $addon->i18n('index_github_notice') . '</p>';
     $content .= '<button type="button" id="ai-chat-github-sync-btn" class="btn btn-info"><i class="rex-icon fa-github"></i> ' . $addon->i18n('index_github_button') . '</button>';
@@ -256,249 +277,7 @@ $content .= '
         <span>Der Index wurde erfolgreich aufgebaut.</span>
     </div>
 </div>
-<style>
-    .ai-chat-success-state {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        margin-top: 20px;
-        padding: 18px 20px;
-        border-radius: 12px;
-        border: 1px solid rgba(37, 166, 96, 0.28);
-        background: linear-gradient(135deg, rgba(40, 167, 69, 0.12), rgba(17, 160, 122, 0.08));
-        box-shadow: 0 10px 25px rgba(40, 167, 69, 0.12);
-        animation: klxmSuccessReveal 0.6s ease-out;
-    }
-    .ai-chat-success-badge {
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        font-size: 28px;
-        font-weight: 700;
-        color: #fff;
-        background: linear-gradient(135deg, #21a366, #17a2b8);
-        box-shadow: 0 10px 18px rgba(33, 163, 102, 0.28);
-        animation: klxmSuccessBadge 0.7s ease-out;
-    }
-    .ai-chat-success-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        color: #1b4d3a;
-        font-size: 1.02em;
-    }
-    .ai-chat-success-copy strong {
-        font-size: 1.3em;
-        letter-spacing: 0.02em;
-    }
-    @keyframes klxmSuccessReveal {
-        0% { opacity: 0; transform: translateY(8px) scale(0.98); }
-        100% { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    @keyframes klxmSuccessBadge {
-        0% { transform: scale(0.6); opacity: 0; }
-        60% { transform: scale(1.15); opacity: 1; }
-        100% { transform: scale(1); }
-    }
-    .klxm-index-statusbar {
-        margin-bottom: 14px;
-    }
-    .klxm-index-statusbar .label {
-        font-size: 0.95em;
-        padding: 5px 10px;
-        margin-right: 8px;
-        vertical-align: middle;
-    }
-    /* Kein eigenes Rot/Grün/etc. definiert - die Bootstrap-"label"-Kontextklassen
-       (label-default/-primary/-info/-success/-warning/-danger) kommen aus dem
-       REDAXO-Backend-Theme selbst und passen sich damit automatisch an
-       Light/Dark-Mode an, statt hier fest codierte Farben zu riskieren. */
-    #ai-chat-status-badge .rex-icon {
-        margin-right: 3px;
-    }
-    #ai-chat-status-badge.klxm-status-running .rex-icon {
-        animation: klxmStatusSpin 1.2s linear infinite;
-    }
-    @keyframes klxmStatusSpin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-    .klxm-index-actiongroup {
-        margin-top: 18px;
-        padding: 14px 16px;
-        border: 1px solid rgba(120, 130, 140, 0.25);
-        border-radius: 8px;
-    }
-    .klxm-index-actiongroup-title {
-        margin: 0 0 8px;
-        font-weight: 600;
-        font-size: 0.85em;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        opacity: 0.65;
-    }
-    .klxm-index-actiongroup-maintenance {
-        margin-top: 12px;
-    }
-
-    /* ── Fortschritts-Karte ──────────────────────────────────────────────
-       Farbpalette 1:1 aus dem REDAXO-Backend-Theme übernommen (be_style
-       _variables.scss: $color-a-dark #324050, $color-b #4b9ad9, $color-d
-       #5bb585, $brand-warning #cfb550, $brand-danger #d9534f) statt eigener
-       Farben, inkl. denselben Dunkelmodus-Gegenstücken aus
-       _variables-dark.scss - damit fügt sich das optisch in die bestehende
-       REDAXO-Farbwelt statt wie ein Fremdkörper zu wirken. */
-    .klxm-progress-card {
-        margin-top: 20px;
-        padding: 20px 22px;
-        border-radius: 10px;
-        border: 1px solid rgba(50, 64, 80, 0.14);
-        background: linear-gradient(135deg, rgba(75, 154, 217, 0.07), rgba(50, 64, 80, 0.03));
-        transition: background 0.4s ease, border-color 0.4s ease;
-    }
-    .klxm-progress-card--success {
-        border-color: rgba(91, 181, 133, 0.35);
-        background: linear-gradient(135deg, rgba(91, 181, 133, 0.12), rgba(75, 154, 217, 0.05));
-    }
-    .klxm-progress-card--warning {
-        border-color: rgba(207, 181, 80, 0.4);
-        background: linear-gradient(135deg, rgba(207, 181, 80, 0.14), rgba(50, 64, 80, 0.03));
-    }
-    .klxm-progress-card--error {
-        border-color: rgba(217, 83, 79, 0.35);
-        background: linear-gradient(135deg, rgba(217, 83, 79, 0.12), rgba(50, 64, 80, 0.03));
-    }
-    .klxm-progress-card-header {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 14px;
-    }
-    .klxm-progress-card-headline {
-        flex: 1;
-        min-width: 0;
-    }
-    .klxm-progress-card-headline #ai-chat-status-text {
-        margin: 0;
-        font-size: 1.15em;
-        font-weight: 600;
-    }
-    .klxm-progress-card-headline #ai-chat-heartbeat {
-        margin: 2px 0 0;
-        font-size: 0.85em;
-        opacity: 0.75;
-    }
-    .klxm-progress-card-detail {
-        margin: 10px 0 0;
-        font-size: 0.9em;
-        opacity: 0.8;
-    }
-
-    /* Zwei gegenläufig rotierende Ringe statt des winzigen drehenden Icons im
-       Badge zuvor - dasselbe Grundprinzip wie REDAXOs eigener PJAX-Ladeindikator
-       (be_style .rex-ajax-loader-element), nur als eigenständiges Element
-       innerhalb der Karte statt vollflächig über die Seite gelegt. */
-    .klxm-donut {
-        position: relative;
-        width: 48px;
-        height: 48px;
-        flex: 0 0 auto;
-        display: none;
-    }
-    .klxm-donut::before,
-    .klxm-donut::after {
-        content: \'\';
-        position: absolute;
-        top: 0; right: 0; bottom: 0; left: 0;
-        border-radius: 50%;
-        border: 4px solid transparent;
-    }
-    .klxm-donut::before {
-        border-top-color: #324050;
-        border-right-color: #324050;
-        animation: klxmDonutSpin 2.2s linear infinite;
-        opacity: 0.85;
-    }
-    .klxm-donut::after {
-        border-top-color: #4b9ad9;
-        animation: klxmDonutSpin 1s linear infinite;
-    }
-    @keyframes klxmDonutSpin {
-        from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
-    }
-
-    /* Kurzes "Aufblitzen" bei Zahlen, die sich live aktualisieren (Index-
-       größe, Fortschritt) - macht sichtbar, dass gerade wirklich etwas
-       passiert, statt dass sich Zahlen kommentarlos ändern. */
-    .klxm-pulse {
-        display: inline-block;
-        animation: klxmPulse 0.5s ease;
-    }
-    @keyframes klxmPulse {
-        0%   { transform: scale(1); }
-        35%  { transform: scale(1.3); color: #4b9ad9; }
-        100% { transform: scale(1); }
-    }
-
-    /* Dunkelmodus-Werte, zweifach ausgeschrieben statt per Sass-Mixin geteilt
-       (hier reines CSS): einmal für explizit gewähltes Dunkel-Theme
-       (body.rex-theme-dark), einmal für Betriebssystem-Präferenz ohne
-       expliziten Gegenbefehl (body:not(.rex-theme-light) unter
-       prefers-color-scheme: dark) - exakt dasselbe Muster wie be_style
-       selbst in _loader.scss für den eigenen PJAX-Ladeindikator nutzt. */
-    body.rex-theme-dark .klxm-progress-card {
-        border-color: rgba(75, 154, 217, 0.22);
-        background: linear-gradient(135deg, rgba(75, 154, 217, 0.1), rgba(21, 28, 34, 0.4));
-    }
-    body.rex-theme-dark .klxm-progress-card--success {
-        border-color: rgba(13, 106, 56, 0.5);
-        background: linear-gradient(135deg, rgba(13, 106, 56, 0.22), rgba(21, 28, 34, 0.4));
-    }
-    body.rex-theme-dark .klxm-progress-card--warning {
-        border-color: rgba(120, 100, 30, 0.6);
-        background: linear-gradient(135deg, rgba(120, 100, 30, 0.28), rgba(21, 28, 34, 0.4));
-    }
-    body.rex-theme-dark .klxm-progress-card--error {
-        border-color: rgba(128, 25, 25, 0.55);
-        background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
-    }
-    body.rex-theme-dark .klxm-donut::before {
-        border-top-color: #151c22;
-        border-right-color: #151c22;
-    }
-    body.rex-theme-dark .klxm-donut::after {
-        border-top-color: #409be4;
-    }
-
-    @media (prefers-color-scheme: dark) {
-        body:not(.rex-theme-light) .klxm-progress-card {
-            border-color: rgba(75, 154, 217, 0.22);
-            background: linear-gradient(135deg, rgba(75, 154, 217, 0.1), rgba(21, 28, 34, 0.4));
-        }
-        body:not(.rex-theme-light) .klxm-progress-card--success {
-            border-color: rgba(13, 106, 56, 0.5);
-            background: linear-gradient(135deg, rgba(13, 106, 56, 0.22), rgba(21, 28, 34, 0.4));
-        }
-        body:not(.rex-theme-light) .klxm-progress-card--warning {
-            border-color: rgba(120, 100, 30, 0.6);
-            background: linear-gradient(135deg, rgba(120, 100, 30, 0.28), rgba(21, 28, 34, 0.4));
-        }
-        body:not(.rex-theme-light) .klxm-progress-card--error {
-            border-color: rgba(128, 25, 25, 0.55);
-            background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
-        }
-        body:not(.rex-theme-light) .klxm-donut::before {
-            border-top-color: #151c22;
-            border-right-color: #151c22;
-        }
-        body:not(.rex-theme-light) .klxm-donut::after {
-            border-top-color: #409be4;
-        }
-    }
-</style>';
+';
 
 // Delay-Selektor (Throttle zwischen den Tasks)
 $delayOptions = [
@@ -544,7 +323,9 @@ $content .= '</p>';
 $content .= '</div>';
 
 
+// Bewusst OHNE 'title'-Var: der Seitentitel steht bereits im animierten
+// Kopfbereich oben (siehe $content-Aufbau weiter oben) - ein zusaetzlicher
+// Panel-Titel wuerde "Indexierung" doppelt zeigen.
 $fragment = new rex_fragment();
-$fragment->setVar('title', $addon->i18n('index_title'), false);
 $fragment->setVar('body', $content, false);
 echo $fragment->parse('core/page/section.php');

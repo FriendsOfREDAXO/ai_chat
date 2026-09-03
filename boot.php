@@ -152,9 +152,19 @@ if (rex::isBackend() && rex::getUser()) {
 
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
-        && in_array(rex_be_controller::getCurrentPagePart(2), ['settings', 'hauptprofil'], true)
+        && in_array(rex_be_controller::getCurrentPagePart(2), ['settings', 'hauptprofil', 'content'], true)
     ) {
         rex_view::addCssFile($addon->getAssetsUrl('ai-chat-settings-backend.css?v=' . $assetVersion('ai-chat-settings-backend.css')));
+    }
+
+    // Animierter Kopfbereich + Fortschritts-/Statuskarten-Styling der Indexierung-Seite -
+    // eigene Datei statt eines langen <style>-Blocks direkt im PHP-Output (siehe
+    // pages/content.php).
+    if (
+        rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
+        && rex_be_controller::getCurrentPagePart(2) === 'content'
+    ) {
+        rex_view::addCssFile($addon->getAssetsUrl('ai-chat-indexing-backend.css?v=' . $assetVersion('ai-chat-indexing-backend.css')));
     }
 
     // Wir registrieren einen Filter, um das Modul-Script immer zu laden (für die Demo-Seite)

@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Behoben (Indexierung-Seite: doppelte Buttons, komplett überarbeitetes Design)
+- Die Buttons "Jetzt indexieren"/"Im Hintergrund indexieren"/"Refresh"/"Abbrechen" standen
+  doppelt auf der Seite (einmal in einer "Toolbar" oben, einmal in der Aktions-Box weiter
+  unten - zwei parallel gepflegte, nie zusammengeführte Button-Sätze). Die obere Toolbar
+  entfällt ersatzlos, inklusive ihrer doppelten JS-Verdrahtung in
+  `assets/ai-chat-indexer.js`.
+- Neuer, animierter Kopfbereich (Aurora-Farbverlauf + durchlaufender "Scan"-Lichtstrahl,
+  passend zum Thema Indexieren/Scannen von Inhalten, reines CSS ohne Bild-/Lottie-Datei -
+  gleiche Technik wie der Header des `cke5`-Addons, hier neu umgesetzt).
+- Der über 250 Zeilen lange `<style>`-Block direkt im PHP-Output wandert in eine eigene
+  Datei (`assets/ai-chat-indexing-backend.css`), analog zu den bereits ausgelagerten
+  Settings-Styles.
+- Die drei bisher unstyled `<ul>`-Listen (Fundstellen je Quellentyp, aktivierte/verfügbare
+  Content-Provider) stehen jetzt als einheitliches Kachel-Raster nebeneinander statt lose
+  untereinander gestapelt zu wirken. Der GitHub-Sync-Hinweis nutzt jetzt eine
+  theme-/dark-mode-fähige CSS-Klasse statt hartcodierter, nur für helles Theme passender
+  Inline-Farben.
+
+### Geändert (Demos & Beispiele auf den aktuellen Stand gebracht)
+- Verweis auf die globale Streaming-Einstellung zeigt jetzt auf ihren tatsächlichen,
+  aktuellen Ort (Einstellungen → KI-Provider & Parameter, vorher noch der alte Pfad).
+- Der Hinweis zum Profil-Feature erwähnt jetzt auch die neuen, ebenfalls je Profil
+  einstellbaren Folgefragen/Quellenanzeige sowie die zentrale Theme-Verwaltung (AI Chat →
+  Themes) als Quelle für Farben/Avatar/Eckenradius statt pauschal "aus dem Profil".
+- CSS-Variablen-Tabelle ergänzt um `--ai-chat-bot-msg-text`/`--ai-chat-user-msg-text`
+  (siehe zentrale Theme-Verwaltung weiter oben).
+
 ### Geändert (Navigation: Hauptprofil als eigener Reiter, YForm-Tabellen und Systemcheck unter Einstellungen)
 - **Hauptprofil** ist jetzt ein eigener Hauptreiter (vorher zwei Unterseiten innerhalb von
   "Einstellungen") mit seinen beiden Seiten "Verhalten & Antworten" und "Erscheinungsbild &

@@ -32,12 +32,13 @@ if (!str_starts_with($apiUrl, 'http')) {
       Die Suche verwendet die API <code><?= rex_escape($apiUrl, 'html') ?></code>.
     </div>
     <div class="alert alert-warning">
-      <strong>Seit dem Profil-Feature:</strong> Begrüßung, Prompt, Theme-Farben, Anrede/Personalisierung,
-      Reset-Countdown/Verlauf-kopieren und ob Chat/Suche überhaupt automatisch eingebunden werden, kommen
-      im echten Betrieb aus dem aufgelösten <a href="<?= rex_escape(rex_url::backendPage('ai_chat/profiles'), 'html_attr') ?>">Profil</a>
-      (AI Chat → Profile), nicht mehr aus globaler Konfiguration. Die Attribute auf dieser Demo-Seite zeigen
-      trotzdem die Web-Component-Schnittstelle selbst - dieselben Attribute setzt <code>boot.php</code> dann
-      automatisch aus dem Profil.
+      <strong>Seit dem Profil-Feature:</strong> Begrüßung, Prompt, Anrede/Personalisierung, Reset-Countdown/
+      Verlauf-kopieren, Folgefragen/Quellenanzeige und ob Chat/Suche überhaupt automatisch eingebunden werden,
+      kommen im echten Betrieb aus dem aufgelösten <a href="<?= rex_escape(rex_url::backendPage('ai_chat/profiles'), 'html_attr') ?>">Profil</a>
+      (AI Chat → Profile), nicht mehr aus globaler Konfiguration. Farben/Avatar/Eckenradius kommen aus dem
+      Profil zugewiesenen <a href="<?= rex_escape(rex_url::backendPage('ai_chat/themes'), 'html_attr') ?>">Theme</a>
+      (AI Chat → Themes). Die Attribute auf dieser Demo-Seite zeigen trotzdem die Web-Component-Schnittstelle
+      selbst - dieselben Attribute setzt <code>boot.php</code> dann automatisch aus dem Profil.
     </div>
   </div>
 </div>
@@ -136,7 +137,7 @@ if (!str_starts_with($apiUrl, 'http')) {
       <div class="panel-body">
         <p>
           Ist <code>stream-enabled="true"</code> gesetzt UND die globale Einstellung „Streaming" (AI Chat →
-          Verhalten) aktiv, baut sich die Antwort Wort für Wort auf statt auf einmal zu erscheinen -
+          Einstellungen → KI-Provider & Parameter) aktiv, baut sich die Antwort Wort für Wort auf statt auf einmal zu erscheinen -
           serverseitig per Server-Sent Events, providerübergreifend (außer <code>ai_platform</code>, siehe
           TODO.md). Ohne das Attribut bzw. bei deaktivierter globaler Einstellung liefert derselbe Chat die
           fertige Antwort in einem Stück, ohne Fehler oder Unterschied im Markup.
@@ -215,6 +216,8 @@ if (!str_starts_with($apiUrl, 'http')) {
             <tr><td><code>--ai-chat-text</code></td><td><code>#333</code></td><td>Standard-Textfarbe</td></tr>
             <tr><td><code>--ai-chat-header-bg</code></td><td><code>#f8f9fa</code></td><td>Hintergrund des Kopfbereichs</td></tr>
             <tr><td><code>--ai-chat-bot-msg-bg</code></td><td><code>#f1f3f5</code></td><td>Hintergrund für KI-Antworten</td></tr>
+            <tr><td><code>--ai-chat-bot-msg-text</code></td><td><code>--ai-chat-text</code></td><td>Textfarbe für KI-Antworten (fällt sonst auf <code>--ai-chat-text</code> zurück)</td></tr>
+            <tr><td><code>--ai-chat-user-msg-text</code></td><td><code>white</code></td><td>Textfarbe für Nutzer-Nachrichten</td></tr>
             <tr><td><code>--ai-chat-input-bg</code></td><td><code>white</code></td><td>Hintergrund des Eingabefeldes</td></tr>
             <tr><td><code>--ai-chat-input-text</code></td><td><code>#333</code></td><td>Textfarbe im Eingabefeld</td></tr>
             <tr><td><code>--ai-chat-input-border</code></td><td><code>#ddd</code></td><td>Rahmenfarbe des Eingabefeldes</td></tr>

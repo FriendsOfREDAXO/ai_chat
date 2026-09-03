@@ -163,6 +163,7 @@ ai_chat_config_index_addons_list = Addon Auswahl
 ai_chat_config_index_addons_section_notice = Diese Zusatzquelle (Addon-Docs, GitHub-Dokumentation) ist unabhängig von der gewählten Indexierungs-Quelle und wird immer berücksichtigt.
 ai_chat_index_title = Content Indexierung
 ai_chat_index_description = Hier können Sie den Content der Website indexieren lassen, damit der Chatbot darauf zugreifen kann.
+ai_chat_index_stats_by_source_type = Fundstellen je Quellentyp
 ai_chat_index_button = Jetzt indexieren
 ai_chat_index_background_button = Im Hintergrund indexieren
 ai_chat_index_background_button_notice = Prüfe Verfügbarkeit…
