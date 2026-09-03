@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Geändert (Profil-Formular logisch gruppiert)
+- Die Abschnitte auf der Profil-Bearbeitungsseite heißen jetzt „Allgemeine
+  Einstellungen" → „Sichtbarkeit" (Kontext, Sichtbar für, Zielgruppe/Domain/
+  Sprache, Chat/Suche automatisch einbinden) → „Individuelle Einstellungen
+  (Indizierung)" (Wissens-Scope, eigene Quellen) → „Verhalten" → „Theme" -
+  in genau der Reihenfolge, in der man ein Profil sinnvollerweise
+  durcharbeitet. Vorher hieß der Sichtbarkeits-Block „Kontext &
+  Sichtbarkeit", was leicht überlesen wurde.
+- Domain-/Sprach-Auswahl unter „Zielgruppe" verschwindet nicht mehr
+  ersatzlos, wenn nur eine Domain/Sprache konfiguriert ist (vorher: das
+  Auswahlfeld wurde komplett weggelassen, obwohl die Zielgruppen-Option
+  „Nur bestimmte Domains"/"-Sprachen" weiterhin wählbar blieb) - stattdessen
+  erscheint ein Hinweis, warum es dort nichts auszuwählen gibt.
+
 ### Neu (Systemcheck, zusammengeführt mit den Statistiken)
 - Die Statistik-Seite (jetzt Landing-Page von AI Chat) zeigt oben einen
   Systemcheck: PHP-/REDAXO-Version, PDF-Textextraktion (pdftotext vs.

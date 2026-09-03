@@ -136,9 +136,11 @@ if ('add' === $func || 'edit' === $func) {
         }
     }
 
-    // Allgemein
+    // Reihenfolge der Boxen entspricht bewusst der Reihenfolge, in der man ein Profil
+    // sinnvollerweise durcharbeitet: 1) benennen, 2) WER/WO es ueberhaupt sieht, 3) WAS es
+    // weiss, 4) WIE es antwortet, 5) WIE es aussieht.
     $form->addRawField('<div class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Allgemein</p>');
+    $form->addRawField('<p class="ai-chat-settings-box-title">Allgemeine Einstellungen</p>');
 
     $field = $form->addTextField('name');
     $field->setLabel('Name');
@@ -169,7 +171,8 @@ if ('add' === $func || 'edit' === $func) {
 
     // Kontext & Sichtbarkeit
     $form->addRawField('<div class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Kontext & Sichtbarkeit</p>');
+    $form->addRawField('<p class="ai-chat-settings-box-title">Sichtbarkeit</p>');
+    $form->addRawField('<p class="help-block" style="margin-top:-8px;">Wer dieses Profil überhaupt sehen kann, und wo (welche Domain/Sprache) bzw. ob Chat/Suche automatisch eingebunden werden.</p>');
 
     $field = $form->addSelectField('context');
     $field->setLabel('Kontext');
@@ -238,8 +241,8 @@ if ('add' === $func || 'edit' === $func) {
     if (rex_addon::get('yrewrite')->isAvailable() && class_exists('rex_yrewrite')) {
         $yrewriteDomains = rex_yrewrite::getDomains();
     }
+    $form->addRawField('<div id="ai-chat-profile-target-domains">');
     if (count($yrewriteDomains) > 1) {
-        $form->addRawField('<div id="ai-chat-profile-target-domains">');
         $domainField = $form->addSelectField('domains');
         $domainField->setLabel('Domains');
         $domainField->setAttribute('class', 'selectpicker');
@@ -250,12 +253,19 @@ if ('add' === $func || 'edit' === $func) {
         foreach ($yrewriteDomains as $domain) {
             $domainSelect->addOption($domain->getName() . ' (' . $domain->getHost() . ')', $domain->getName());
         }
-        $form->addRawField('</div>');
+    } else {
+        // Nicht einfach ausblenden: "Nur bestimmte Domains"/"Domains und Sprachen" bleiben
+        // im Zielgruppe-Select trotzdem waehlbar (die Auswahl ist unabhaengig von der
+        // aktuellen yrewrite-Konfiguration) - ohne diesen Hinweis wirkt eine gewaehlte
+        // Domain-Einschraenkung wie ein leeres, verschwundenes Feld statt einer bewussten
+        // Nicht-Verfuegbarkeit ("nur eine Domain vorhanden, es gibt nichts einzuschraenken").
+        $form->addRawField('<p class="help-block">Nur eine Domain konfiguriert (siehe AI Chat → yrewrite → Domains) - eine Domain-Einschränkung ist damit wirkungslos, es gibt nichts zum Auswählen.</p>');
     }
+    $form->addRawField('</div>');
 
     $allClangs = rex_clang::getAll();
+    $form->addRawField('<div id="ai-chat-profile-target-clangs">');
     if (count($allClangs) > 1) {
-        $form->addRawField('<div id="ai-chat-profile-target-clangs">');
         $clangField = $form->addSelectField('clangs');
         $clangField->setLabel('Sprachen');
         $clangField->setAttribute('class', 'selectpicker');
@@ -266,14 +276,16 @@ if ('add' === $func || 'edit' === $func) {
         foreach ($allClangs as $clang) {
             $clangSelect->addOption($clang->getName(), (string) $clang->getId());
         }
-        $form->addRawField('</div>');
+    } else {
+        $form->addRawField('<p class="help-block">Nur eine Sprache eingerichtet - eine Sprach-Einschränkung ist damit wirkungslos, es gibt nichts zum Auswählen.</p>');
     }
+    $form->addRawField('</div>');
     $form->addRawField('</div>'); // #ai-chat-profile-frontend-only
     $form->addRawField('</div>');
 
-    // Wissens-Scope
     $form->addRawField('<div class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Wissens-Scope</p>');
+    $form->addRawField('<p class="ai-chat-settings-box-title">Individuelle Einstellungen (Indizierung)</p>');
+    $form->addRawField('<p class="help-block" style="margin-top:-8px;">Was dieses Profil wissen darf, unabhängig davon, wer es sieht: gemeinsamer Wissens-Pool und/oder eigene Quellen (Sitemap, Struktur-Bereich, YForm-Tabellen, PDFs).</p>');
 
     // use_shared_scope und extra_source stehen bewusst direkt nebeneinander (statt
     // extra_source erst nach den YForm-/PDF-Feldern) - beide bestimmen zusammen den
