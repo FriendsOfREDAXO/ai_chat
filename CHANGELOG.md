@@ -2,6 +2,34 @@
 
 ## [1.1.0] - 2026-09-03
 
+### Geändert (Admin-Oberfläche: verständlicheres Wording, klarer wo eine Einstellung wirkt)
+- Durchgang über alle Einstellungs-/Profil-Seiten mit Fokus auf zwei Fragen: ist die
+  Formulierung auch für Admins ohne KI-Hintergrund verständlich, und ist immer klar, ob eine
+  Einstellung global oder nur für ein einzelnes Profil gilt? Ergebnis u.a.:
+  - „Eigene YForm-Quellen"/„Eigene PDF-Dokumente" heißen nicht mehr unbedingt „exklusiv" -
+    ist dieselbe Tabelle/Kategorie zusätzlich global aktiviert, wird sie doppelt indexiert;
+    das steht jetzt im Hinweistext, plus eine Live-Warnung im Profil-Formular bei YForm.
+  - „Gemeinsamer Wissens-Pool" verweist jetzt konsistent auf „alles unter Einstellungen →
+    Indexierung" statt einer unvollständigen Aufzählung einzelner Quellen.
+  - Die globalen Darstellung-Einstellungen erwähnen jetzt, dass ein Profil sie über seine
+    eigene „Theme"-Box vollständig überschreiben kann.
+  - Global „Indexierungs-Quelle" (Struktur/Sitemap) und die profil-eigene „Eigene Sitemap"
+    sind zwei komplett getrennte Mechanismen mit ähnlichem Namen - jetzt an beiden Stellen
+    als solche benannt statt stillschweigend nebeneinander zu existieren.
+  - YForm-Mappings heißen im UI jetzt „Mapping" statt „Profil" - kollidierte vorher
+    begrifflich mit den eigentlichen (Chat-Sichtbarkeits-)Profilen.
+  - Fehlende Hinweistexte ergänzt (Backend-Chat-Schalter, Reset-Countdown, Verlauf
+    kopieren/downloaden, Trigger-Reichweite), veraltete/irreführende korrigiert (der
+    „Scope-Switch"-Schalter steuert den Chat, nicht die „Suche", wie der alte Text
+    behauptete), interne Implementierungsdetails aus Admin-Texten entfernt (`TODO.md`,
+    `assets/i18n/`-Pfad).
+  - `addressing_mode`/`personalization_mode` je Profil waren NOT-NULL-Spalten mit
+    erzwungenem Default - „leer = globale Einstellung übernehmen" stand zwar im
+    Beschreibungstext der globalen Seite, konnte aber nie eintreten, da jedes Profil
+    immer einen eigenen konkreten Wert hatte. Beide Felder sind jetzt echt nullable mit
+    einer „Globale Einstellung übernehmen"-Option, die auch den aktuell aktiven globalen
+    Wert anzeigt.
+
 ### Behoben (Backend-Chat: Scope-Wechsel setzte das Gespräch nicht zurück)
 - Nach dem Umschalten des Backend-Chat-Fensters (z.B. von "Developer" auf ein Profil wie
   "Standard") beantwortete die KI weiterhin erkennbar im Kontext/Ton des vorherigen Scopes -
