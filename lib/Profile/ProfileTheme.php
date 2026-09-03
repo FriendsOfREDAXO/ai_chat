@@ -18,22 +18,22 @@ use rex_url;
  */
 final class ProfileTheme
 {
-    public static function resolvePrimaryColor(ChatProfile $profile, rex_addon_interface $addon): string
+    public static function resolvePrimaryColor(?ChatProfile $profile, rex_addon_interface $addon): string
     {
-        return self::firstValidHexColor($profile->themePrimaryColor, (string) $addon->getConfig('primary_color', '#007bff'))
+        return self::firstValidHexColor($profile?->themePrimaryColor, (string) $addon->getConfig('primary_color', '#007bff'))
             ?? '#007bff';
     }
 
-    public static function resolveAvatarUrl(ChatProfile $profile, rex_addon_interface $addon): string
+    public static function resolveAvatarUrl(?ChatProfile $profile, rex_addon_interface $addon): string
     {
-        $avatar = $profile->themeAvatar ?: $addon->getConfig('avatar');
+        $avatar = $profile?->themeAvatar ?: $addon->getConfig('avatar');
 
         return $avatar ? rex_url::media((string) $avatar) : '';
     }
 
-    public static function resolvePosition(ChatProfile $profile, rex_addon_interface $addon): string
+    public static function resolvePosition(?ChatProfile $profile, rex_addon_interface $addon): string
     {
-        $position = $profile->themePosition ?: (string) $addon->getConfig('position', 'bottom-right');
+        $position = $profile?->themePosition ?: (string) $addon->getConfig('position', 'bottom-right');
 
         return in_array($position, ['bottom-right', 'bottom-left'], true) ? $position : 'bottom-right';
     }
@@ -44,7 +44,7 @@ final class ProfileTheme
      * mit Selektor gesetzt werden - ein Inline-Attribut reicht, da pro Seite ohnehin nur ein
      * Frontend-Widget existiert). Nur valide Hex-Farben/Zahlen werden uebernommen.
      */
-    public static function buildInlineStyle(ChatProfile $profile, rex_addon_interface $addon): string
+    public static function buildInlineStyle(?ChatProfile $profile, rex_addon_interface $addon): string
     {
         $vars = [];
 
@@ -55,16 +55,16 @@ final class ProfileTheme
             }
         };
 
-        $addColorVar('--ai-chat-header-bg', $profile->themeHeaderBgColor, 'header_bg_color');
-        $addColorVar('--ai-chat-bg', $profile->themeChatBgColor, 'chat_bg_color');
-        $addColorVar('--ai-chat-text', $profile->themeTextColor, 'text_color');
-        $addColorVar('--ai-chat-bot-msg-bg', $profile->themeBotMessageBgColor, 'bot_message_bg_color');
+        $addColorVar('--ai-chat-header-bg', $profile?->themeHeaderBgColor, 'header_bg_color');
+        $addColorVar('--ai-chat-bg', $profile?->themeChatBgColor, 'chat_bg_color');
+        $addColorVar('--ai-chat-text', $profile?->themeTextColor, 'text_color');
+        $addColorVar('--ai-chat-bot-msg-bg', $profile?->themeBotMessageBgColor, 'bot_message_bg_color');
 
         // Bewusst KEIN ?: - PHP behandelt den String "0" als falsy, ein bewusst eingegebener
         // Eckenradius von 0 (eckige Ecken) wuerde damit wie "leer" behandelt und faelschlich
         // durch den globalen Wert ersetzt. Nur ein echter Leerstring bedeutet "globale
         // Einstellung".
-        $profileRadius = trim((string) $profile->themeBorderRadius);
+        $profileRadius = trim((string) $profile?->themeBorderRadius);
         $radius = '' !== $profileRadius ? $profileRadius : trim((string) $addon->getConfig('border_radius', ''));
         if ('' !== $radius && preg_match('/^\d{1,3}$/', $radius)) {
             $vars[] = '--ai-chat-radius:' . $radius . 'px';

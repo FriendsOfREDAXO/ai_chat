@@ -63,14 +63,19 @@ class ChatQueryService
             ? (bool) $addon->getConfig('frontend_search_enabled', true)
             : (bool) $addon->getConfig('frontend_enabled');
 
-        // Tri-State-Override je Profil (chat_enabled/search_enabled) beruecksichtigen -
-        // exakt dieselbe Logik wie boot.php's $showChat/$showSearch. Ohne das hier blockt
-        // dieser Endpoint eine Anfrage weiterhin ueber den globalen Schalter, obwohl
-        // boot.php das Widget wegen eines Profil-Force-On laengst injiziert hat: der
-        // Besucher saehe ein Chat-/Suchfeld, das bei jeder Anfrage leer antwortet. Kein
-        // aufgeloestes Profil = unveraendertes Verhalten, es gilt nur der globale Schalter.
-        $featureEnabled = null !== $profile
-            ? ($mode === 'search' ? ($profile->searchEnabled ?? $globalFeatureEnabled) : ($profile->chatEnabled ?? $globalFeatureEnabled))
+        // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, ist der globale
+        // Schalter komplett wirkungslos - exakt dieselbe Regel wie boot.php's
+        // $showChat/$showSearch (dort auch ausfuehrlicher kommentiert) und
+        // pages/settings.access.php (dort dann deaktiviert). Nur DIESES aufgeloeste Profil
+        // (chat_enabled/search_enabled, Standard: aktiv) entscheidet dann - kein Fallback
+        // mehr auf den globalen Wert, auch nicht bei leerem Tri-State. Ohne aktive Profile
+        // bleibt der globale Schalter die alleinige Instanz (Profile sind optional).
+        $hasFrontendProfiles = [] !== array_filter(
+            (new ProfileRepository())->getEnabled(),
+            static fn (ChatProfile $p): bool => $p->context !== 'backend',
+        );
+        $featureEnabled = $hasFrontendProfiles
+            ? (null !== $profile && ($mode === 'search' ? ($profile->searchEnabled ?? true) : ($profile->chatEnabled ?? true)))
             : $globalFeatureEnabled;
 
         if ($featureEnabled) {

@@ -9,6 +9,8 @@ use FriendsOfRedaxo\AiChat\Api\ReindexWorker as ApiReindexWorker;
 use FriendsOfRedaxo\AiChat\Api\RoutePackage\Backend\AiChat as ApiBackendAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\RoutePackage\AiChat as ApiAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\WidgetTranslations as ApiWidgetTranslations;
+use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
+use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileResolver;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
@@ -289,10 +291,24 @@ if (rex::isFrontend()) {
     $frontendProfile = $ipAllowed
         ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser())
         : null;
-    // Profil-Felder chat_enabled/search_enabled sind Tri-State (null = globale Einstellung
-    // entscheidet weiterhin, sonst erzwingt das Profil an/aus unabhaengig davon).
-    $showChat = null !== $frontendProfile && ($frontendProfile->chatEnabled ?? $frontendChatEnabled);
-    $showSearch = null !== $frontendProfile && ($frontendProfile->searchEnabled ?? $frontendSearchEnabled);
+
+    // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind die globalen
+    // Schalter komplett wirkungslos (siehe auch pages/settings.access.php, dort dann
+    // deaktiviert) - Profile sind dann fuer JEDE Anfrage die alleinige Instanz, unabhaengig
+    // davon, ob sie zu DIESEM Besucher passen (chat_enabled/search_enabled je Profil
+    // defaulten dabei auf "aktiv"). Ohne aktive Profile bleiben die globalen Schalter die
+    // alleinige Instanz - Profile sind optional. Identische Pruefung nochmal serverseitig
+    // in ChatQueryService::resolveFrontendAccessDenial().
+    $hasFrontendProfiles = [] !== array_filter(
+        (new ProfileRepository())->getEnabled(),
+        static fn (ChatProfile $profile): bool => $profile->context !== 'backend',
+    );
+    $showChat = $hasFrontendProfiles
+        ? (null !== $frontendProfile && ($frontendProfile->chatEnabled ?? true))
+        : $frontendChatEnabled;
+    $showSearch = $hasFrontendProfiles
+        ? (null !== $frontendProfile && ($frontendProfile->searchEnabled ?? true))
+        : $frontendSearchEnabled;
     $isTestingMode = null !== $frontendProfile && !in_array('visitor', $frontendProfile->viewerRoles, true);
 
     if ($showChat || $showSearch) {
@@ -349,11 +365,38 @@ if (rex::isFrontend()) {
             }
 
             // Config - Begrüßung, Personalisierung, Reset/Copy kommen jetzt aus dem
-            // aufgeloesten Profil statt aus globaler Config (siehe ChatProfile).
+            // aufgeloesten Profil statt aus globaler Config (siehe ChatProfile). Ohne
+            // Profil (Profile sind optional, siehe $hasFrontendProfiles oben) faellt jedes
+            // einzelne Feld auf sein globales Aequivalent zurueck statt auf einen Absturz
+            // durch Property-/Methodenaufruf auf null.
             $searchCurrentPageOnly = $addon->getConfig('frontend_search_current_page_only') ? 'true' : 'false';
-            $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+            // Explizite if/else statt verketteter ?->/?? - Eigenschaftszugriff auf ein
+            // null-Objekt via ?-> waere hier zwar unschaedlich (PHP wertet zu null aus,
+            // rex_logger sammelt aber trotzdem eine Warnung je Aufruf, was bei jedem
+            // Seitenaufruf ohne aufgeloestes Profil den Log fluten wuerde), daher lieber
+            // einmal klar verzweigen als $frontendProfile fuenfmal einzeln "vorsichtig" lesen.
+            if (null !== $frontendProfile) {
+                $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+                $frontendResetCountdown = $frontendProfile->chatResetCountdown;
+                $frontendCopyHistory = $frontendProfile->chatCopyHistory;
+                $personalization = '' !== $frontendProfile->personalizationMode ? $frontendProfile->personalizationMode : (string) $addon->getConfig('personalization_mode', 'off');
+                $profileIdAttrValue = $frontendProfile->id;
+                $uiLanguage = $frontendProfile->uiLanguage;
+            } else {
+                $greeting = (string) $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+                $frontendResetCountdown = 0;
+                $frontendCopyHistory = false;
+                $personalization = (string) $addon->getConfig('personalization_mode', 'off');
+                $profileIdAttrValue = 0;
+                $uiLanguage = 'de';
+            }
+            if ('' === $personalization) {
+                $personalization = 'off';
+            }
             // Darstellung: profil-eigene theme_*-Werte gehen vor der globalen Einstellung
             // (siehe ProfileTheme) - ermoeglicht z.B. unterschiedliches Branding je Domain.
+            // ProfileTheme::resolve*()/buildInlineStyle() akzeptieren bewusst ein nullbares
+            // Profil und fallen dann direkt auf die globale Einstellung zurueck.
             $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
             $primaryColor = ProfileTheme::resolvePrimaryColor($frontendProfile, $addon);
             $mode = $addon->getConfig('frontend_mode', 'bubble');
@@ -365,13 +408,8 @@ if (rex::isFrontend()) {
             // anonyme Besucher ist also ungefaehrlich, nur je nach Website ggf. unerwuenschte UX.
             $allowSwitch = $addon->getConfig('frontend_allow_scope_switch') ? 'true' : 'false';
             $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendProfile, $addon);
-            $frontendResetCountdown = $frontendProfile->chatResetCountdown;
-            $frontendCopyHistory = $frontendProfile->chatCopyHistory;
             $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
             $frontendCopyAttr = $frontendCopyHistory ? ' copy-history="true"' : '';
-
-            $personalization = $frontendProfile->personalizationMode;
-            if ($personalization === '') $personalization = 'off';
 
             // Theme: profil-eigene Farben/Radius gehen vor der globalen Darstellung-
             // Einstellung (siehe ProfileTheme) - als CSS-Custom-Properties direkt im
@@ -396,8 +434,8 @@ if (rex::isFrontend()) {
                 $streamEnabledAttr,
                 (int) $addon->getConfig('max_message_length_frontend', 2000),
                 (int) $addon->getConfig('max_message_length_backend', 20000),
-                $frontendProfile->id,
-                rex_escape($frontendProfile->uiLanguage, 'html_attr'),
+                $profileIdAttrValue,
+                rex_escape($uiLanguage, 'html_attr'),
                 $frontendResetAttr,
                 $frontendCopyAttr,
                 $styleAttr

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Geändert (Profile ersetzen die globalen Sichtbarkeits-Schalter vollständig)
+- Sobald mindestens ein aktives, frontend-fähiges Profil existiert, sind die globalen
+  Schalter „Chat im Frontend anzeigen"/„Suche im Frontend aktivieren" komplett
+  wirkungslos und in den Einstellungen entsprechend deaktiviert – jedes Profil
+  entscheidet dann eigenständig über die Felder „Chat/Suche automatisch einbinden"
+  (Standard dort: aktiv, kein „globale Einstellung entscheidet" mehr). Ohne aktive
+  Profile bleiben die globalen Schalter die alleinige Instanz – Profile sind
+  weiterhin komplett optional. Vorher konnten globaler Schalter und Profil
+  gleichzeitig um dieselbe Entscheidung „konkurrieren", was zu widersprüchlichem
+  Verhalten führte (Chat/Suche mal an, mal aus, je nachdem welche Einstellung
+  zuletzt geändert wurde).
+- `ProfileTheme::resolve*()`/`buildInlineStyle()` akzeptieren jetzt ein nullbares
+  Profil und fallen dann direkt auf die globale Darstellung zurück – nötig, damit
+  der Fall „keine aktiven Profile" (reiner globaler Fallback) nicht auf einen
+  Methodenaufruf mit `null` crasht.
+
 ### Neu (PDF-/Dokument-Indexierung aus dem Medienpool)
 - Profile können jetzt PDF-Dateien aus dem Medienpool indexieren – einzeln ausgewählte
   Dokumente und/oder ganze Medienpool-Kategorien, exklusiv für das jeweilige Profil (kein

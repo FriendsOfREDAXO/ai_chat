@@ -198,25 +198,27 @@ if ('add' === $func || 'edit' === $func) {
     // Profil mit Kontext "Backend" blendet JS diesen ganzen Block aus.
     $form->addRawField('<div id="ai-chat-profile-frontend-only">');
 
-    // Tri-State statt einfachem Ja/Nein: "Globale Einstellung" übernimmt weiterhin
-    // frontend_enabled/frontend_search_enabled (AI Chat → Zugriff), die beiden anderen
-    // Optionen erzwingen es für dieses Profil unabhängig davon an/aus - z.B. ein Profil mit
-    // reiner Suche ohne Chat-Bubble, während die globale Einstellung beides erlaubt.
+    // Sobald mindestens ein aktives Profil existiert, sind die globalen Schalter
+    // (AI Chat → Zugriff) komplett wirkungslos und dort auch deaktiviert - Profile sind
+    // dann die alleinige Instanz. "Standard" (leer) bedeutet deshalb "aktiv", nicht mehr
+    // "globale Einstellung entscheidet" - siehe boot.php $showChat/$showSearch und
+    // ChatQueryService::resolveFrontendAccessDenial(). "Ja"/"Nein" bleiben fuer den Fall,
+    // ein Profil soll trotzdem NUR die Suche ohne Chat-Bubble zeigen o.ae.
     $field = $form->addSelectField('chat_enabled');
     $field->setLabel('Chat automatisch einbinden');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung', '');
-    $select->addOption('Ja', '1');
-    $select->addOption('Nein', '0');
-    $field->setNotice('Überschreibt für dieses Profil die globale "Chat im Frontend anzeigen"-Einstellung.');
+    $select->addOption('Standard (aktiv)', '');
+    $select->addOption('Ja (erzwungen)', '1');
+    $select->addOption('Nein (deaktiviert)', '0');
+    $field->setNotice('Solange mindestens ein aktives Profil existiert, hat die globale "Chat im Frontend anzeigen"-Einstellung keine Wirkung mehr - dieses Feld entscheidet dann allein. Ohne aktive Profile gilt stattdessen wieder ausschließlich die globale Einstellung.');
 
     $field = $form->addSelectField('search_enabled');
     $field->setLabel('Suche automatisch einbinden');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung', '');
-    $select->addOption('Ja', '1');
-    $select->addOption('Nein', '0');
-    $field->setNotice('Überschreibt für dieses Profil die globale "Suche im Frontend aktivieren"-Einstellung.');
+    $select->addOption('Standard (aktiv)', '');
+    $select->addOption('Ja (erzwungen)', '1');
+    $select->addOption('Nein (deaktiviert)', '0');
+    $field->setNotice('Solange mindestens ein aktives Profil existiert, hat die globale "Suche im Frontend aktivieren"-Einstellung keine Wirkung mehr - dieses Feld entscheidet dann allein. Ohne aktive Profile gilt stattdessen wieder ausschließlich die globale Einstellung.');
 
     $field = $form->addSelectField('target_mode');
     $field->setLabel($tooltipLabel('Zielgruppe', 'config_profile_target_mode_notice'));
