@@ -3,18 +3,24 @@
 namespace FriendsOfRedaxo\AiChat\ContentProvider;
 
 use FriendsOfRedaxo\AiChat\Service\PdfTextExtractor;
+use rex;
 use rex_addon;
+use rex_form_base;
 use rex_media;
+use rex_media_category_select;
 use rex_path;
+use rex_sql;
 use Smalot\PdfParser\Parser;
 
 /**
- * Indexiert PDF-Dokumente aus dem Medienpool - bewusst rein profil-exklusiv
- * (siehe ChatProfile::$pdfMediaIds/$pdfCategoryIds), kein Beitrag zum
- * geteilten Shared-Pool (collectTasks() liefert daher immer []). Ein Profil
- * waehlt konkrete Dateien und/oder Medienpool-Kategorien; die eigentliche
- * Aufloesung der Kategorien zu Dateinamen passiert in
- * IndexerService::collectProfileTasks().
+ * Indexiert PDF-Dokumente aus dem Medienpool - sowohl global (eigene Auswahl
+ * in den Indexierung-Einstellungen, traegt zum geteilten Shared Pool bei) als
+ * auch profil-exklusiv (ChatProfile::$pdfMediaIds/$pdfCategoryIds, siehe
+ * IndexerService::collectProfileTasks()). Beide Ebenen nutzen dieselbe
+ * Feld-Struktur (Dateien + Kategorien, siehe renderSourceFields()) - es gibt
+ * bewusst kein separates "Provider aktivieren"-Haekchen dafuer (siehe
+ * ContentProviderRegistry/pages/settings.indexing.php): die Auswahl selbst
+ * IST die Aktivierung, leer bedeutet nichts indexieren.
  */
 final class MediaPoolContentProvider implements ContentProviderInterface
 {
@@ -64,11 +70,118 @@ final class MediaPoolContentProvider implements ContentProviderInterface
     }
 
     /**
+     * Globale PDF-Auswahl (pages/settings.indexing.php) - traegt zum geteilten
+     * Shared Pool bei. Liefert [], solange dort keine Dateien/Kategorien gewaehlt
+     * sind (kein separates Aktivieren-Haekchen noetig, siehe Klassenkommentar).
+     *
      * @return list<array<string, mixed>>
      */
     public function collectTasks(): array
     {
-        return [];
+        if (!$this->isAvailable()) {
+            return [];
+        }
+
+        $addon = rex_addon::get('ai_chat');
+        $mediaIds = self::decodeCommaList((string) $addon->getConfig('pdf_media_ids'));
+        $categoryIds = self::decodeIntList((string) $addon->getConfig('pdf_category_ids'));
+
+        if ([] === $mediaIds && [] === $categoryIds) {
+            return [];
+        }
+
+        $filenames = $mediaIds;
+        if ([] !== $categoryIds) {
+            $filenames = array_merge($filenames, $this->resolveFilenamesForCategories($categoryIds));
+        }
+
+        return $this->collectTasksForKeys(array_values(array_unique($filenames)));
+    }
+
+    /**
+     * Dateinamen aller PDF-Dateien in den angegebenen Medienpool-Kategorien
+     * (nicht rekursiv - jede gewuenschte Kategorie muss einzeln gewaehlt werden).
+     * Gemeinsam genutzt von collectTasks() (global) und
+     * IndexerService::collectProfileTasks() (je Profil).
+     *
+     * @param list<int> $categoryIds
+     * @return list<string>
+     */
+    public function resolveFilenamesForCategories(array $categoryIds): array
+    {
+        if ([] === $categoryIds || !class_exists(rex_media::class)) {
+            return [];
+        }
+
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray(
+            'SELECT filename FROM ' . rex::getTable('media') . ' WHERE category_id IN (' . implode(',', array_fill(0, count($categoryIds), '?')) . ') AND filetype = ?',
+            [...$categoryIds, 'application/pdf'],
+        );
+
+        $filenames = [];
+        foreach ($rows as $row) {
+            $filenames[] = (string) $row['filename'];
+        }
+
+        return $filenames;
+    }
+
+    /**
+     * Rendert die beiden PDF-Auswahlfelder (Dateien + Kategorien) - identisches
+     * Muster fuer globale Einstellungen (pages/settings.indexing.php) und Profile
+     * (pages/profiles.php), damit wer eines der beiden kennt das andere sofort
+     * wiedererkennt. $form ist bewusst rex_form_base (Basisklasse von rex_form
+     * UND rex_config_form), damit beide Aufrufer dieselbe Methode nutzen koennen.
+     */
+    public static function renderSourceFields(
+        rex_form_base $form,
+        string $mediaFieldName,
+        string $mediaLabel,
+        string $mediaNotice,
+        string $categoryFieldName,
+        string $categoryLabel,
+        string $categoryNotice,
+    ): void {
+        $field = $form->addMedialistField($mediaFieldName);
+        $field->setLabel($mediaLabel);
+        $field->setNotice($mediaNotice);
+
+        $field = $form->addSelectField($categoryFieldName);
+        $field->setLabel($categoryLabel);
+        $field->setNotice($categoryNotice);
+        $field->setAttribute('class', 'selectpicker');
+        $field->setAttribute('data-actions-box', 'true');
+        $mediaCategorySelect = new rex_media_category_select();
+        $mediaCategorySelect->setMultiple();
+        $field->setSelect($mediaCategorySelect);
+    }
+
+    /**
+     * rex_form_base::addMedialistField() speichert komma-getrennt, nicht im sonst
+     * ueblichen Pipe-Format - siehe rex_var_medialist im mediapool-Addon. Gleiches
+     * Format fuer die globale Config wie fuer ChatProfile::decodeCommaList().
+     *
+     * @return list<string>
+     */
+    private static function decodeCommaList(string $raw): array
+    {
+        $trimmed = trim($raw, ',');
+
+        return '' === $trimmed ? [] : array_values(array_filter(explode(',', $trimmed), static fn (string $v): bool => '' !== $v));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function decodeIntList(string $raw): array
+    {
+        $trimmed = trim($raw, '|');
+        if ('' === $trimmed) {
+            return [];
+        }
+
+        return array_map('intval', array_values(array_filter(explode('|', $trimmed), static fn (string $v): bool => '' !== $v)));
     }
 
     /**

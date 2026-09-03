@@ -225,6 +225,19 @@ class IndexerService
             }
         }
 
+        // 4b. PDF-Dokumente aus dem Medienpool (global konfiguriert, siehe
+        // pages/settings.indexing.php) - bewusst NICHT ueber getEnabledProviders()
+        // oben, da die Auswahl selbst (Dateien/Kategorien) die Aktivierung ist,
+        // kein separates Checkbox-"aktivieren" noetig - exakt dasselbe Muster wie
+        // bei der profil-eigenen PDF-Auswahl unten in collectProfileTasks().
+        // MediaPoolContentProvider::collectTasks() liefert von sich aus [], wenn
+        // global keine PDFs konfiguriert sind.
+        try {
+            $tasks = array_merge($tasks, (new MediaPoolContentProvider())->collectTasks());
+        } catch (\Throwable $e) {
+            \rex_logger::logException($e);
+        }
+
         // 5. Profil-eigene Quellen (YForm-Auswahl/Sitemap/Mountpoint je Profil) -
         // zusaetzlich zum obigen Shared Pool, mit chat_profile_id markiert.
         $tasks = array_merge($tasks, $this->collectProfileTasks());
@@ -261,13 +274,13 @@ class IndexerService
             }
 
             if ([] !== $profile->pdfMediaIds || [] !== $profile->pdfCategoryIds) {
+                $mediaProvider = new MediaPoolContentProvider();
                 $filenames = $profile->pdfMediaIds;
                 if ([] !== $profile->pdfCategoryIds) {
-                    $filenames = array_merge($filenames, $this->resolvePdfFilenamesForCategories($profile->pdfCategoryIds));
+                    $filenames = array_merge($filenames, $mediaProvider->resolveFilenamesForCategories($profile->pdfCategoryIds));
                 }
 
                 if ([] !== $filenames) {
-                    $mediaProvider = new MediaPoolContentProvider();
                     foreach ($mediaProvider->collectTasksForKeys(array_values(array_unique($filenames))) as $task) {
                         $task['chat_profile_id'] = $profile->id;
                         $tasks[] = $task;
@@ -311,34 +324,6 @@ class IndexerService
         }
 
         return $tasks;
-    }
-
-    /**
-     * Dateinamen aller PDF-Dateien in den angegebenen Medienpool-Kategorien
-     * (nicht rekursiv - jede gewünschte Kategorie muss vom Profil einzeln
-     * gewählt werden, siehe pages/profiles.php).
-     *
-     * @param list<int> $categoryIds
-     * @return list<string>
-     */
-    private function resolvePdfFilenamesForCategories(array $categoryIds): array
-    {
-        if (!class_exists(\rex_media::class)) {
-            return [];
-        }
-
-        $sql = rex_sql::factory();
-        $rows = $sql->getArray(
-            'SELECT filename FROM ' . \rex::getTable('media') . ' WHERE category_id IN (' . implode(',', array_fill(0, count($categoryIds), '?')) . ') AND filetype = ?',
-            [...$categoryIds, 'application/pdf'],
-        );
-
-        $filenames = [];
-        foreach ($rows as $row) {
-            $filenames[] = (string) $row['filename'];
-        }
-
-        return $filenames;
     }
 
     /**

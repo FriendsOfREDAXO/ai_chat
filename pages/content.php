@@ -197,13 +197,14 @@ if ($allProviders !== []) {
     $content .= '<p><strong>Verfügbare Content-Provider</strong></p>';
     $content .= '<ul>';
     foreach ($allProviders as $provider) {
-        // "mediapool" traegt nie zum Shared Pool bei (siehe MediaPoolContentProvider::
-        // collectTasks(), rein profil-exklusiv per Design) - "aktiv"/"deaktiviert" waere
-        // hier irrefuehrend, da der Schalter unten fuer diesen Provider gar keine Wirkung
-        // hat. Stattdessen auf die Profile-Seite verweisen, wo die eigentliche Auswahl
-        // (Dateien/Kategorien je Profil) passiert.
+        // "mediapool" hat kein Haekchen in der Content-Provider-Liste (siehe
+        // pages/settings.indexing.php) - die PDF-/Kategorie-Auswahl dort IST die
+        // Aktivierung, global wie je Profil. "aktiv" bedeutet hier deshalb: global
+        // ist mindestens eine Datei/Kategorie gewaehlt.
         if ('mediapool' === $provider->getKey()) {
-            $state = 'je Profil, siehe AI Chat → Profile';
+            $hasGlobalPdfSelection = '' !== trim((string) $addon->getConfig('pdf_media_ids'))
+                || '' !== trim((string) $addon->getConfig('pdf_category_ids'));
+            $state = $hasGlobalPdfSelection ? 'aktiv' : 'deaktiviert (siehe auch AI Chat → Profile für profil-eigene PDFs)';
         } else {
             $isEnabled = in_array($provider->getKey(), $enabledProviders, true);
             $state = $isEnabled ? 'aktiv' : 'deaktiviert';

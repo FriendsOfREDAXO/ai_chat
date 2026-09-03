@@ -1,5 +1,6 @@
 <?php
 
+use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
@@ -386,18 +387,15 @@ if ('add' === $func || 'edit' === $func) {
     }
 
     if (rex_addon::get('mediapool')->isAvailable()) {
-        $field = $form->addMedialistField('pdf_media_ids');
-        $field->setLabel('Eigene PDF-Dokumente');
-        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.');
-
-        $field = $form->addSelectField('pdf_category_ids');
-        $field->setLabel('PDFs aus Medienpool-Kategorien');
-        $field->setNotice('Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.');
-        $field->setAttribute('class', 'selectpicker');
-        $field->setAttribute('data-actions-box', 'true');
-        $mediaCategorySelect = new rex_media_category_select();
-        $mediaCategorySelect->setMultiple();
-        $field->setSelect($mediaCategorySelect);
+        MediaPoolContentProvider::renderSourceFields(
+            $form,
+            'pdf_media_ids',
+            'Eigene PDF-Dokumente',
+            'Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
+            'pdf_category_ids',
+            'PDFs aus Medienpool-Kategorien',
+            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.',
+        );
     }
 
     $form->addRawField('</div>');

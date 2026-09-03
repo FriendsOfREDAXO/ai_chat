@@ -1,5 +1,6 @@
 <?php
 
+use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\Db\VectorCapability;
 
 require __DIR__ . '/settings.shared.php';
@@ -222,6 +223,21 @@ if (isset($availableProviders['forcal'])) {
 if (isset($availableProviders['yform'])) {
 
     $form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_yform_provider_profiles_notice') . ' <a href="' . rex_url::backendPage('ai_chat/yform') . '">YForm-Mappings öffnen</a></p>');
+}
+
+// Wie bei den Profilen (pages/profiles.php): kein Haekchen in der Liste oben, die Auswahl
+// selbst (Dateien/Kategorien) ist die Aktivierung - siehe MediaPoolContentProvider-Klassenkommentar.
+$mediaPoolProvider = $providerRegistry->getProvider('mediapool');
+if (null !== $mediaPoolProvider && $mediaPoolProvider->isAvailable()) {
+    MediaPoolContentProvider::renderSourceFields(
+        $form,
+        'pdf_media_ids',
+        'PDF-Dokumente',
+        'Zusätzlich zur Struktur-/Sitemap-Indexierung in den gemeinsamen Wissens-Pool aufgenommene PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
+        'pdf_category_ids',
+        'PDFs aus Medienpool-Kategorien',
+        'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten in den Wissens-Pool aufgenommen.',
+    );
 }
 
 if (rex_addon::exists('knowledgebase') && !rex_addon::get('knowledgebase')->isAvailable()) {

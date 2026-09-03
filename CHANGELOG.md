@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Neu (Globale PDF-Indexierung, gleichwertig zur profil-eigenen)
+- Die Indexierung-Einstellungen (AI Chat → Indexierung & Chunking) haben jetzt
+  dieselben zwei PDF-Auswahlfelder wie ein Profil („PDF-Dokumente" +
+  „PDFs aus Medienpool-Kategorien") – global ausgewählte PDFs tragen zum
+  gemeinsamen Wissens-Pool bei, exakt nach demselben Muster wie die
+  profil-exklusive Auswahl. Kein separates Aktivieren-Häkchen in der
+  „Content-Provider aktivieren"-Liste – wie beim Profil ist die Auswahl selbst
+  die Aktivierung.
+- `MediaPoolContentProvider` ist damit kein rein profil-exklusiver Provider mehr;
+  `renderSourceFields()` rendert die beiden Felder für globale Einstellungen UND
+  Profile aus derselben Stelle, damit beide nie auseinanderlaufen.
+
 ### Geändert (Profile ersetzen die globalen Sichtbarkeits-Schalter vollständig)
 - Sobald mindestens ein aktives, frontend-fähiges Profil existiert, sind die globalen
   Schalter „Chat im Frontend anzeigen"/„Suche im Frontend aktivieren" komplett
