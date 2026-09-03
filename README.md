@@ -31,10 +31,21 @@ Ein Profil bestimmt drei Dinge gleichzeitig: **wer** den Chat/die Suche sieht, *
 - **Sichtbarkeit**: Kontext (Frontend, Backend-Developer-Chat oder beides), Rolle (Besucher, angemeldete Redakteure, Admins) und Zielgruppe (alle, bestimmte Domains, bestimmte Sprachen, oder beides). Passen mehrere Profile auf dieselbe Anfrage, gewinnt die höhere Priorität.
 - **Wissens-Scope**: Neben dem globalen „Shared Pool" (die normale Indexierung aus den Einstellungen) kann jedes Profil zusätzlich eigene Quellen mitbringen – ausgewählte YForm-Tabellen, eine eigene Sitemap oder ein Struktur-Mountpoint. Ein Profil kann den Shared Pool zusätzlich nutzen oder komplett isoliert nur seine eigenen Quellen sehen.
 - **Prompt, Anrede, Antwortsprache**: Ein eigener System-Prompt ersetzt bei Bedarf die globale Einstellung. Anrede (Du/Sie/neutral/automatisch per Personalisierungsdialog) und Antwortsprache lassen sich je Profil festlegen – Letztere unabhängig von der Oberflächen-Sprache des Widgets, leer = weiterhin Deutsch.
-- **Theme**: Akzentfarbe, Kopfzeile-/Chat-/Text-/Bot-Sprechblasen-Hintergrund, Eckenradius, Position und Avatar lassen sich je Profil überschreiben. Leer gelassene Felder übernehmen automatisch die global konfigurierte Optik – die Backend-Bearbeitungsseite zeigt dafür direkt die aufgelöste globale Farbe an, kein irreführendes Schwarz bei leeren Feldern.
-- **Live-Vorschau**: Jede Profil-Seite zeigt ein echtes, an genau dieses Profil gebundenes Test-Widget – Theme-Änderungen erscheinen dort sofort beim Tippen, noch vor dem Speichern.
+- **Theme**: statt eigener Farbfelder wählt ein Profil nur noch ein zentral unter „AI Chat → Themes" gepflegtes Theme aus einem Dropdown (siehe Einzelfeature „Zentrale Theme-Verwaltung" unten) – leer = globales Standard-Theme. Die Widget-Position (unten rechts/links) bleibt davon unabhängig und weiterhin ein eigenes Profil-Override.
+- **Folgefragen/Quellenanzeige**: „Vorgeschlagene Folgefragen anzeigen" und „Quellen/Links in Antworten anzeigen" lassen sich ebenfalls je Profil auf „An"/"Aus" erzwingen statt nur global zu gelten – z. B. um bei einem reinen FAQ-Profil Folgefragen abzuschalten, ohne das für alle anderen Profile mit zu ändern.
+- **Live-Vorschau**: Jede Profil-Seite zeigt ein echtes, an genau dieses Profil gebundenes Test-Widget mit dem aktuell gespeicherten Stand (Theme, Prompt, Begrüßung, …).
 
 Ein Standard-Profil (alle Domains/Sprachen, alle Rollen) wird bei der Installation automatisch angelegt, sodass Chat und Suche ohne weitere Konfiguration sofort funktionieren.
+
+### Zentrale Theme-Verwaltung
+
+Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet „AI Chat → Themes" beliebig viele benannte, wiederverwendbare Themes an einer Stelle – ein Profil wählt nur noch eines davon aus, mehrere Profile können sich dasselbe Theme teilen, eine Änderung dort wirkt automatisch überall, wo es zugewiesen ist. Ohne Auswahl gilt das als „Standard" markierte, globale Theme.
+
+- **Alpha-fähiger Colorpicker** (Hex-Eingabe, Farbfläche/Regler, Voreinstellungen) statt des nativen, transparenzlosen `<input type="color">` – Farben können jetzt auch teiltransparent sein (z. B. `#007bffcc`).
+- **Eigene Textfarben für Bot- und Nutzer-Sprechblase**, unabhängig von der Kopfzeilen-Textfarbe – wichtig z. B. bei einer hellen Akzentfarbe (weißer Text darauf ist kaum lesbar) oder einem bewusst dunkel gehaltenen Theme.
+- **Eingabefeld-Theming** (Hintergrund/Textfarbe/Rahmen), damit das Eingabefeld bei einem dunklen Theme nicht wie ein vergessenes, weiß gebliebenes UI-Element wirkt.
+- **Live-Vorschau mit der echten Chat-Komponente**: die Vorschau bettet dieselbe `<ai-chat>`-Webcomponente ein, die auch im echten Betrieb läuft (nicht nachgebaut) – sieht dadurch exakt wie der spätere Chat aus und bleibt automatisch korrekt, auch wenn sich das Widget-Design künftig ändert.
+- Die Widget-Position (unten rechts/links) ist bewusst **kein** Theme-Bestandteil, sondern bleibt ein eigenes, unabhängiges Override – global und je Profil.
 
 ### Suche
 
@@ -51,7 +62,7 @@ Ein Standard-Profil (alle Domains/Sprachen, alle Rollen) wird bei der Installati
 - Automatisch als Bubble eingebunden oder wahlweise „ohne Bubble" an einem selbst platzierten Trigger-Element (Klasse/ID `aichat`) – klappt automatisch nach oben oder unten auf, je nach verfügbarem Platz
 - Personalisierung (Du/Sie erfragen, optional mit Namen) und konfigurierbare Anrede
 - Reset-Countdown mit sichtbarer Anzeige, optionales Kopieren/Herunterladen des Verlaufs
-- SSE-Streaming für laufend eintreffende Antworten statt einer Wartezeit bis zum kompletten Text (siehe Server-Voraussetzungen weiter unten)
+- SSE-Streaming für laufend eintreffende Antworten statt einer Wartezeit bis zum kompletten Text (siehe Server-Voraussetzungen weiter unten) – rein global, gilt gleichermaßen für alle Profile
 - Quellenangaben unter der Antwort, mit Schwellenwerten gegen offensichtlich unpassende Links
 
 ### Indexierung
@@ -148,7 +159,16 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick j
 
 ### Wichtige Settings
 
-Global konfigurierbar sind unter anderem: Frontend/Backend aktiviert, Reset-Countdown und Copy-Button je Scope, Suche nur auf aktuelle Seite begrenzt, Personalisierung/Anrede als globaler Standard, öffentlicher API-Endpunkt, Indexierungsquellen und aktivierte Content-Provider. Vieles davon lässt sich zusätzlich je Profil überschreiben (siehe Einzelfeature „Profile" oben).
+Die Backend-Navigation trennt bewusst drei Ebenen: **Themes** (zentrale Farb-/Avatar-Verwaltung, siehe oben), **Hauptprofil** (Fallback-Werte für Verhalten/Antworten und Erscheinungsbild/Suche, überschreibbar je Profil) und **Einstellungen** (rein instanzweite, nicht profilspezifische Konfiguration):
+
+- **Zugriff & Sicherheit**: Frontend/Backend aktiviert, öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter, sowie ein **Testmodus** über eine IP-Whitelist – gesetzt, ist Chat/Suche im Frontend serverseitig nur für diese IPs sichtbar (für alle anderen komplett gesperrt) und hebt für sie zusätzlich die „Sichtbar für"-Einschränkung einzelner Profile auf, praktisch um die gesamte Website unkompliziert nur für sich selbst in einen Testmodus zu versetzen.
+- **KI-Provider & Parameter**: Provider-Auswahl/Zugangsdaten, Verbindungstest, Timeout/Temperature/Token-Limit sowie das (rein globale) SSE-Streaming.
+- **Indexierungs-Quellen**: welche Quellen überhaupt in den gemeinsamen Wissens-Pool aufgenommen werden.
+- **Systemcheck**: Server-/Voraussetzungs-Diagnose (PHP-/REDAXO-Version, PDF-Extraktion, Hintergrund-Indexierung, native Vektorsuche, KI-Provider) an einer Stelle statt verstreuter Fehlermeldungen.
+- **Chunking & Retrieval**: Chunking-Größe/Overlap, RAG-Kandidatenfenster, Antwort-Cache/FAQ-Vorcaching – gilt für alle Quellen und Profile gleichermaßen.
+- **YForm-Tabellen**: Mappings, welche YForm-Tabellen wie indexiert werden.
+
+Vieles davon lässt sich zusätzlich je Profil überschreiben (siehe Einzelfeature „Profile" oben).
 
 ### SSE-Streaming: Server-Voraussetzungen
 

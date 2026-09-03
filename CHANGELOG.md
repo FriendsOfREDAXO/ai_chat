@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] - 2026-09-03
 
 ### Behoben (Indexierung-Seite: doppelte Buttons, komplett überarbeitetes Design)
 - Die Buttons "Jetzt indexieren"/"Im Hintergrund indexieren"/"Refresh"/"Abbrechen" standen
