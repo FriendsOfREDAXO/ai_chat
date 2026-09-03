@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Geändert (YForm-Mapping: URL-Profil als Auswahl statt Freitext)
+- „URL-Profil" (der Namespace fürs url-Addon) ist jetzt ein Auswahlfeld mit
+  den tatsächlich registrierten URL-Profilen statt eines Freitextfelds -
+  verhindert Tippfehler und zeigt nur existierende Profile. Fällt auf ein
+  Textfeld zurück, wenn das url-Addon nicht verfügbar ist oder keine
+  Profile registriert hat, damit ein bereits gespeicherter Namespace nicht
+  einfach verschwindet.
+
 ### Geändert (YForm-Mapping: URL-Modus zeigt nur das passende Feld)
 - „URL-Feld", „URL-Profil" und „URL-Template" standen bisher immer alle drei
   gleichzeitig nebeneinander, obwohl sich der gewählte „URL-Modus" für genau

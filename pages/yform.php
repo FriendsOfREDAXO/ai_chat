@@ -46,6 +46,26 @@ if (class_exists(rex_yform_manager_table::class)) {
 }
 ksort($availableTables);
 
+// "URL-Profil" bezeichnet einen Namespace des url-Addons (rex_getUrl($namespace, ...)) -
+// als Auswahl statt Freitext, damit man sich nicht auf die exakte Schreibweise verlassen
+// muss und nur tatsaechlich existierende Profile waehlen kann.
+$urlProfileOptions = [];
+if (class_exists(\Url\Profile::class)) {
+    try {
+        foreach (\Url\Profile::getAll() as $urlProfile) {
+            $namespace = trim((string) $urlProfile->getNamespace());
+            if ('' === $namespace) {
+                continue;
+            }
+
+            $urlProfileOptions[$namespace] = $namespace . ' (' . $urlProfile->getTableName() . ')';
+        }
+    } catch (Throwable) {
+        $urlProfileOptions = [];
+    }
+}
+ksort($urlProfileOptions);
+
 $assetVersion = static function (string $assetName) use ($addon): string {
     $path = $addon->getPath('assets/' . $assetName);
     return is_file($path) ? (string) filemtime($path) : '1';
@@ -93,6 +113,26 @@ $renderColumnSelect = static function (string $profileKey, string $fieldName, st
     $name = $explicitName ?? ('profiles[' . $profileKey . '][' . $fieldName . ']');
 
     return '<select class="form-control js-column-select" data-profile-key="' . rex_escape($profileKey) . '" data-allow-empty="' . ($allowEmpty ? '1' : '0') . '" data-empty-label="' . rex_escape($placeholder) . '" data-current-value="' . rex_escape($currentValue) . '" name="' . rex_escape($name) . '">' . $options . '</select>';
+};
+
+// Select statt Freitext, wenn das url-Addon verfuegbar ist und Profile registriert hat -
+// verhindert Tippfehler beim Namespace und zeigt nur tatsaechlich existierende Profile.
+// Faellt auf ein Textfeld zurueck, wenn keine Profile bekannt sind (z.B. url-Addon nicht
+// installiert), damit ein bereits gespeicherter Namespace nicht "verschwindet".
+$renderUrlProfileField = static function (string $profileKey, string $currentValue) use ($renderOptions, $urlProfileOptions): string {
+    $name = 'profiles[' . $profileKey . '][url_profile]';
+
+    if ([] === $urlProfileOptions) {
+        return '<input class="form-control" type="text" name="' . rex_escape($name) . '" value="' . rex_escape($currentValue) . '" placeholder="news">';
+    }
+
+    $options = '';
+    if ($currentValue !== '' && !isset($urlProfileOptions[$currentValue])) {
+        $options .= '<option value="' . rex_escape($currentValue) . '" selected>' . rex_escape($currentValue) . ' (nicht gefunden)</option>';
+    }
+    $options .= $renderOptions($urlProfileOptions, $currentValue, '— URL-Profil wählen —', true);
+
+    return '<select class="form-control" name="' . rex_escape($name) . '">' . $options . '</select>';
 };
 
 $renderRepeaterRows = static function (string $profileKey, string $repeaterName, array $rows, callable $renderRow): string {
@@ -232,7 +272,7 @@ if ($profiles === []) {
             'template' => 'Template',
         ], (string) ($profile['url_mode'] ?? 'field'), '— Modus —', false) . '</select></div>';
         $profileRowsHtml .= '<div class="col-md-3" data-url-mode-field="field"><label>URL-Feld</label>' . $renderColumnSelect((string) $profileId, 'url_field', (string) ($profile['url_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
-        $profileRowsHtml .= '<div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][url_profile]" value="' . rex_escape((string) ($profile['url_profile'] ?? '')) . '" placeholder="news"></div>';
+        $profileRowsHtml .= '<div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label>' . $renderUrlProfileField((string) $profileId, (string) ($profile['url_profile'] ?? '')) . '</div>';
         $profileRowsHtml .= '<div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][url_template]" value="' . rex_escape((string) ($profile['url_template'] ?? '')) . '" placeholder="/news/{id}-{slug}"></div></div>';
 
         $profileRowsHtml .= '<hr><h4>Zusätzliche Felder</h4><p class="help-block">Diese Felder werden in den Suchtext aufgenommen. Feldtyp und Anzeige können pro Zeile überschrieben werden.</p>';
@@ -282,7 +322,7 @@ $templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-4
 $templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Status-Spalte</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][status_field]"><option value="">— optional —</option></select></div><div class="col-md-4"><label>Statuswerte</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][status_values]" value="1,online,published" placeholder="1,online,published"></div><div class="col-md-4"><label>Datumsspalte</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][date_field]"><option value="">— optional —</option></select></div></div>';
 $templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Erstellt am</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][created_field]"><option value="">— optional —</option></select></div><div class="col-md-6"><label>Aktualisiert am</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][updated_field]"><option value="">— optional —</option></select></div></div>';
 $templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Sprach-Spalte</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][clang_field]"><option value="">— optional, keine Sprachfilterung —</option></select></div><div class="col-md-8"><label>Sprachen (clang-IDs)</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][clang_ids]" value="" placeholder="1,2"><p class="help-block">Kommagetrennte clang-IDs. Nur wirksam, wenn eine Sprach-Spalte gewählt ist; leer = alle Sprachen.</p></div></div>';
-$templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-3"><label>URL-Modus</label><select class="form-control js-url-mode-select" name="profiles[' . $templateProfileKey . '][url_mode]"><option value="field" selected>Aus Feldwert</option><option value="profile">URL-Profil (Namespace)</option><option value="template">Template</option></select></div><div class="col-md-3" data-url-mode-field="field"><label>URL-Feld</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][url_field]"><option value="">— optional —</option></select></div><div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][url_profile]" value="" placeholder="news"></div><div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][url_template]" value="" placeholder="/news/{id}-{slug}"></div></div>';
+$templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-3"><label>URL-Modus</label><select class="form-control js-url-mode-select" name="profiles[' . $templateProfileKey . '][url_mode]"><option value="field" selected>Aus Feldwert</option><option value="profile">URL-Profil (Namespace)</option><option value="template">Template</option></select></div><div class="col-md-3" data-url-mode-field="field"><label>URL-Feld</label><select class="form-control js-column-select" data-profile-key="' . $templateProfileKey . '" name="profiles[' . $templateProfileKey . '][url_field]"><option value="">— optional —</option></select></div><div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label>' . $renderUrlProfileField($templateProfileKey, '') . '</div><div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][url_template]" value="" placeholder="/news/{id}-{slug}"></div></div>';
 $templateHtml .= '<hr><h4>Zusätzliche Felder</h4><div class="klxm-repeater" data-repeater-name="fields"><div class="klxm-repeater-items">' . $renderFieldRow($templateProfileKey, 0, [], '', $columnsMap, 'field') . '</div><button type="button" class="btn btn-default btn-sm klxm-repeater-add" data-add-repeater-row="1"><i class="rex-icon fa-plus"></i> Feld hinzufügen</button><template class="klxm-repeater-template">' . $renderFieldRow($templateProfileKey, '__ROW__', [], '', $columnsMap, 'field') . '</template></div>';
 $templateHtml .= '<hr><h4>Bedingungen</h4><div class="klxm-repeater" data-repeater-name="conditions"><div class="klxm-repeater-items">' . $renderFieldRow($templateProfileKey, 0, [], '', $columnsMap, 'condition') . '</div><button type="button" class="btn btn-default btn-sm klxm-repeater-add" data-add-repeater-row="1"><i class="rex-icon fa-plus"></i> Bedingung hinzufügen</button><template class="klxm-repeater-template">' . $renderFieldRow($templateProfileKey, '__ROW__', [], '', $columnsMap, 'condition') . '</template></div>';
 $templateHtml .= '</div></section>';
