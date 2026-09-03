@@ -330,7 +330,11 @@ $templateHtml .= '</div></section>';
 $body = '<div id="ai-yform-mapping-root" data-columns-map="' . rex_escape(json_encode($columnsMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') . '">';
 $body .= $message;
 $body .= '<p class="help-block">Hier pflegst du die expliziten YForm-Mappings. Nur die hier angelegten Mappings werden indexiert. Für News kannst du z.B. eine Bedingung <code>news_date vor jetzt</code> setzen, damit keine zukünftigen Einträge in die Suche kommen. URL-Modus: <code>URL-Profil</code> nutzt den Namespace via <code>rex_getUrl(..., [... =&gt; id])</code>, <code>Template</code> unterstützt <code>{id}</code>, <code>{slug}</code>, <code>{title}</code>, <code>{table}</code>, <code>{profile}</code>.</p>';
-$body .= '<form method="post" action="' . rex_escape(rex_url::currentBackendPage()) . '">';
+// rex_url::currentBackendPage() escaped den "&"-Trenner zwischen mehreren Params
+// bereits selbst (3. Parameter $escape, Standard true) - kein zusaetzliches
+// rex_escape() davorsetzen, das wuerde bei mehr als einem Param zu "&amp;amp;"
+// doppelt escapen.
+$body .= '<form method="post" action="' . rex_url::currentBackendPage() . '">';
 $body .= $csrf->getHiddenField();
 $body .= '<input type="hidden" name="func" value="save">';
 $body .= '<div id="klxm-profiles-list">' . $profileRowsHtml . '</div>';

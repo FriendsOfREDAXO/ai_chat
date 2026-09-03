@@ -34,9 +34,9 @@ if (!str_starts_with($apiUrl, 'http')) {
     <div class="alert alert-warning">
       <strong>Seit dem Profil-Feature:</strong> Begrüßung, Prompt, Anrede/Personalisierung, Reset-Countdown/
       Verlauf-kopieren, Folgefragen/Quellenanzeige und ob Chat/Suche überhaupt automatisch eingebunden werden,
-      kommen im echten Betrieb aus dem aufgelösten <a href="<?= rex_escape(rex_url::backendPage('ai_chat/profiles'), 'html_attr') ?>">Profil</a>
+      kommen im echten Betrieb aus dem aufgelösten <a href="<?= rex_url::backendPage('ai_chat/profiles') ?>">Profil</a>
       (AI Chat → Profile), nicht mehr aus globaler Konfiguration. Farben/Avatar/Eckenradius kommen aus dem
-      Profil zugewiesenen <a href="<?= rex_escape(rex_url::backendPage('ai_chat/themes'), 'html_attr') ?>">Theme</a>
+      Profil zugewiesenen <a href="<?= rex_url::backendPage('ai_chat/themes') ?>">Theme</a>
       (AI Chat → Themes). Die Attribute auf dieser Demo-Seite zeigen trotzdem die Web-Component-Schnittstelle
       selbst - dieselben Attribute setzt <code>boot.php</code> dann automatisch aus dem Profil.
     </div>

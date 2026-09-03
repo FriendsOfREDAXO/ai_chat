@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Behoben (Statistiken: Profil-/Zeitraum-Filter landete auf der Struktur-Seite)
+- Das Profil-/Zeitraum-Filterformular auf der Statistiken-Seite ist ein GET-Formular,
+  dessen `action` die Ziel-URL inkl. `?page=ai_chat/statistics` enthielt - beim Absenden
+  verwirft ein GET-Formular aber die komplette Query-String aus `action` und ersetzt sie
+  nur durch die eigenen Formularfelder. Der `page`-Parameter ging dadurch bei jeder
+  Filteränderung verloren, REDAXO landete mangels erkanntem `page` auf der
+  Standardseite (Struktur) statt auf der Statistiken-Seite zu bleiben. Behoben durch ein
+  explizites verstecktes `page`-Feld im Formular (derselbe Weg, den `pages/cache.php`
+  bereits richtig gemacht hat).
+- Nebenbei entfernt: mehrere unnötige `rex_escape()`-Aufrufe um `rex_url::backendPage()`/
+  `currentBackendPage()`-Ausgaben (`pages/statistics.php`, `pages/settings.yform.php`,
+  `pages/demo.php`) - diese Methoden escapen den `&`-Trenner zwischen mehreren
+  Parametern bereits selbst, ein zusätzliches `rex_escape()` hätte bei mehr als einem
+  Parameter zu doppelt escapten `&amp;amp;` geführt (aktuell noch harmlos, da überall nur
+  ein einzelner Parameter übergeben wird, aber eine tickende Falle für den nächsten
+  Parameter).
+
 ## [1.2.0] - 2026-09-03
 
 ### Behoben (Indexierung-Seite: doppelte Buttons, komplett überarbeitetes Design)

@@ -161,9 +161,20 @@ $buildOverviewChartOptions = static function (array $scopeSummary, string $title
     ];
 };
 
+// Bewusst OHNE rex_escape() um die rex_url-Ausgabe: rex_url::backendPage()/
+// currentBackendPage() escapen den "&"-Trenner zwischen mehreren Params bereits
+// selbst (3. Parameter $escape, Standard true) - ein zusaetzliches rex_escape()
+// wuerde bei mehr als einem Param zu "&amp;amp;" doppelt escapen.
+//
+// GET-Formulare verwerfen beim Absenden die komplette Query-String aus "action" und
+// ersetzen sie NUR durch die eigenen Formularfelder - ohne das explizite Hidden-Feld
+// "page" unten wuerde "?page=ai_chat/statistics" aus der action-URL beim Submit
+// verloren gehen und REDAXO mangels erkanntem "page"-Parameter auf der
+// Standardseite (Struktur) landen, statt auf dieser Seite zu bleiben.
 $currentStatsPage = rex_url::backendPage('ai_chat/statistics');
 $periodHtml = '<div class="pull-right" style="margin-bottom: 12px;">'
-    . '<form id="klxmchat-stats-period-form" method="get" action="' . rex_escape($currentStatsPage) . '" class="form-inline" style="margin: 0;">'
+    . '<form id="klxmchat-stats-period-form" method="get" action="' . $currentStatsPage . '" class="form-inline" style="margin: 0;">'
+    . '<input type="hidden" name="page" value="ai_chat/statistics">'
     . '<label for="profile" style="margin: 0 8px 0 0;">Profil</label>'
     . '<select id="profile" name="profile" class="form-control input-sm" onchange="this.form.submit()" style="margin-right: 16px;">'
     . '<option value=""' . ('' === $profileFilterRaw ? ' selected' : '') . '>Alle Profile</option>'
