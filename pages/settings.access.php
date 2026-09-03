@@ -114,6 +114,46 @@ if ('' !== $currentRequestIp) {
 
 $form->addRawField('</div>');
 
+// Sicherheits-/Missbrauchsschutz: Rate-Limit, Nachrichtenlängen, Datenschutz-Whitelist und
+// Spam-Begriffe sind reine Abuse-/Kosten-Schutz-Mechanismen, keine Chat-Persönlichkeit - daher
+// hier bei den übrigen globalen Zugriffs-/Sicherheitseinstellungen statt bei "Verhalten".
+$form->addRawField('<div id="klxm-access-limits-settings" class="ai-chat-settings-box">');
+$form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_access_limits_section_title') . '</p>');
+
+$field = $form->addTextField('rate_limit');
+$field->setLabel($addon->i18n('config_rate_limit'));
+$field->setNotice($addon->i18n('config_rate_limit_notice'));
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(10);
+}
+
+$field = $form->addTextField('max_message_length_frontend');
+$field->setLabel($addon->i18n('config_max_message_length_frontend'));
+$field->setNotice($addon->i18n('config_max_message_length_frontend_notice'));
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(2000);
+}
+
+$field = $form->addTextField('max_message_length_backend');
+$field->setLabel($addon->i18n('config_max_message_length_backend'));
+$field->setNotice($addon->i18n('config_max_message_length_backend_notice'));
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(20000);
+}
+
+$field = $form->addTextAreaField('privacy_email_domain_whitelist');
+$field->setLabel($addon->i18n('config_privacy_email_domain_whitelist'));
+$field->setNotice($addon->i18n('config_privacy_email_domain_whitelist_notice'));
+$field->setAttribute('rows', '4');
+
+$field = $form->addTextAreaField('spam_badwords');
+$field->setLabel($addon->i18n('config_spam_badwords'));
+$field->setNotice($addon->i18n('config_spam_badwords_notice'));
+$field->setAttribute('rows', '4');
+$field->setAttribute('placeholder', "seo-dienstleistung\nbacklink kaufen\ncasino bonus");
+
+$form->addRawField('</div>');
+
 // Eigener Abschnitt statt Teil der Sichtbarkeits-Box: andere Zielgruppe
 // (externe/programmatische Zugriffe statt Website-Besucher) und ein
 // grundlegend anderes Risiko - "Public API" bedeutet hier wirklich komplett

@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Geändert (Einstellungs-Reiter neu gruppiert: Global vs. Hauptprofil)
+- Die sechs Einstellungs-Reiter waren thematisch uneinheitlich gruppiert - z.B. lag
+  "Chunking & Feinsteuerung Embeddings" (gilt für ALLE Quellen/Profile) mitten in der
+  quellenspezifischen Indexierungs-Seite. Jeder Reiter heißt jetzt explizit „Global: …"
+  oder „Hauptprofil: …", damit sofort klar ist, ob eine Einstellung instanzweit gilt oder
+  nur der überschreibbare Standardwert ist, den ein Profil für sich ersetzen kann:
+  - **Global: Zugriff & Sicherheit** - wie vorher, zusätzlich Rate-Limit,
+    Nachrichtenlängen-Limits, Datenschutz-Whitelist und Spam-Begriffe (kamen vorher aus
+    "Verhalten" - sind Abuse-/Kosten-Schutz, keine Chat-Persönlichkeit).
+  - **Global: KI-Provider & Parameter** - Provider-Auswahl/Zugangsdaten, zusätzlich
+    Timeout/Temperature/Token-Limit und die Statistik-Erfassung (kamen aus "Erweiterte
+    KI-Parameter").
+  - **Global: Indexierungs-Quellen** - welche Quellen überhaupt indexiert werden, ohne
+    die jetzt ausgelagerte Chunking-Box.
+  - **Global: Chunking & Retrieval** (neuer Reiter) - Chunking, Embedding-Kontext,
+    RAG-Abruf und Antwort-Cache/FAQ-Vorcaching an einem Ort, weil das für jede Quelle und
+    jedes Profil gleichermaßen gilt. Ersetzt die bisherige Seite "Erweiterte
+    KI-Parameter", die komplett entfällt.
+  - **Hauptprofil: Verhalten & Antworten** - nur noch Begrüßung/Prompt/Anrede/
+    Personalisierung/Quellen-Anzeige (die eigentliche "Persönlichkeit" des
+    Standard-Chats).
+  - **Hauptprofil: Erscheinungsbild & Suche** - Darstellung wie vorher, zusätzlich die
+    Such-Feineinstellungen (kamen aus "Verhalten").
+  Alle Config-Werte bleiben unverändert unter ihrem bisherigen Schlüssel gespeichert -
+  reine Neusortierung der Formulare, kein Datenverlust.
+
 ### Behoben (Hintergrund-Indexierung blieb an einzelnen Dokumenten sehr lange hängen)
 - Embedding-Anfragen (für JEDES indexierte Dokument nötig) liefen über denselben,
   konfigurierbaren Timeout wie die Chat-Antwortgenerierung (Standard 120s, für ein

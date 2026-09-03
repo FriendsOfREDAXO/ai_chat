@@ -135,6 +135,29 @@ $form->addRawField('
 </div>
 ');
 
+// Suche: ausschließlich Verhalten der semantischen Trefferliste, unabhängig vom Chat -
+// gehört konzeptionell zur "Hauptprofil"-Optik/UX des Such-Widgets, genau wie die
+// Darstellungs-Einstellungen oben.
+$form->addRawField('<div id="klxm-appearance-search-settings" class="ai-chat-settings-box">');
+$form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_appearance_search_section_title') . '</p>');
+
+$field = $form->addCheckboxField('frontend_search_current_page_only');
+$field->addOption($addon->i18n('config_frontend_search_current_page_only'), 1);
+
+$field = $form->addTextAreaField('search_source_type_labels');
+$field->setLabel($addon->i18n('config_search_source_type_labels'));
+$field->setNotice($addon->i18n('config_search_source_type_labels_notice'));
+$field->setAttribute('rows', '6');
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue("sitemap_url=Seiten\narticle=Artikel der Website\naddon_docs=AddOn Dokumentation\ngithub_docs=GitHub Dokumentation");
+}
+
+$field = $form->addCheckboxField('search_multi_context_snippets');
+$field->addOption($addon->i18n('config_search_multi_context_snippets'), 1);
+$field->setNotice($addon->i18n('config_search_multi_context_snippets_notice'));
+
+$form->addRawField('</div>');
+
 $form->addRawField($tooltipInitScript);
 
 $renderSettingsPage($form, $renderTipsPanel($addon, 'appearance'));

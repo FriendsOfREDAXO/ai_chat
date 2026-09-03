@@ -131,6 +131,57 @@ if ($aiPlatformAvailable) {
     $form->addRawField('</div>');
 }
 
+// KI-Parameter: technische Feinsteuerung der Antwortgenerierung, unabhaengig davon, welcher
+// Provider oben gewaehlt ist - deshalb hier statt auf einer eigenen Seite.
+$form->addRawField('<div id="klxm-provider-parameters-settings" class="ai-chat-settings-box">');
+$form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_provider_parameters_section_title') . '</p>');
+
+$field = $form->addSelectField('openai_timeout');
+$field->setLabel($addon->i18n('config_openai_timeout'));
+$field->setNotice($addon->i18n('config_openai_timeout_notice'));
+$select = $field->getSelect();
+$select->addOption('30 s', 30);
+$select->addOption('60 s', 60);
+$select->addOption('120 s', 120);
+$select->addOption('180 s', 180);
+$select->addOption('300 s (5 min)', 300);
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(120);
+}
+
+$field = $form->addSelectField('ai_temperature');
+$field->setLabel($addon->i18n('config_ai_temperature'));
+$field->setNotice($addon->i18n('config_ai_temperature_notice'));
+$select = $field->getSelect();
+$select->addOption('0.1 – sehr präzise / deterministisch', '0.1');
+$select->addOption('0.3 – präzise', '0.3');
+$select->addOption('0.5 – ausgewogen', '0.5');
+$select->addOption('0.7 – kreativ (Standard)', '0.7');
+$select->addOption('1.0 – sehr kreativ', '1.0');
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue('0.7');
+}
+
+$field = $form->addSelectField('ai_max_tokens');
+$field->setLabel($addon->i18n('config_ai_max_tokens'));
+$field->setNotice($addon->i18n('config_ai_max_tokens_notice'));
+$select = $field->getSelect();
+$select->addOption('512 – kurze Antworten', 512);
+$select->addOption('1024', 1024);
+$select->addOption('2048 (Standard)', 2048);
+$select->addOption('4096 – ausführliche Antworten', 4096);
+$select->addOption('8192 – sehr ausführlich', 8192);
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(2048);
+}
+
+// Select statt Checkbox - siehe Kommentar bei $addBoolSelectField in settings.shared.php
+// (eine per Checkbox deaktivierte Einstellung mit "true"-Default liesse sich sonst nie
+// dauerhaft abschalten).
+$addBoolSelectField($form, 'stats_logging_enabled', 'Statistiken für Suche und Chat aktivieren', 'Erfasst häufig gestellte Begriffe, leere Treffer und fehlende Antworten für die Admin-Statistiken.', true);
+
+$form->addRawField('</div>');
+
 // Test Connection
 $form->addRawField('<div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">');
 $form->addRawField('<button type="button" class="btn btn-info" id="test-klxm-connection"><i class="rex-icon fa-plug"></i> Verbindung testen</button>');

@@ -98,62 +98,9 @@ $addBoolSelectField($form, 'index_frontend', $addon->i18n('config_index_frontend
 
 $form->addRawField('</div>');
 
-// Diese Feineinstellungen gelten für den Embedding-Text jeder Quelle (Struktur, Sitemap, Provider) und dürfen daher nie ausgeblendet werden.
-$form->addRawField('<div id="klxm-index-embedding-settings" class="ai-chat-settings-box">');
-$form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_index_embedding_section_title') . '</p>');
-$form->addRawField('<p class="help-block" style="margin: 0 0 15px;">' . $addon->i18n('config_index_embedding_section_notice') . '</p>');
-
-$field = $form->addSelectField('chunk_size');
-$field->setLabel($tooltipLabel($addon->i18n('config_chunk_size'), 'config_chunk_size_notice'));
-$field->setNotice($addon->i18n('config_chunk_size_notice'));
-$select = $field->getSelect();
-$select->addOption('600 Zeichen – sehr fokussiert', 600);
-$select->addOption('1000 Zeichen – Standard (empfohlen)', 1000);
-$select->addOption('1500 Zeichen – mehr Zusammenhang', 1500);
-$select->addOption('2000 Zeichen – lange, zusammenhängende Abschnitte', 2000);
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue(1000);
-}
-
-$field = $form->addSelectField('chunk_overlap');
-$field->setLabel($tooltipLabel($addon->i18n('config_chunk_overlap'), 'config_chunk_overlap_notice'));
-$field->setNotice($addon->i18n('config_chunk_overlap_notice'));
-$select = $field->getSelect();
-$select->addOption('0 – kein Overlap', 0);
-$select->addOption('100 Zeichen', 100);
-$select->addOption('200 Zeichen – Standard (empfohlen)', 200);
-$select->addOption('300 Zeichen – viel Überlappung', 300);
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue(200);
-}
-
-$field = $form->addTextAreaField('embedding_context_hint');
-$field->setLabel($tooltipLabel($addon->i18n('config_embedding_context_hint'), 'config_embedding_context_hint_notice'));
-$field->setNotice(nl2br($addon->i18n('config_embedding_context_hint_notice')));
-$field->setAttribute('rows', '3');
-$field->setAttribute('placeholder', "Dies ist die Website eines Vereins/Verbands. Kontakt-, Ansprechpartner- und Terminangaben sind für Besucher besonders wichtig und sollten bevorzugt gefunden werden.");
-
-$field = $form->addTextAreaField('embedding_context_hint_sources');
-$field->setLabel($tooltipLabel($addon->i18n('config_embedding_context_hint_sources'), 'config_embedding_context_hint_sources_notice'));
-$field->setNotice(nl2br($addon->i18n('config_embedding_context_hint_sources_notice')));
-$field->setAttribute('rows', '5');
-$field->setAttribute('placeholder', "article=Dies ist redaktioneller Inhalt der eigenen Website.\nsitemap_url=Diese Seite wurde über die externe Sitemap eingebunden.");
-
-$field = $form->addTextAreaField('embedding_focus_rules');
-$field->setLabel($tooltipLabel($addon->i18n('config_embedding_focus_rules'), 'config_embedding_focus_rules_notice'));
-$field->setNotice(nl2br($addon->i18n('config_embedding_focus_rules_notice')));
-$field->setAttribute('rows', '6');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue("Kontakt-/Ansprechpartnerinformationen|kontakt|ansprechpartner|telefon|email|e-mail|adresse\nÖffnungs-/Sprechzeiten|öffnungszeiten|sprechzeiten|geöffnet\nTermine & Veranstaltungen|termin|veranstaltung|kalender|event\nMitgliedschaft & Beitritt|mitglied|beitritt|aufnahmeantrag|beitrag\nDokumente & Formulare|formular|antrag|satzung|download|pdf");
-}
-
-$field = $form->addTextAreaField('embedding_focus_rules_sources');
-$field->setLabel($tooltipLabel($addon->i18n('config_embedding_focus_rules_sources'), 'config_embedding_focus_rules_sources_notice'));
-$field->setNotice(nl2br($addon->i18n('config_embedding_focus_rules_sources_notice')));
-$field->setAttribute('rows', '5');
-$field->setAttribute('placeholder', "article=Kontakt|telefon|email|ansprechpartner\nsitemap_url=Formulare|antrag|download|pdf");
-
-$form->addRawField('</div>');
+// Chunking/Embedding-Kontext gilt für JEDE Quelle gleichermaßen und lebt deshalb auf dem
+// eigenen, übergreifenden Reiter "Chunking & Retrieval" statt hier bei den quellenspezifischen
+// Einstellungen - siehe pages/settings.retrieval.php.
 
 $form->addRawField('<div id="index-source-sitemap-settings" class="ai-chat-settings-box" style="display:none;">');
 $form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_index_sitemap_section_title') . '</p>');

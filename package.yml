@@ -23,12 +23,12 @@ page:
             perm: 'ai_chat[chatadmin]'
             itemClass: 'pull-left'
             subpages:
-                access: { title: 'Zugriff & Steuerung' }
-                behavior: { title: 'Verhalten & Antworten' }
-                appearance: { title: 'Erscheinungsbild' }
-                provider: { title: 'KI-Provider' }
-                advanced: { title: 'Erweiterte KI-Parameter' }
-                indexing: { title: 'Indexierung & Chunking' }
+                access: { title: 'Global: Zugriff & Sicherheit' }
+                provider: { title: 'Global: KI-Provider & Parameter' }
+                indexing: { title: 'Global: Indexierungs-Quellen' }
+                retrieval: { title: 'Global: Chunking & Retrieval' }
+                behavior: { title: 'Hauptprofil: Verhalten & Antworten' }
+                appearance: { title: 'Hauptprofil: Erscheinungsbild & Suche' }
         help: { title: 'Hilfe', subPath: README.md, itemClass: 'pull-right' }
 
 console_commands:

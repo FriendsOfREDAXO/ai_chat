@@ -15,10 +15,11 @@ ai_chat_config_profile_custom_prompt_notice = Der Prompt bestimmt Tonfall und Ve
 ai_chat_config_backend_enabled = Chat im Backend (Admin) anzeigen
 ai_chat_config_backend_enabled_notice = Blendet einen zusätzlichen "Developer Chat" direkt im REDAXO-Backend ein (unten rechts, wie der Website-Chat im Frontend) - unabhängig von Profilen, für Fragen zu REDAXO/Addons/Code sowie zum Durchklicken der einzelnen Profile in deren Vorschau. Sichtbar für Admins sowie Nutzer mit der Berechtigung "Backend Chat nutzen" (Benutzerverwaltung → Rollen).
 ai_chat_config_api_section_title = API-Zugriff
-ai_chat_config_behavior_general_section_title = Allgemein & Sicherheit
+ai_chat_config_access_limits_section_title = Sicherheits-Limits
+ai_chat_config_provider_parameters_section_title = KI-Parameter
+ai_chat_config_appearance_search_section_title = Suche
 ai_chat_config_behavior_chat_section_title = Chat
 ai_chat_config_behavior_profiles_hint = Diese Einstellungen sind die globalen <strong>Standardwerte</strong>: Begrüßung, Prompt, Anrede und Personalisierung wirken nur, wenn ein aufgelöstes <a href="%s">Profil</a> dafür keinen eigenen Wert gesetzt hat. Reset-Countdown und Verlauf-kopieren werden inzwischen ausschließlich je Profil festgelegt (Box "Verhalten" dort).
-ai_chat_config_behavior_search_section_title = Suche
 ai_chat_config_api_public_enabled = Public API Endpunkt aktivieren
 ai_chat_config_api_public_enabled_notice = Achtung: Dieser Endpunkt ist wirklich öffentlich – ganz ohne Token und ohne Origin-Prüfung. Einmal aktiviert, kann jeder von überall darauf zugreifen, nicht nur die eigene Website. Nur aktivieren, wenn genau das gewollt ist.
 ai_chat_config_api_token_hint = Für authentifizierten Zugriff (mit Token statt öffentlich) das Addon „api" nutzen: Tokens werden dort unter <a href="%s">API → Token</a> angelegt, mit dem Scope <code>ai_chat/chat/query</code>.
@@ -192,7 +193,6 @@ ai_chat_config_openai_model_notice = z.B. llama3, gpt-4o, mistral
 ai_chat_config_openai_embedding_model = Embedding Model
 ai_chat_config_openai_embedding_model_notice = z.B. all-MiniLM-L6-v2 (Muss vom Provider unterstützt werden)
 
-ai_chat_config_advanced = Erweiterte KI-Parameter
 ai_chat_config_openai_timeout = Request-Timeout
 ai_chat_config_openai_timeout_notice = Maximale Wartezeit pro Anfrage an das KI-Modell. Lokale Modelle (z.B. gemma3:27b) benötigen oft 60–180 Sekunden.
 ai_chat_config_ai_temperature = Kreativität (Temperature)
@@ -245,12 +245,12 @@ ai_chat_config_section_appearance = Darstellung & UX
 ai_chat_config_settings_intro_title = Konfiguration mit klarer Reihenfolge
 ai_chat_config_settings_intro_text = Arbeiten Sie von oben nach unten: zuerst Betrieb und Antwortverhalten, dann Provider und KI-Parameter, zum Schluss Quellen und Indexierung.
 ai_chat_config_jumpmenu_title = Direkt zu einem Bereich springen
-ai_chat_config_section_access_hint = Wer, wo und wann Chat und Suche sehen dürfen – Sichtbarkeit, Domains/Sprachen und öffentliche API
-ai_chat_config_section_behavior_hint = Wie Chat und Suche sich verhalten – allgemeine Sicherheits-Guards, Chat-Ton/-Prompt/-Personalisierung und Such-Feineinstellungen, klar getrennt
-ai_chat_config_section_appearance_hint = Widget-Darstellung, Position, Scope-Switch und visuelle Einstellungen
-ai_chat_config_section_provider_hint = Provider auswählen, Zugangsdaten pflegen und Verbindung testen
-ai_chat_config_section_advanced_hint = Timeout, Temperature, Token-Limit, RAG und Cache-Schwellwerte
-ai_chat_config_section_indexing_hint = Quellen, Crawler, Dokumentation, Sitemap und Zusatzinhalte für den Index
+ai_chat_config_section_access_hint = Global, unabhängig von Profilen: wer/wo/wann Chat und Suche überhaupt sehen dürfen, öffentliche API und Missbrauchs-/Kosten-Schutz (Rate-Limit, Nachrichtenlängen, Spam-/Datenschutz-Filter)
+ai_chat_config_section_behavior_hint = Die Standard-"Persönlichkeit" des Chats (Hauptprofil-Fallback): Begrüßung, Prompt, Anrede/Personalisierung und Quellen-Anzeige - jedes einzelne Profil (AI Chat → Profile) kann das für sich überschreiben
+ai_chat_config_section_appearance_hint = Die Standard-Optik des Widgets (Hauptprofil-Fallback): Darstellung, Position, Farben und Such-Feineinstellungen - jedes einzelne Profil kann das für sich überschreiben
+ai_chat_config_section_provider_hint = Global: Provider auswählen, Zugangsdaten pflegen, Verbindung testen sowie Timeout/Temperature/Token-Limit der Antwortgenerierung
+ai_chat_config_section_retrieval_hint = Global, gilt für ALLE Quellen und Profile gleichermaßen: Chunking, Embedding-Kontext, RAG-Abruf und Antwort-Cache
+ai_chat_config_section_indexing_hint = Global: welche Quellen (Struktur/Sitemap/Provider/PDFs/Addon-Docs) überhaupt in den gemeinsamen Wissens-Pool aufgenommen werden
 ai_chat_config_sidebar_quickstart_title = Schnellstart
 ai_chat_config_sidebar_quickstart_intro = Diese Reihenfolge ist für die erste Einrichtung am sinnvollsten.
 ai_chat_config_sidebar_quickstart_step_access = Zuerst Betrieb und Zugriff festlegen: Frontend, Backend, API und Personalisierung
@@ -267,22 +267,22 @@ ai_chat_config_sidebar_precache_title = FAQ-Vorcaching
 ai_chat_config_sidebar_precache_text = Vorcaching ist optional. Nur wenn es aktiviert ist und Vorcache-Fragen hinterlegt sind, kann der Cache gezielt vorgewärmt werden.
 
 ai_chat_config_sidebar_tips_access_title = Empfehlungen
-ai_chat_config_sidebar_tips_access_text = Für den Einstieg reicht: Frontend-Chat aktivieren, Backend-Chat nur für eingeloggte Redakteure.||Personalisierung zunächst auf "Aus" lassen und erst aktivieren, wenn der Chat inhaltlich rund läuft.||Öffentliche API nur aktivieren, wenn ein externes System wirklich direkt zugreifen muss – sonst unnötiges Sicherheitsrisiko.||IP-Whitelist ist nur für interne Tests sinnvoll, nicht als alleinige Absicherung im Livebetrieb.
+ai_chat_config_sidebar_tips_access_text = Für den Einstieg reicht: Frontend-Chat aktivieren, Backend-Chat nur für eingeloggte Redakteure.||Öffentliche API nur aktivieren, wenn ein externes System wirklich direkt zugreifen muss – sonst unnötiges Sicherheitsrisiko.||IP-Testmodus ist nur für interne Tests sinnvoll, nicht als alleinige Absicherung im Livebetrieb.||Rate-Limit 10 Anfragen/Minute ist ein guter Startwert gegen Missbrauch; bei echten Lastspitzen später erhöhen.
 
 ai_chat_config_sidebar_tips_behavior_title = Empfehlungen
-ai_chat_config_sidebar_tips_behavior_text = Rate-Limit 10 Anfragen/Minute ist ein guter Startwert gegen Missbrauch; bei echten Lastspitzen später erhöhen.||Den System-Prompt so konkret wie möglich formulieren: Rolle, Tonfall, und was der Assistent NICHT tun soll.||Quellen anzeigen erhöht das Vertrauen der Nutzer – nur deaktivieren, wenn die Links optisch stören.||Folgefragen sind ein "Nice-to-have", kosten aber einen zusätzlichen KI-Aufruf pro Antwort.
+ai_chat_config_sidebar_tips_behavior_text = Personalisierung zunächst auf "Aus" lassen und erst aktivieren, wenn der Chat inhaltlich rund läuft.||Den System-Prompt so konkret wie möglich formulieren: Rolle, Tonfall, und was der Assistent NICHT tun soll.||Quellen anzeigen erhöht das Vertrauen der Nutzer – nur deaktivieren, wenn die Links optisch stören.||Folgefragen sind ein "Nice-to-have", kosten aber einen zusätzlichen KI-Aufruf pro Antwort.||Ein einzelnes Profil (AI Chat → Profile) kann jeden dieser Werte für sich überschreiben, ohne die globalen Standardwerte hier zu ändern.
 
 ai_chat_config_sidebar_tips_appearance_title = Empfehlungen
-ai_chat_config_sidebar_tips_appearance_text = Bubble-Modus passt für die meisten Websites, Inline eignet sich eher für dedizierte Kontakt-/FAQ-Seiten.||Primärfarbe unbedingt an das Corporate Design anpassen, sonst wirkt der Chat wie ein Fremdkörper.||Avatar ist optional, erhöht aber die Wiedererkennbarkeit im Chatverlauf.
+ai_chat_config_sidebar_tips_appearance_text = Bubble-Modus passt für die meisten Websites, Inline eignet sich eher für dedizierte Kontakt-/FAQ-Seiten.||Primärfarbe unbedingt an das Corporate Design anpassen, sonst wirkt der Chat wie ein Fremdkörper.||Avatar ist optional, erhöht aber die Wiedererkennbarkeit im Chatverlauf.||Ein einzelnes Profil kann Darstellung/Farben für sich überschreiben, z.B. für unterschiedliches Branding je Domain.
 
 ai_chat_config_sidebar_tips_provider_title = Empfehlungen
-ai_chat_config_sidebar_tips_provider_text = Google Gemini: einfachster Einstieg mit nutzbarem kostenlosem Kontingent.||OpenAI-kompatibel (Ollama/OpenWebUI): sinnvoll, wenn Daten aus Datenschutzgründen nicht extern verarbeitet werden dürfen.||Cloudflare Workers AI: gut geeignet bei sehr hohem oder global verteiltem Traffic.||Nach jeder Änderung an Zugangsdaten immer zuerst "Verbindung testen" klicken, bevor produktiv geschaltet wird.
+ai_chat_config_sidebar_tips_provider_text = Google Gemini: einfachster Einstieg mit nutzbarem kostenlosem Kontingent.||OpenAI-kompatibel (Ollama/OpenWebUI): sinnvoll, wenn Daten aus Datenschutzgründen nicht extern verarbeitet werden dürfen.||Cloudflare Workers AI: gut geeignet bei sehr hohem oder global verteiltem Traffic.||Nach jeder Änderung an Zugangsdaten immer zuerst "Verbindung testen" klicken, bevor produktiv geschaltet wird.||ai_temperature 0.3 für einen sachlichen Assistenten, 0.7 nur wenn bewusst kreativere/variantenreichere Antworten gewünscht sind.
 
-ai_chat_config_sidebar_tips_advanced_title = Empfehlungen
-ai_chat_config_sidebar_tips_advanced_text = Ohne natives MariaDB-Vektor-Retrieval (siehe Indexierungs-Seite) MUSS das RAG-Kandidatenfenster größer sein als die Gesamtzahl indexierter Textabschnitte – sonst werden manche Inhalte beim Vergleich nie berücksichtigt. Mit aktivem Vektor-Retrieval unkritisch, die Datenbank sortiert bereits über den gesamten Index.||ai_temperature 0.3 für einen sachlichen Assistenten, 0.7 nur wenn bewusst kreativere/variantenreichere Antworten gewünscht sind.||cache_similarity 0.95 ist ein guter Kompromiss; niedriger nur bei sehr ähnlich formulierten Standardfragen.||FAQ-Vorcaching lohnt sich erst, wenn wiederkehrende Fragen aus den Statistiken bekannt sind.
+ai_chat_config_sidebar_tips_retrieval_title = Empfehlungen
+ai_chat_config_sidebar_tips_retrieval_text = chunk_size 1000 / chunk_overlap 200 ist ein guter Standard; kleinere Chunks bei sehr kurzen Fakteninhalten (z.B. Kontaktseiten) verwenden.||Ohne natives MariaDB-Vektor-Retrieval (siehe Indexierungs-Seite) MUSS das RAG-Kandidatenfenster größer sein als die Gesamtzahl indexierter Textabschnitte – sonst werden manche Inhalte beim Vergleich nie berücksichtigt. Mit aktivem Vektor-Retrieval unkritisch, die Datenbank sortiert bereits über den gesamten Index.||cache_similarity 0.95 ist ein guter Kompromiss; niedriger nur bei sehr ähnlich formulierten Standardfragen.||FAQ-Vorcaching lohnt sich erst, wenn wiederkehrende Fragen aus den Statistiken bekannt sind.||Diese Einstellungen gelten für ALLE Quellen und Profile gleichermaßen, es gibt hier keine Profil-Überschreibung.
 
 ai_chat_config_sidebar_tips_indexing_title = Empfehlungen
-ai_chat_config_sidebar_tips_indexing_text = Für die meisten Websites reicht "Lokale Inhalte" – externe Sitemap nur zusätzlich nutzen, wenn weitere Domains eingebunden werden sollen.||chunk_size 1000 / chunk_overlap 200 ist ein guter Standard; kleinere Chunks bei sehr kurzen Fakteninhalten (z.B. Kontaktseiten) verwenden.||Nach größeren Content-Änderungen die Indexierungs-Seite öffnen und bei Bedarf "RAG-Kandidatenfenster automatisch optimieren" nutzen.||Ausschluss-Selektoren (nav, footer, .cookie-banner) sind nur im HTTP-Crawler-Modus relevant, nicht im internen Renderer.
+ai_chat_config_sidebar_tips_indexing_text = Für die meisten Websites reicht "Lokale Inhalte" – externe Sitemap nur zusätzlich nutzen, wenn weitere Domains eingebunden werden sollen.||Nach größeren Content-Änderungen die Indexierungs-Seite öffnen und bei Bedarf "RAG-Kandidatenfenster automatisch optimieren" nutzen.||Ausschluss-Selektoren (nav, footer, .cookie-banner) sind nur im HTTP-Crawler-Modus relevant, nicht im internen Renderer.||Chunking/Embedding-Feinsteuerung liegt jetzt auf dem eigenen Reiter "Chunking & Retrieval".
 
 ai_chat_config_index_source = Indexierungs-Quelle
 ai_chat_config_index_source_notice = Bestimmt nur, ob REDAXO-Struktur-Artikel und/oder externe Sitemap-URLs in den gemeinsamen Wissens-Pool (Shared Pool) aufgenommen werden. Addon-Dokumentation, GitHub-Quellen und aktivierte Content-Provider (z.B. forcal, YForm) laufen davon unabhängig immer mit. Getrennt davon kann jedes einzelne Profil (AI Chat → Profile) zusätzlich seine EIGENE Sitemap oder einen eigenen Struktur-Bereich als exklusive Quelle nur für sich selbst festlegen - das ist ein komplett anderer Mechanismus als diese globale Einstellung hier.
