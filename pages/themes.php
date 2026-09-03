@@ -85,15 +85,20 @@ if ('add' === $func || 'edit' === $func) {
 
     $content = $form->get();
 
+    // Statt eines von Hand nachgebauten Mockups (optisch nie ganz deckungsgleich mit dem
+    // echten Widget-CSS und bei jeder Design-Aenderung an assets/ai-chat.js erneut
+    // pflegepflichtig) wird hier die ECHTE <ai-chat>-Webcomponent eingebettet - exakt das
+    // gleiche Vorgehen wie schon beim bestehenden "Profil testen"-Vorschaufenster in
+    // pages/profiles.php (dort mode="inline", einmalig serverseitig aufgeloest statt
+    // live). connectedCallback() der Komponente macht beim Einhaengen KEINEN
+    // Netzwerk-Aufruf (siehe assets/ai-chat.js) - erst ein tatsaechliches Absenden einer
+    // Nachricht wuerde einen echten API-Request ausloesen, was hier ueber einen
+    // Submit-Blocker im Init-Script unterbunden wird, da die Vorschau rein optisch sein
+    // soll und keinem echten Profil zugeordnet ist.
     $previewHtml = '
 <div class="klxmchat-theme-preview-wrapper">
     <p class="help-block">Live-Vorschau (aktualisiert sich beim Ändern der Felder links)</p>
-    <div id="ai-chat-theme-preview" class="klxmchat-theme-preview" style="max-width:320px;border:1px solid rgba(0,0,0,0.15);box-shadow:0 5px 20px rgba(0,0,0,0.15);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">
-        <div id="ai-chat-theme-preview-header" style="padding:15px;font-weight:bold;">Website Chat</div>
-        <div style="padding:15px;">
-            <div id="ai-chat-theme-preview-bot" style="display:inline-block;padding:8px 12px;">Hallo! Wie kann ich Ihnen helfen?</div>
-        </div>
-    </div>
+    <ai-chat id="ai-chat-theme-preview" mode="inline" title="Website Chat" greeting="Hallo! Wie kann ich Ihnen helfen?" ui-language="de" style="display:block;max-width:320px;--ai-chat-height:440px;"></ai-chat>
 </div>';
 
     $content = '<div class="row" style="display:flex;flex-wrap:wrap;"><div class="col-md-8" style="min-width:0;">' . $content . '</div><div class="col-md-4" style="min-width:280px;">' . $previewHtml . '</div></div>';
@@ -163,12 +168,38 @@ if ('add' === $func || 'edit' === $func) {
         }
     }
 
+    // Fuellt die Vorschau-Instanz mit denselben drei Demo-Nachrichten (Begruessung,
+    // Nutzerfrage, Antwort) - einmal beim ersten Verbinden und danach jedesmal erneut
+    // nach einem erzwungenen render() (siehe primary-color-Zweig in apply()), da render()
+    // die komplette Shadow-DOM-Nachrichtenliste verwirft. this.messages wird dabei
+    // bewusst zurueckgesetzt statt nur angehaengt, sonst wuerde bei mehrfachem Aendern
+    // der Akzentfarbe dieselbe Demo-Konversation immer wieder dupliziert.
+    function seedAiChatPreviewMessages(el) {
+        el.messages = [];
+        var messagesContainer = el.shadowRoot && el.shadowRoot.querySelector(".chat-messages");
+        if (messagesContainer) messagesContainer.innerHTML = "";
+        el.addMessage("bot", el.getAttribute("greeting") || "Hallo! Wie kann ich Ihnen helfen?");
+        el.addMessage("user", "Was kostet das?");
+        el.addMessage("bot", "Das kommt auf Ihre Anforderungen an ...");
+    }
+
     function initAiChatThemePreview() {
         var preview = document.getElementById("ai-chat-theme-preview");
-        var header = document.getElementById("ai-chat-theme-preview-header");
-        var bot = document.getElementById("ai-chat-theme-preview-bot");
         initAiChatColorpickers();
-        if (!preview || !header || !bot) return;
+        if (!preview || typeof preview.addMessage !== "function") return;
+
+        // Vorschau ist rein optisch (keinem echten Profil zugeordnet, keine gueltige
+        // api-url) - ein Klick auf "Senden" soll sichtbar nichts tun statt einen
+        // fehlschlagenden Request auszuloesen. "submit" ist ein composed Event und
+        // durchquert daher beim Capturing auch offene Shadow-Roots - ein Abfangen hier
+        // auf dem Host, VOR dem eigenen bubble-phase-Listener der Komponente auf dem
+        // <form>, verhindert dessen Ausfuehrung zuverlaessig.
+        preview.addEventListener("submit", function(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }, true);
+
+        seedAiChatPreviewMessages(preview);
 
         var fields = {
             primary: document.getElementById("ai-chat-theme-primary"),
@@ -182,25 +213,52 @@ if ('add' === $func || 'edit' === $func) {
         var lastValues = {};
 
         function apply() {
-            var changed = false;
+            var changed = {};
+            var anyChanged = false;
             for (var key in fields) {
                 var el = fields[key];
                 if (!el) continue;
                 var value = el.value || "";
                 if (lastValues[key] !== value) {
                     lastValues[key] = value;
-                    changed = true;
+                    changed[key] = true;
+                    anyChanged = true;
                 }
             }
-            if (!changed) return;
+            if (!anyChanged) return;
 
-            preview.style.background = fields.chatBg && fields.chatBg.value ? fields.chatBg.value : "#ffffff";
-            preview.style.borderRadius = (fields.radius && fields.radius.value ? fields.radius.value : "12") + "px";
-            header.style.background = fields.headerBg && fields.headerBg.value ? fields.headerBg.value : "#f8f9fa";
-            header.style.color = fields.text && fields.text.value ? fields.text.value : "#333333";
-            bot.style.background = fields.botBg && fields.botBg.value ? fields.botBg.value : "#f1f3f5";
-            bot.style.color = fields.text && fields.text.value ? fields.text.value : "#333333";
-            bot.style.borderRadius = (fields.radius && fields.radius.value ? fields.radius.value : "12") + "px";
+            // --ai-chat-header-bg/-bg/-text/-bot-msg-bg/-radius sind im echten Widget-CSS
+            // ganz normale, von aussen ueberschreibbare Custom Properties (var(--x, ...) in
+            // .chat-container etc.) - eine Aktualisierung ueber den Host-Style wirkt sofort,
+            // ganz ohne Neu-Rendern der Komponente.
+            if (fields.headerBg) preview.style.setProperty("--ai-chat-header-bg", fields.headerBg.value || "#f8f9fa");
+            if (fields.chatBg) preview.style.setProperty("--ai-chat-bg", fields.chatBg.value || "#ffffff");
+            if (fields.text) preview.style.setProperty("--ai-chat-text", fields.text.value || "#333333");
+            if (fields.botBg) preview.style.setProperty("--ai-chat-bot-msg-bg", fields.botBg.value || "#f1f3f5");
+            if (fields.radius) preview.style.setProperty("--ai-chat-radius", (fields.radius.value || "12") + "px");
+
+            // --ai-chat-primary wird von der Komponente dagegen NUR aus dem
+            // "primary-color"-Attribut heraus in ihr eigenes :host { --ai-chat-primary: ... }
+            // hineingerendert (siehe render() in assets/ai-chat.js) - das ueberschreibt/
+            // "beschattet" jeden von aussen gesetzten Wert des gleichnamigen Custom-
+            // Property. Ein Update wirkt hier deshalb nur durch ein erneutes render() +
+            // setupEventListeners() der Komponente selbst (unschaedlich, siehe
+            // Kommentar an der <ai-chat>-Definition oben - kein Netzwerk-Aufruf darin).
+            if (changed.primary && fields.primary) {
+                preview.setAttribute("primary-color", fields.primary.value || "#007bff");
+                preview.render();
+                preview.setupEventListeners();
+                seedAiChatPreviewMessages(preview);
+
+                // render() baut nur die generische Standard-Kopfzeile ("Chat Assistant")
+                // ins Template - den Titel setzt sonst ausschliesslich connectedCallback()
+                // einmalig NACH dem allerersten render(), direkt als .chat-title-Textinhalt
+                // (kein Attribut, das render() selbst ausliest). Ein erzwungenes
+                // Neu-Rendern muss das deshalb hier nachholen, sonst "vergisst" die
+                // Vorschau ihren Titel bei der ersten Farbaenderung wieder.
+                var headerTitle = preview.shadowRoot.querySelector(".chat-title");
+                if (headerTitle) headerTitle.textContent = preview.getAttribute("title") || "Website Chat";
+            }
         }
 
         apply();

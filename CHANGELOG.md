@@ -16,6 +16,12 @@
   `#007bffcc`), inklusive Hex-Eingabe, Farbfläche/Regler und Voreinstellungen.
 - Die Widget-Position (unten rechts/links) bleibt bewusst unabhängig von Themes -
   weiterhin sowohl global als auch je Profil überschreibbar.
+- Die Live-Vorschau bettet dafür die echte `<ai-chat>`-Widget-Komponente ein (dieselbe
+  Technik wie beim bestehenden "Profil testen"-Fenster), statt sie nachzubauen - die
+  Vorschau sieht dadurch exakt wie der echte Chat aus (inkl. Kopfzeile, Sprechblasen mit
+  korrektem Eckenradius, Eingabefeld und Senden-Button) und bleibt automatisch korrekt,
+  auch wenn sich das Widget-Design künftig ändert. Ein Absenden in der Vorschau ist
+  bewusst wirkungslos (keine echten Anfragen, kein zugeordnetes Profil).
 
 ### Behoben (Theme-Editor: doppelter Colorpicker, Live-Vorschau ohne Wirkung, leere Felder wurden überschrieben)
 - War auf einer Instanz noch ein weiteres Addon aktiv, das dieselbe Colorpicker-
