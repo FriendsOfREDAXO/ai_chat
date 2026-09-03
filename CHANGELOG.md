@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Geändert (Streaming ist global, Folgefragen/Quellenanzeige sind jetzt je Profil einstellbar)
+- **"Live-Antworten streamen (SSE)"** stand bisher auf der "Hauptprofil: Verhalten"-Seite,
+  obwohl es schon immer ausnahmslos für alle Profile gleichermaßen galt (reine
+  Technik-Einstellung der Antwortauslieferung, keine Profil-Override-Möglichkeit) - die
+  Platzierung suggerierte fälschlich, nur das Hauptprofil sei betroffen. Jetzt bei
+  **Global: KI-Provider & Parameter**, direkt neben Timeout/Temperature/Token-Limit
+  derselben Antwortgenerierung. Reine Verschiebung, keine Verhaltensänderung.
+- **"Vorgeschlagene Folgefragen anzeigen"** und **"Quellen/Links in Antworten anzeigen"**
+  waren bisher rein global, ohne jede Möglichkeit, sie für ein einzelnes Profil abweichend
+  zu setzen. Beide sind jetzt zusätzlich als Profil-Feld verfügbar (Box "Verhalten" in
+  einem Profil): "Globale Einstellung übernehmen" (Standard, unverändertes Verhalten)
+  oder explizit "An"/"Aus" je Profil - z.B. um bei einem reinen FAQ-Profil Folgefragen
+  abzuschalten, ohne das für alle anderen Profile mit zu deaktivieren.
+
 ### Neu (Zentrale Theme-Verwaltung statt Theme-Editor je Profil)
 - Farben/Avatar/Eckenradius für das Chat-Widget wurden bisher in JEDEM Profil einzeln
   gepflegt (identische Felder mehrfach, keine Wiederverwendung, native
@@ -22,7 +36,9 @@
   (Weiß darauf ist kaum lesbar) oder einem dunklen Theme. Zusätzlich lassen sich jetzt
   auch Hintergrund, Textfarbe und Rahmen des Eingabefelds pro Theme setzen - vorher blieb
   das Eingabefeld unabhängig vom gewählten Theme immer weiß, was bei einem dunklen Theme
-  wie ein vergessenes UI-Element wirkte.
+  wie ein vergessenes UI-Element wirkte. Das bei einer frischen Installation automatisch
+  angelegte "Standard"-Theme bekommt für diese fünf neuen Felder jetzt ebenfalls sinnvolle,
+  zum Widget-Standardverhalten passende Werte statt leerer Felder.
 - Die Live-Vorschau bettet dafür die echte `<ai-chat>`-Widget-Komponente ein (dieselbe
   Technik wie beim bestehenden "Profil testen"-Fenster), statt sie nachzubauen - die
   Vorschau sieht dadurch exakt wie der echte Chat aus (inkl. Kopfzeile, Sprechblasen mit

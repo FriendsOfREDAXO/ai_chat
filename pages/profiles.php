@@ -471,6 +471,32 @@ if ('add' === $func || 'edit' === $func) {
         $personalizationModeLabels[$currentGlobalPersonalizationMode] ?? $currentGlobalPersonalizationMode
     ));
 
+    $triStateOnOffLabel = static fn (bool $currentGlobal): string => $currentGlobal ? 'An' : 'Aus';
+
+    $currentGlobalSuggestFollowup = (bool) $addon->getConfig('suggest_followup_questions', false);
+    $field = $form->addSelectField('suggest_followup_questions');
+    $field->setLabel('Vorgeschlagene Folgefragen anzeigen');
+    $select = $field->getSelect();
+    $select->addOption('Globale Einstellung übernehmen', '');
+    $select->addOption('An', '1');
+    $select->addOption('Aus', '0');
+    $field->setNotice(sprintf(
+        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        $triStateOnOffLabel($currentGlobalSuggestFollowup)
+    ));
+
+    $currentGlobalShowSources = (bool) $addon->getConfig('show_sources', true);
+    $field = $form->addSelectField('show_sources');
+    $field->setLabel('Quellen/Links in Antworten anzeigen');
+    $select = $field->getSelect();
+    $select->addOption('Globale Einstellung übernehmen', '');
+    $select->addOption('An', '1');
+    $select->addOption('Aus', '0');
+    $field->setNotice(sprintf(
+        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        $triStateOnOffLabel($currentGlobalShowSources)
+    ));
+
     $field = $form->addTextField('chat_reset_countdown');
     $field->setLabel('Reset-Countdown (Sekunden)');
     $field->setNotice('Betrifft den "Verlauf löschen"-Button im Chat-Fenster: statt einer sofortigen Ja/Nein-Sicherheitsabfrage zeigt der Button beim Klick diese Anzahl Sekunden lang einen Countdown an, bevor der Verlauf automatisch gelöscht wird. 0 = stattdessen die normale Sicherheitsabfrage anzeigen.');

@@ -511,7 +511,7 @@ class ChatQueryService
             $this->recordUsageStat($mode, $scope, $message, 'request_started', 0, $profile?->id);
         }
 
-        $showSources = $this->isShowSourcesEnabled();
+        $showSources = $this->isShowSourcesEnabled($profile);
 
         $aiService = AiServiceFactory::create();
         $hasPreviousUserMessage = false;
@@ -569,7 +569,7 @@ class ChatQueryService
             $answerForFollowups = (string) ($input['answer'] ?? '');
             $followUpQuestions = [];
 
-            if ($scope === 'frontend' && rex_addon::get('ai_chat')->getConfig('suggest_followup_questions')) {
+            if ($scope === 'frontend' && ((null !== $profile ? $profile->suggestFollowupQuestions : null) ?? (bool) rex_addon::get('ai_chat')->getConfig('suggest_followup_questions'))) {
                 try {
                     $followUpQuestions = $this->generateFollowUpQuestions($aiService, $message, $answerForFollowups, $scope, $answerLanguageOverride);
                 } catch (\Exception $e) {
@@ -699,7 +699,7 @@ class ChatQueryService
         $answerHtml = $this->parseMarkdown($answer);
 
         $followUpQuestions = [];
-        if ($scope === 'frontend' && $includeFollowUpQuestions && rex_addon::get('ai_chat')->getConfig('suggest_followup_questions')) {
+        if ($scope === 'frontend' && $includeFollowUpQuestions && ((null !== $profile ? $profile->suggestFollowupQuestions : null) ?? (bool) rex_addon::get('ai_chat')->getConfig('suggest_followup_questions'))) {
             try {
                 $followUpQuestions = $this->generateFollowUpQuestions($aiService, $message, $answer, $scope, $answerLanguageOverride);
             } catch (\Exception $e) {
@@ -2406,8 +2406,12 @@ class ChatQueryService
         return array_values(array_unique($filtered));
     }
 
-    private function isShowSourcesEnabled(): bool
+    private function isShowSourcesEnabled(?ChatProfile $profile): bool
     {
+        if (null !== $profile && null !== $profile->showSources) {
+            return $profile->showSources;
+        }
+
         $raw = rex_addon::get('ai_chat')->getConfig('show_sources', null);
         if (is_int($raw)) {
             return $raw === 1;

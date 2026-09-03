@@ -52,6 +52,8 @@ final class ChatProfile
         public readonly ?string $greeting,
         public readonly ?string $addressingMode,
         public readonly ?string $personalizationMode,
+        public readonly ?bool $suggestFollowupQuestions,
+        public readonly ?bool $showSources,
         public readonly int $chatResetCountdown,
         public readonly bool $chatCopyHistory,
         // NULL = globales Standard-Theme verwenden (siehe ThemeRepository, ProfileTheme) -
@@ -94,6 +96,8 @@ final class ChatProfile
             greeting: self::nullableString($row['greeting'] ?? null),
             addressingMode: self::nullableString($row['addressing_mode'] ?? null),
             personalizationMode: self::nullableString($row['personalization_mode'] ?? null),
+            suggestFollowupQuestions: self::decodeTriStateBool($row['suggest_followup_questions'] ?? null),
+            showSources: self::decodeTriStateBool($row['show_sources'] ?? null),
             chatResetCountdown: (int) $row['chat_reset_countdown'],
             chatCopyHistory: (bool) $row['chat_copy_history'],
             themeId: null !== ($row['theme_id'] ?? null) ? (int) $row['theme_id'] : null,

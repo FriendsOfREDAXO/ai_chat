@@ -175,6 +175,14 @@ if ($isConfigUnset($field->getValue())) {
     $field->setValue(2048);
 }
 
+// War vorher auf der "Hauptprofil: Verhalten"-Seite einsortiert, obwohl es IMMER fuer
+// alle Profile gleichermassen gilt (keine Profil-Override-Moeglichkeit, rein technische
+// Frage der Antwortauslieferung) - gehoert konzeptionell hierher, neben Timeout/
+// Temperature/Token-Limit derselben Antwortgenerierung.
+$field = $form->addCheckboxField('stream_enabled');
+$field->addOption($addon->i18n('config_stream_enabled'), 1);
+$field->setNotice($addon->i18n('config_stream_enabled_notice'));
+
 // Select statt Checkbox - siehe Kommentar bei $addBoolSelectField in settings.shared.php
 // (eine per Checkbox deaktivierte Einstellung mit "true"-Default liesse sich sonst nie
 // dauerhaft abschalten).

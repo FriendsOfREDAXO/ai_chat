@@ -39,6 +39,8 @@ if ($isConfigUnset($field->getValue())) {
     $field->setValue("Links:");
 }
 
+// Globaler Standardwert - je Profil per Select("Global.../An/Aus") überschreibbar,
+// siehe pages/profiles.php, Box "Verhalten".
 $field = $form->addCheckboxField('show_sources');
 $field->addOption($addon->i18n('config_show_sources'), 1);
 $field->setNotice($addon->i18n('config_show_sources_notice'));
@@ -95,13 +97,16 @@ if ($isConfigUnset($field->getValue())) {
     $field->setValue("Entschuldigung, ich bin gerade überlastet. Bitte versuchen Sie es später noch einmal oder nutzen Sie unser Kontaktformular.");
 }
 
+// Globaler Standardwert - je Profil per Select("Global.../An/Aus") überschreibbar,
+// siehe pages/profiles.php, Box "Verhalten".
 $field = $form->addCheckboxField('suggest_followup_questions');
 $field->addOption($addon->i18n('config_suggest_followup_questions'), 1);
 $field->setNotice($addon->i18n('config_suggest_followup_questions_notice'));
 
-$field = $form->addCheckboxField('stream_enabled');
-$field->addOption($addon->i18n('config_stream_enabled'), 1);
-$field->setNotice($addon->i18n('config_stream_enabled_notice'));
+// stream_enabled lebt jetzt bei "Global: KI-Provider & Parameter" (pages/settings.provider.php)
+// - es ist eine reine Technik-Einstellung der Antwortauslieferung (wie openai_timeout/
+// ai_temperature/ai_max_tokens direkt daneben), betrifft IMMER alle Profile gleichermaßen
+// und hatte hier fälschlich den Eindruck erweckt, nur das Hauptprofil zu betreffen.
 
 // Reset-Countdown/Verlauf-kopieren für Backend- UND Frontend-Chat sind seit dem
 // Profil-Feature vollständig durch die entsprechenden Profil-Felder abgelöst

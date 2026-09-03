@@ -146,6 +146,11 @@ $profileTable
     ->ensureColumn(new rex_sql_column('addressing_mode', 'varchar(20)', true))
     // NULL/'' = globale Einstellung uebernehmen, sonst off|simple|name - gleicher Grund wie oben.
     ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', true))
+    // Tri-State wie chat_enabled/search_enabled oben (''=globale Einstellung entscheidet,
+    // '1'/'0'=fuer dieses Profil erzwungen an/aus) - vorher rein globale Checkboxen ohne
+    // jede Profil-Override-Moeglichkeit (siehe pages/settings.behavior.php).
+    ->ensureColumn(new rex_sql_column('suggest_followup_questions', 'varchar(10)', true))
+    ->ensureColumn(new rex_sql_column('show_sources', 'varchar(10)', true))
     ->ensureColumn(new rex_sql_column('chat_reset_countdown', 'int(10)', false, '0'))
     ->ensureColumn(new rex_sql_column('chat_copy_history', 'tinyint(1)', false, '0'))
     // Alle theme_*-Farb-/Avatar-/Radius-Spalten sind Altlasten (siehe Migration unten,
@@ -277,6 +282,17 @@ if (0 === (int) $themeCountSql->getValue('total')) {
     $defaultThemeSql->setValue('chat_bg_color', (string) $themeAddon->getConfig('chat_bg_color', '#ffffff'));
     $defaultThemeSql->setValue('text_color', (string) $themeAddon->getConfig('text_color', '#333333'));
     $defaultThemeSql->setValue('bot_message_bg_color', (string) $themeAddon->getConfig('bot_message_bg_color', '#f1f3f5'));
+    // Kein globales Config-Pendant fuer diese vier (kamen erst mit der Theme-Verwaltung
+    // dazu, nie als eigene globale Darstellung-Einstellung) - direkt mit denselben
+    // Werten befuellen, auf die das Widget-CSS ohnehin zurueckfiele (assets/ai-chat.js,
+    // .message-user/.message-bot/.chat-input), damit das Standard-Theme in der
+    // Themes-Liste als vollstaendiges, bewusst gesetztes Bündel erscheint statt mit
+    // scheinbar leeren/vergessenen Feldern.
+    $defaultThemeSql->setValue('bot_message_text_color', (string) $themeAddon->getConfig('text_color', '#333333'));
+    $defaultThemeSql->setValue('user_message_text_color', '#ffffff');
+    $defaultThemeSql->setValue('input_bg_color', '#ffffff');
+    $defaultThemeSql->setValue('input_text_color', '#333333');
+    $defaultThemeSql->setValue('input_border_color', '#dddddd');
     $defaultThemeSql->setValue('border_radius', (string) $themeAddon->getConfig('border_radius', '12'));
     $defaultThemeSql->setValue('avatar', (string) $themeAddon->getConfig('avatar', ''));
     $defaultThemeSql->setDateTimeValue('createdate', time());
