@@ -37,19 +37,6 @@ class ProfileResolver
         return $this->applyExtensionPoint($candidates, 'frontend')[0] ?? null;
     }
 
-    public function resolveForBackend(rex_user $user): ?ChatProfile
-    {
-        $role = self::deriveRole($user);
-
-        $candidates = array_values(array_filter(
-            $this->repository->getEnabled(),
-            static fn (ChatProfile $profile): bool => $profile->matchesContext('backend')
-                && $profile->matchesViewerRole($role),
-        ));
-
-        return $this->applyExtensionPoint($candidates, 'backend')[0] ?? null;
-    }
-
     private static function deriveRole(?rex_user $user): string
     {
         if (null === $user) {

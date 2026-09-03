@@ -84,7 +84,11 @@ $profileTable
     ->ensureColumn(new rex_sql_column('name', 'varchar(190)'))
     ->ensureColumn(new rex_sql_column('status', 'tinyint(1)', false, '1'))
     ->ensureColumn(new rex_sql_column('priority', 'int(10)', false, '0'))
-    ->ensureColumn(new rex_sql_column('context', 'varchar(20)', false, 'both')) // frontend|backend|both
+    // frontend|backend|both - "backend"/"both" sind Altlasten aus der Zeit, als Profile auch
+    // den Backend-Chat steuern konnten (siehe boot.php: der ist jetzt ausschliesslich global
+    // per "backend_enabled" gesteuert, kennt gar kein Profil mehr). Neue Profile sind
+    // ausschliesslich Frontend-Profile, daher 'frontend' als Default statt 'both'.
+    ->ensureColumn(new rex_sql_column('context', 'varchar(20)', false, 'frontend'))
     // Mehrfachauswahl-Spalten (viewer_roles/domains/clangs/yform_profile_ids) werden
     // ueber rex_form-Mehrfachauswahlfelder gepflegt und daher im REDAXO-eigenen
     // Pipe-Format gespeichert ("|a|b|", rex_form_element::setValue() im Core),
@@ -197,7 +201,7 @@ if (0 === (int) $defaultProfileSql->getValue('total')) {
     $seedSql->setValue('name', 'Standard');
     $seedSql->setValue('status', 1);
     $seedSql->setValue('priority', 0);
-    $seedSql->setValue('context', 'both');
+    $seedSql->setValue('context', 'frontend');
     $seedSql->setValue('viewer_roles', '|visitor|editor|admin|');
     $seedSql->setValue('target_mode', 'all');
     $seedSql->setValue('use_shared_scope', 1);

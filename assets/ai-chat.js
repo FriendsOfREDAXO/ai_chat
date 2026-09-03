@@ -271,6 +271,24 @@ class AiChat extends HTMLElement {
         return history;
     }
 
+    // Liest den aktuell gewaehlten Eintrag des Scope-Selectors und uebersetzt ihn in
+    // {scope, profileId} - der Selector-Wert kann "frontend", "developer" oder
+    // "profile:<id>" sein (siehe render(), profileOptions). "profile:<id>" bedeutet
+    // serverseitig weiterhin scope=frontend, nur eben mit einer explizit gewaehlten
+    // Profil-ID statt der statischen profile-id des Widgets.
+    getSelectedScopeAndProfileId() {
+        const selector = this.shadowRoot.querySelector('.scope-selector');
+        const raw = selector ? selector.value : (this.getAttribute('scope') || 'frontend');
+
+        if (raw.startsWith('profile:')) {
+            return { scope: 'frontend', profileId: raw.slice('profile:'.length) };
+        }
+        if (raw === 'developer') {
+            return { scope: 'developer', profileId: null };
+        }
+        return { scope: 'frontend', profileId: this.getAttribute('profile-id') || null };
+    }
+
     // Markiert den Chat-Container mit dem aktuell aktiven Scope (Frontend/Developer), damit
     // eine per CSS zugeordnete Akzentfarbe unmittelbar erkennen lässt, in welchem Modus man ist.
     // Nur aktiv, wenn scope-accent="true" gesetzt ist (ausschließlich der Backend-Chat) – im
@@ -285,9 +303,7 @@ class AiChat extends HTMLElement {
             return;
         }
 
-        const selector = this.shadowRoot.querySelector('.scope-selector');
-        const scope = selector ? selector.value : (this.getAttribute('scope') || 'frontend');
-        container.dataset.scope = scope;
+        container.dataset.scope = this.getSelectedScopeAndProfileId().scope;
     }
 
     // Setzt das maxlength-Attribut der Eingabe passend zum aktuell gewählten Scope
@@ -296,8 +312,7 @@ class AiChat extends HTMLElement {
         const input = this.shadowRoot.querySelector('.chat-input');
         if (!input) return;
 
-        const selector = this.shadowRoot.querySelector('.scope-selector');
-        const scope = selector ? selector.value : (this.getAttribute('scope') || 'frontend');
+        const scope = this.getSelectedScopeAndProfileId().scope;
         const attrName = scope === 'developer' ? 'max-length-backend' : 'max-length-frontend';
         const maxLength = parseInt(this.getAttribute(attrName) || '0', 10);
 
@@ -523,10 +538,10 @@ class AiChat extends HTMLElement {
             let apiUrl = this.getAttribute('api-url') || '/index.php?rex-api-call=ai_chat_query';
             apiUrl = apiUrl.trim();
             
-            // Get scope from selector if available, otherwise from attribute
-            const selector = this.shadowRoot.querySelector('.scope-selector');
-            const scope = selector ? selector.value : (this.getAttribute('scope') || 'frontend');
-            
+            // Get scope (+ ggf. explizit gewaehlte Profil-ID) vom Selector, falls vorhanden,
+            // sonst von den statischen Attributen.
+            const { scope, profileId } = this.getSelectedScopeAndProfileId();
+
             const searchCurrentPageOnly = this.getAttribute('search-current-page-only') === 'true';
             const currentUrl = searchCurrentPageOnly ? window.location.href : null;
 
@@ -565,7 +580,7 @@ class AiChat extends HTMLElement {
                     history: this.getConversationHistory(message),
                     personalization: personalizationPayload,
                     stream: streamEnabled,
-                    profile_id: this.getAttribute('profile-id') || null
+                    profile_id: profileId
                 }),
                 signal: requestController.signal
             };
@@ -807,6 +822,14 @@ class AiChat extends HTMLElement {
         const div = document.createElement('div');
         div.innerHTML = html;
         return (div.textContent || div.innerText || '').trim();
+    }
+
+    escapeHtmlAttr(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // meta: optionale, sprachunabhängige Markierung (z.B. { isPersonalizationFlow: true }) -
@@ -2081,10 +2104,35 @@ class AiChat extends HTMLElement {
         const allowSwitch = this.getAttribute('allow-scope-switch') === 'true';
         const currentScope = this.getAttribute('scope') || 'frontend';
 
+        // Der automatisch eingebundene Backend-Chat bekommt statt eines festen "Frontend"-
+        // Eintrags die Liste der aktiven Profile zur Auswahl (siehe boot.php, dort als JSON
+        // ins "profile-options"-Attribut geschrieben) - Backend-Nutzer koennen so zwischen
+        // Developer-Chat und jedem Profil wechseln, ohne die Seite zu wechseln. Das normale
+        // Frontend-Widget hat dieses Attribut nicht und verhaelt sich unveraendert
+        // (einfacher Frontend/Developer-Umschalter fuer genau sein eigenes Profil).
+        let profileOptions = [];
+        const rawProfileOptions = this.getAttribute('profile-options');
+        if (rawProfileOptions) {
+            try {
+                const parsed = JSON.parse(rawProfileOptions);
+                if (Array.isArray(parsed)) {
+                    profileOptions = parsed;
+                }
+            } catch (e) {
+                profileOptions = [];
+            }
+        }
+
+        const currentProfileId = this.getAttribute('profile-id') || '';
+        const currentSelectValue = currentScope === 'developer'
+            ? 'developer'
+            : (profileOptions.length > 0 ? 'profile:' + currentProfileId : 'frontend');
+
         const selectorHtml = allowSwitch ? `
             <select class="scope-selector">
-                <option value="frontend" ${currentScope === 'frontend' ? 'selected' : ''}>Frontend</option>
-                <option value="developer" ${currentScope === 'developer' ? 'selected' : ''}>Developer</option>
+                ${profileOptions.length > 0 ? '' : `<option value="frontend" ${currentSelectValue === 'frontend' ? 'selected' : ''}>Frontend</option>`}
+                <option value="developer" ${currentSelectValue === 'developer' ? 'selected' : ''}>Developer</option>
+                ${profileOptions.map((profile) => `<option value="profile:${profile.id}" ${currentSelectValue === 'profile:' + profile.id ? 'selected' : ''}>${this.escapeHtmlAttr(String(profile.name))}</option>`).join('')}
             </select>
         ` : '';
 

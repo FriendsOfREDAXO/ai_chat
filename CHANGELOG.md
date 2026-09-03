@@ -17,6 +17,23 @@
   allen Sprachen zeigte (derselbe Ursache: `rex_clang::getCurrentId()`
   wurde ebenfalls zu früh gelesen).
 
+### Geändert (Backend-Chat unabhängig von Profilen, Profile sind reine Frontend-Sache)
+- Der Backend-Chat (Developer-Chat) hing bisher indirekt an einem Profil mit
+  Kontext „Backend"/„Beides" - fehlte ein solches Profil, blieb der Chat
+  trotz aktiviertem globalem Schalter unsichtbar. Er hängt jetzt an gar
+  keinem Profil mehr: einzige Kriterien sind der globale Schalter
+  „Backend-Chat aktivieren" und die Berechtigung des Nutzers.
+- Der Umschalter im Backend-Chat-Fenster bietet jetzt neben „Developer" auch
+  jedes aktive Profil einzeln zur Auswahl an - ein Wechsel simuliert live,
+  wie der Chat für dieses Profil im Frontend antworten würde, ohne die
+  Backend-Seite zu verlassen.
+- Profile sind damit ausschließlich ein Frontend-Konzept: das „Kontext"-
+  Auswahlfeld (Frontend/Backend/Beides) ist aus dem Profil-Formular
+  entfernt, neue Profile gelten immer fürs Frontend. Bereits bestehende
+  Profile mit Kontext „Backend" werden dadurch inert (galten für den
+  Backend-Chat ohnehin nicht mehr) - beim nächsten Speichern wird der
+  Kontext automatisch auf „Frontend" migriert.
+
 ### Geändert (YForm-Mapping: URL-Profil als Auswahl statt Freitext)
 - „URL-Profil" (der Namespace fürs url-Addon) ist jetzt ein Auswahlfeld mit
   den tatsächlich registrierten URL-Profilen statt eines Freitextfelds -

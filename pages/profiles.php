@@ -174,17 +174,13 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('<p class="ai-chat-settings-box-title">Sichtbarkeit</p>');
     $form->addRawField('<p class="help-block" style="margin-top:-8px;">Wer dieses Profil überhaupt sehen kann, und wo (welche Domain/Sprache) bzw. ob Chat/Suche automatisch eingebunden werden.</p>');
 
-    $field = $form->addSelectField('context');
-    $field->setLabel('Kontext');
-    $field->setNotice('Bestimmt, wo dieses Profil greifen kann: im Website-Frontend, im automatisch eingebundenen Backend-Chat für Redakteure/Admins, oder beides.');
-    $field->setAttribute('id', 'ai-chat-profile-context');
-    $select = $field->getSelect();
-    $select->addOption('Frontend', 'frontend');
-    $select->addOption('Backend (Developer-Chat)', 'backend');
-    $select->addOption('Beides', 'both');
-    if ('add' === $func && '' === (string) $field->getValue()) {
-        $field->setValue('both');
-    }
+    // Kein "Kontext"-Auswahlfeld mehr: Profile sind ausschliesslich ein Frontend-Konzept,
+    // der Backend-Chat (siehe boot.php) ist rein global per "backend_enabled" gesteuert und
+    // kennt gar kein Profil. Die DB-Spalte bleibt (Default jetzt 'frontend', siehe
+    // install.php) fuer Abwaertskompatibilitaet mit Alt-Profilen aus der Zeit, als ein
+    // Profil auch den Backend-Chat steuern konnte - wird aber im Formular nicht mehr
+    // angeboten, ein neues Profil bekommt immer 'frontend'.
+    $field = $form->addHiddenField('context', 'frontend');
 
     $field = $form->addSelectField('viewer_roles');
     $field->setLabel('Sichtbar für');

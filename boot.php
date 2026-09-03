@@ -163,20 +163,17 @@ if (rex::isBackend() && rex::getUser()) {
     });
 }
 
-// Backend: Developer Chat
+// Backend: Developer Chat - haengt bewusst an KEINEM Profil (Profile sind ausschliesslich
+// ein Frontend-Konzept, siehe ChatProfile/Sichtbarkeit) - "backend_enabled" (global) plus
+// die Berechtigung sind die alleinigen Kriterien. Frueher musste zusaetzlich ein Profil mit
+// context=backend/both existieren, sonst blieb der Chat trotz aktivem Schalter unsichtbar.
 if (
     rex::isBackend()
     && rex::getUser()
     && $addon->getConfig('backend_enabled')
     && (rex::getUser()->isAdmin() || rex::getUser()->hasPerm('ai_chat[backend_chat]'))
 ) {
-    // backend_enabled bleibt ein globaler Not-Aus-Schalter unabhaengig vom
-    // Profil-Matching; zusaetzlich muss ein Backend-Profil fuer die aktuelle
-    // Rolle (admin/editor) ueberhaupt existieren, sonst kein Widget.
-    $backendProfile = (new ProfileResolver())->resolveForBackend(rex::getUser());
-
-    if (null !== $backendProfile) {
-    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr, $backendProfile) {
+    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr) {
         $content = $ep->getSubject();
 
         $scriptAttr = 'script-v4-load';
@@ -217,38 +214,45 @@ if (
             }
         }
 
-        // Profil-Begrüßung ersetzt bei Bedarf komplett, sonst bleibt die
-        // dynamische Namens-Begrüßung wie bisher.
-        $backendGreeting = $backendProfile->greeting ?? ('Hallo ' . $backendName . '! Wie kann ich dir im Backend helfen?');
-
-        // UX-Helfer fuer den automatisch eingebundenen Backend-Chat kommen jetzt
-        // aus dem aufgeloesten Profil statt aus globaler Config.
-        $backendResetCountdown = $backendProfile->chatResetCountdown;
-        $backendCopyHistory = $backendProfile->chatCopyHistory;
-        $backendResetAttr = $backendResetCountdown > 0 ? ' reset-countdown="' . $backendResetCountdown . '"' : '';
-        $backendCopyAttr = $backendCopyHistory ? ' copy-history="true"' : '';
+        // Kein Profil mehr beteiligt (Profile sind rein Frontend, siehe oben) - die
+        // dynamische Namens-Begruessung bleibt der einzige Begruessungs-Mechanismus hier.
+        $backendGreeting = 'Hallo ' . $backendName . '! Wie kann ich dir im Backend helfen?';
         $maxLengthFrontend = (int) $addon->getConfig('max_message_length_frontend', 2000);
         $maxLengthBackend = (int) $addon->getConfig('max_message_length_backend', 20000);
+
+        // Alle aktiven, nicht rein backend-exklusiven Profile stehen im Scope-Umschalter
+        // NEBEN "Developer" zur Auswahl (siehe ai-chat.js render()/getSelectedScopeAndProfileId())
+        // - ein Backend-Nutzer kann so jedes Profil live durchklicken, ohne die Seite zu
+        // wechseln. "context !== 'backend'" ist reine Altlasten-Absicherung fuer Profile aus
+        // vor dieser Aenderung - neue Profile sind ohnehin ausschliesslich Frontend-Profile.
+        $profileOptions = [];
+        foreach ((new ProfileRepository())->getEnabled() as $profile) {
+            if ('backend' === $profile->context) {
+                continue;
+            }
+            $profileOptions[] = ['id' => $profile->id, 'name' => $profile->name];
+        }
+        // Kein JSON_THROW_ON_ERROR - ein einzelner kaputter Profilname (ungueltiges UTF-8)
+        // soll nicht die komplette Seitenausgabe mit einer unbehandelten Exception abreissen.
+        // json_encode() liefert dann bool false, (string) false wird '' - derselbe Fall wie
+        // "keine Profile", der Scope-Umschalter faellt einfach auf "nur Developer" zurueck.
+        $profileOptionsJson = [] !== $profileOptions ? (string) json_encode($profileOptions) : '';
 
         // Explicitly set scope to developer and allow switching
         // scope-accent="true" nur hier setzen: die Frontend-/Custom-Branding-Instanz (primary-color,
         // avatar-url, ...) soll von der Backend-only Scope-Akzentfarbe unberührt bleiben.
         $tag = sprintf(
-            '<ai-chat api-url="%s" scope="developer" title="REDAXO Chat" allow-scope-switch="true" scope-accent="true" greeting="%s" personalization-mode="off" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" profile-id="%d" ui-language="%s"%s%s></ai-chat>',
+            '<ai-chat api-url="%s" scope="developer" title="REDAXO Chat" allow-scope-switch="true" scope-accent="true" greeting="%s" personalization-mode="off" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" ui-language="de"%s></ai-chat>',
             rex_escape($apiUrl, 'html_attr'),
             rex_escape($backendGreeting, 'html_attr'),
             $streamEnabledAttr,
             $maxLengthFrontend,
             $maxLengthBackend,
-            $backendProfile->id,
-            rex_escape($backendProfile->uiLanguage, 'html_attr'),
-            $backendResetAttr,
-            $backendCopyAttr
+            '' !== $profileOptionsJson ? ' profile-options="' . rex_escape($profileOptionsJson, 'html_attr') . '"' : ''
         );
 
         return str_replace('</body>', $tag . '</body>', $content);
     });
-    }
 }
 
 // Frontend: Visitor Chat + eigenständiges Such-Widget (klxm-search) - unabhängig

@@ -155,10 +155,12 @@ final class ChatProfile
             return false;
         }
 
-        // Domain/Sprache sind ein reines Frontend-Konzept (siehe matchesDomain()/
-        // matchesClang(), von ProfileResolver::resolveForBackend() nie aufgerufen) - ist
-        // eines der beiden Profile exklusiv Backend, ist der ueberlappende Kontext zwangslaeufig
-        // "backend", wo Domain/Sprache nie geprueft werden.
+        // Domain/Sprache sind ein reines Frontend-Konzept (siehe matchesDomain()/matchesClang()).
+        // "backend"/"both" als context-Wert sind Altlasten (siehe install.php) - Profile
+        // steuern seit boot.php's Backend-Chat-Umbau ausschliesslich das Frontend, ein
+        // reiner Backend-Kontext wird nirgends mehr aufgeloest und ist damit inert. Bleibt
+        // hier trotzdem konservativ auf "ueberschneidet garantiert" statt fuer diesen
+        // toten Fall extra Sonderlogik zu pflegen.
         if ('backend' === $this->context || 'backend' === $other->context) {
             return true;
         }
