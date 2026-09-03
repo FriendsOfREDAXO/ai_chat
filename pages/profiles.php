@@ -198,7 +198,7 @@ if ('add' === $func || 'edit' === $func) {
     $select->addOption('Redakteure (angemeldete Backend-User)', 'editor');
     $select->addOption('Admins', 'admin');
 
-    // Zielgruppe (Domain/Sprache) ist ein reines Frontend-Konzept - für ein
+    // Anzeigebereich (Domain/Sprache) ist ein reines Frontend-Konzept - für ein
     // Profil mit Kontext "Backend" blendet JS diesen ganzen Block aus.
     $form->addRawField('<div id="ai-chat-profile-frontend-only">');
 
@@ -225,7 +225,7 @@ if ('add' === $func || 'edit' === $func) {
     $field->setNotice('Solange mindestens ein aktives Profil existiert, hat die globale "Suche im Frontend aktivieren"-Einstellung keine Wirkung mehr - dieses Feld entscheidet dann allein. Ohne aktive Profile gilt stattdessen wieder ausschließlich die globale Einstellung.');
 
     $field = $form->addSelectField('target_mode');
-    $field->setLabel($tooltipLabel('Zielgruppe', 'config_profile_target_mode_notice'));
+    $field->setLabel($tooltipLabel('Anzeigebereich (Domain/Sprache)', 'config_profile_target_mode_notice'));
     $field->setNotice('Nur relevant im Frontend. "Individuell" ist für spätere Erweiterungen reserviert (siehe TODO.md).');
     $field->setAttribute('id', 'ai-chat-profile-target-mode');
     $select = $field->getSelect();
@@ -255,7 +255,7 @@ if ('add' === $func || 'edit' === $func) {
         }
     } else {
         // Nicht einfach ausblenden: "Nur bestimmte Domains"/"Domains und Sprachen" bleiben
-        // im Zielgruppe-Select trotzdem waehlbar (die Auswahl ist unabhaengig von der
+        // im Anzeigebereich-Select trotzdem waehlbar (die Auswahl ist unabhaengig von der
         // aktuellen yrewrite-Konfiguration) - ohne diesen Hinweis wirkt eine gewaehlte
         // Domain-Einschraenkung wie ein leeres, verschwundenes Feld statt einer bewussten
         // Nicht-Verfuegbarkeit ("nur eine Domain vorhanden, es gibt nichts einzuschraenken").
