@@ -272,174 +272,186 @@ if (rex::isFrontend()) {
     // (z.B. nur Suche ohne Chat-Bubble) - die alten globalen Testmodus-/
     // Domain-/Sprach-Einstellungen wurden dafuer vollstaendig durch das
     // Profil ersetzt.
-    $currentDomain = YrewriteDomainResolver::getCurrentDomain();
+    //
+    // Domain-/Profil-Aufloesung passiert bewusst ERST HIER, in der OUTPUT_FILTER-
+    // Closure, NICHT auf oberster boot.php-Ebene: yrewrite hat seine eigene
+    // Domain-/Pfad-Zuordnung (rex_yrewrite::getCurrentDomain()) zum Zeitpunkt, an dem
+    // ai_chats eigenes boot.php laeuft, noch nicht fertig aufgebaut - der Aufruf liefert
+    // dort zuverlaessig null, obwohl exakt dieselbe Anfrage beim tatsaechlichen
+    // Output-Rendering (hier) korrekt aufloest. Ohne diese Verzoegerung matcht JEDES
+    // domain-/sprach-eingeschraenkte Profil nie, das Chat-/Suche-Widget verschwindet
+    // komplett, sobald "Anzeigebereich" auf eine bestimmte Domain/Sprache eingeschraenkt
+    // wird (unabhaengig davon, ob die aktuelle Domain/Sprache eigentlich passt).
+    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr, $frontendChatEnabled, $frontendSearchEnabled) {
+        $content = $ep->getSubject();
 
-    // Check Allowed IPs (globale Einschränkung, gilt für Chat UND Suche)
-    $allowedIps = $addon->getConfig('frontend_allowed_ips');
-    $ipAllowed = true;
+        $currentDomain = YrewriteDomainResolver::getCurrentDomain();
 
-    if (!empty($allowedIps)) {
-        $ips = array_map('trim', explode(',', $allowedIps));
-        $userIp = rex_server('REMOTE_ADDR', 'string', '');
-        if (!in_array($userIp, $ips)) {
-            $ipAllowed = false;
+        // Check Allowed IPs (globale Einschränkung, gilt für Chat UND Suche)
+        $allowedIps = $addon->getConfig('frontend_allowed_ips');
+        $ipAllowed = true;
+
+        if (!empty($allowedIps)) {
+            $ips = array_map('trim', explode(',', $allowedIps));
+            $userIp = rex_server('REMOTE_ADDR', 'string', '');
+            if (!in_array($userIp, $ips)) {
+                $ipAllowed = false;
+            }
         }
-    }
 
-    $frontendProfile = $ipAllowed
-        ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser())
-        : null;
+        $frontendProfile = $ipAllowed
+            ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser())
+            : null;
 
-    // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind die globalen
-    // Schalter komplett wirkungslos (siehe auch pages/settings.access.php, dort dann
-    // deaktiviert) - Profile sind dann fuer JEDE Anfrage die alleinige Instanz, unabhaengig
-    // davon, ob sie zu DIESEM Besucher passen (chat_enabled/search_enabled je Profil
-    // defaulten dabei auf "aktiv"). Ohne aktive Profile bleiben die globalen Schalter die
-    // alleinige Instanz - Profile sind optional. Identische Pruefung nochmal serverseitig
-    // in ChatQueryService::resolveFrontendAccessDenial().
-    $hasFrontendProfiles = [] !== array_filter(
-        (new ProfileRepository())->getEnabled(),
-        static fn (ChatProfile $profile): bool => $profile->context !== 'backend',
-    );
-    $showChat = $hasFrontendProfiles
-        ? (null !== $frontendProfile && ($frontendProfile->chatEnabled ?? true))
-        : $frontendChatEnabled;
-    $showSearch = $hasFrontendProfiles
-        ? (null !== $frontendProfile && ($frontendProfile->searchEnabled ?? true))
-        : $frontendSearchEnabled;
-    $isTestingMode = null !== $frontendProfile && !in_array('visitor', $frontendProfile->viewerRoles, true);
+        // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind die globalen
+        // Schalter komplett wirkungslos (siehe auch pages/settings.access.php, dort dann
+        // deaktiviert) - Profile sind dann fuer JEDE Anfrage die alleinige Instanz, unabhaengig
+        // davon, ob sie zu DIESEM Besucher passen (chat_enabled/search_enabled je Profil
+        // defaulten dabei auf "aktiv"). Ohne aktive Profile bleiben die globalen Schalter die
+        // alleinige Instanz - Profile sind optional. Identische Pruefung nochmal serverseitig
+        // in ChatQueryService::resolveFrontendAccessDenial().
+        $hasFrontendProfiles = [] !== array_filter(
+            (new ProfileRepository())->getEnabled(),
+            static fn (ChatProfile $profile): bool => $profile->context !== 'backend',
+        );
+        $showChat = $hasFrontendProfiles
+            ? (null !== $frontendProfile && ($frontendProfile->chatEnabled ?? true))
+            : $frontendChatEnabled;
+        $showSearch = $hasFrontendProfiles
+            ? (null !== $frontendProfile && ($frontendProfile->searchEnabled ?? true))
+            : $frontendSearchEnabled;
+        $isTestingMode = null !== $frontendProfile && !in_array('visitor', $frontendProfile->viewerRoles, true);
 
-    if ($showChat || $showSearch) {
-        rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr, $showChat, $showSearch, $isTestingMode, $frontendProfile) {
-            $content = $ep->getSubject();
+        if (!$showChat && !$showSearch) {
+            return $content;
+        }
 
-            if (strpos($content, 'ai-i18n.js') === false) {
-                $i18nScript = '<script src="' . $addon->getAssetsUrl('ai-i18n.js?v=' . $assetVersion('ai-i18n.js')) . '"></script>';
-                $content = str_replace('</body>', $i18nScript . '</body>', $content);
-            }
+        if (strpos($content, 'ai-i18n.js') === false) {
+            $i18nScript = '<script src="' . $addon->getAssetsUrl('ai-i18n.js?v=' . $assetVersion('ai-i18n.js')) . '"></script>';
+            $content = str_replace('</body>', $i18nScript . '</body>', $content);
+        }
 
-            if ($showSearch) {
-                $searchCss = '<link rel="stylesheet" href="' . $addon->getAssetsUrl('ai-search.css?v=' . $assetVersion('ai-search.css')) . '">';
-                $searchScript = '<script src="' . $addon->getAssetsUrl('ai-search.js?v=' . $assetVersion('ai-search.js')) . '"></script>';
+        if ($showSearch) {
+            $searchCss = '<link rel="stylesheet" href="' . $addon->getAssetsUrl('ai-search.css?v=' . $assetVersion('ai-search.css')) . '">';
+            $searchScript = '<script src="' . $addon->getAssetsUrl('ai-search.js?v=' . $assetVersion('ai-search.js')) . '"></script>';
 
-                if (strpos($content, 'ai-search.css') === false) {
-                    if (strpos($content, '</head>') !== false) {
-                        $content = str_replace('</head>', $searchCss . '</head>', $content);
-                    } else {
-                        $content = $searchCss . $content;
-                    }
-                }
-
-                if (strpos($content, 'ai-search.js') === false) {
-                    $content = str_replace('</body>', $searchScript . '</body>', $content);
+            if (strpos($content, 'ai-search.css') === false) {
+                if (strpos($content, '</head>') !== false) {
+                    $content = str_replace('</head>', $searchCss . '</head>', $content);
+                } else {
+                    $content = $searchCss . $content;
                 }
             }
 
-            $testModeBadge = '';
-            if ($isTestingMode) {
-                $testModeBadge = '<div style="position:fixed;bottom:8px;left:8px;z-index:99999;background:#e0551b;color:#fff;font:12px/1.4 sans-serif;padding:3px 8px;border-radius:4px;opacity:.85;pointer-events:none;">Testmodus</div>';
+            if (strpos($content, 'ai-search.js') === false) {
+                $content = str_replace('</body>', $searchScript . '</body>', $content);
             }
+        }
 
-            if (!$showChat) {
-                return str_replace('</body>', $testModeBadge . '</body>', $content);
-            }
+        $testModeBadge = '';
+        if ($isTestingMode) {
+            $testModeBadge = '<div style="position:fixed;bottom:8px;left:8px;z-index:99999;background:#e0551b;color:#fff;font:12px/1.4 sans-serif;padding:3px 8px;border-radius:4px;opacity:.85;pointer-events:none;">Testmodus</div>';
+        }
 
-            $script = '<script type="module" src="' . $addon->getAssetsUrl('ai-chat.js?v=' . $assetVersion('ai-chat.js')) . '"></script>';
+        if (!$showChat) {
+            return str_replace('</body>', $testModeBadge . '</body>', $content);
+        }
 
-            // Robust URL Generation for Frontend
-            $apiUrl = rex_url::frontendController(['rex-api-call' => 'ai_chat_query'], false);
-            
-            // If the URL doesn't look like a full URL or index.php call, force a standard one
-            if (strpos($apiUrl, 'rex-api-call') === false) {
-                 $apiUrl = '/index.php?rex-api-call=ai_chat_query';
-            }
+        $script = '<script type="module" src="' . $addon->getAssetsUrl('ai-chat.js?v=' . $assetVersion('ai-chat.js')) . '"></script>';
 
-            if (strpos($apiUrl, 'http') === false) {
-                 $server = rtrim(rex::getServer(), '/');
-                 if (empty($server)) {
-                      $server = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
-                 }
-                 $apiUrl = $server . '/' . ltrim($apiUrl, '/');
-            }
+        // Robust URL Generation for Frontend
+        $apiUrl = rex_url::frontendController(['rex-api-call' => 'ai_chat_query'], false);
+        
+        // If the URL doesn't look like a full URL or index.php call, force a standard one
+        if (strpos($apiUrl, 'rex-api-call') === false) {
+             $apiUrl = '/index.php?rex-api-call=ai_chat_query';
+        }
 
-            // Config - Begrüßung, Personalisierung, Reset/Copy kommen jetzt aus dem
-            // aufgeloesten Profil statt aus globaler Config (siehe ChatProfile). Ohne
-            // Profil (Profile sind optional, siehe $hasFrontendProfiles oben) faellt jedes
-            // einzelne Feld auf sein globales Aequivalent zurueck statt auf einen Absturz
-            // durch Property-/Methodenaufruf auf null.
-            $searchCurrentPageOnly = $addon->getConfig('frontend_search_current_page_only') ? 'true' : 'false';
-            // Explizite if/else statt verketteter ?->/?? - Eigenschaftszugriff auf ein
-            // null-Objekt via ?-> waere hier zwar unschaedlich (PHP wertet zu null aus,
-            // rex_logger sammelt aber trotzdem eine Warnung je Aufruf, was bei jedem
-            // Seitenaufruf ohne aufgeloestes Profil den Log fluten wuerde), daher lieber
-            // einmal klar verzweigen als $frontendProfile fuenfmal einzeln "vorsichtig" lesen.
-            if (null !== $frontendProfile) {
-                $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
-                $frontendResetCountdown = $frontendProfile->chatResetCountdown;
-                $frontendCopyHistory = $frontendProfile->chatCopyHistory;
-                $personalization = '' !== $frontendProfile->personalizationMode ? $frontendProfile->personalizationMode : (string) $addon->getConfig('personalization_mode', 'off');
-                $profileIdAttrValue = $frontendProfile->id;
-                $uiLanguage = $frontendProfile->uiLanguage;
-            } else {
-                $greeting = (string) $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
-                $frontendResetCountdown = 0;
-                $frontendCopyHistory = false;
-                $personalization = (string) $addon->getConfig('personalization_mode', 'off');
-                $profileIdAttrValue = 0;
-                $uiLanguage = 'de';
-            }
-            if ('' === $personalization) {
-                $personalization = 'off';
-            }
-            // Darstellung: profil-eigene theme_*-Werte gehen vor der globalen Einstellung
-            // (siehe ProfileTheme) - ermoeglicht z.B. unterschiedliches Branding je Domain.
-            // ProfileTheme::resolve*()/buildInlineStyle() akzeptieren bewusst ein nullbares
-            // Profil und fallen dann direkt auf die globale Einstellung zurueck.
-            $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
-            $primaryColor = ProfileTheme::resolvePrimaryColor($frontendProfile, $addon);
-            $mode = $addon->getConfig('frontend_mode', 'bubble');
-            // War hier lange hart auf 'false' verdrahtet, obwohl "Scope-Switch erlauben"
-            // auf der Darstellung-Einstellungsseite als aktiv nutzbare Option angezeigt
-            // wird - die Einstellung blieb dadurch wirkungslos. Serverseitig bleibt
-            // scope=developer ohnehin nur fuer authentifizierte Backend-Nutzer erlaubt
-            // (siehe ChatQueryService::process()), ein sichtbarer Umschalter fuer
-            // anonyme Besucher ist also ungefaehrlich, nur je nach Website ggf. unerwuenschte UX.
-            $allowSwitch = $addon->getConfig('frontend_allow_scope_switch') ? 'true' : 'false';
-            $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendProfile, $addon);
-            $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
-            $frontendCopyAttr = $frontendCopyHistory ? ' copy-history="true"' : '';
+        if (strpos($apiUrl, 'http') === false) {
+             $server = rtrim(rex::getServer(), '/');
+             if (empty($server)) {
+                  $server = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+             }
+             $apiUrl = $server . '/' . ltrim($apiUrl, '/');
+        }
 
-            // Theme: profil-eigene Farben/Radius gehen vor der globalen Darstellung-
-            // Einstellung (siehe ProfileTheme) - als CSS-Custom-Properties direkt im
-            // style-Attribut des Host-Elements (durchdringen die Shadow-DOM-Grenze), damit
-            // keine JS-Änderung am Web Component nötig ist. Nur valide Hex-Farben/Zahlen
-            // werden übernommen. Ein Inline-Attribut statt eines <style>-Tags mit Selektor
-            // reicht, da pro Seite ohnehin nur ein Frontend-Widget existiert.
-            $themeStyleAttr = ProfileTheme::buildInlineStyle($frontendProfile, $addon);
-            $styleAttr = '' !== $themeStyleAttr ? ' style="' . rex_escape($themeStyleAttr, 'html_attr') . '"' : '';
+        // Config - Begrüßung, Personalisierung, Reset/Copy kommen jetzt aus dem
+        // aufgeloesten Profil statt aus globaler Config (siehe ChatProfile). Ohne
+        // Profil (Profile sind optional, siehe $hasFrontendProfiles oben) faellt jedes
+        // einzelne Feld auf sein globales Aequivalent zurueck statt auf einen Absturz
+        // durch Property-/Methodenaufruf auf null.
+        $searchCurrentPageOnly = $addon->getConfig('frontend_search_current_page_only') ? 'true' : 'false';
+        // Explizite if/else statt verketteter ?->/?? - Eigenschaftszugriff auf ein
+        // null-Objekt via ?-> waere hier zwar unschaedlich (PHP wertet zu null aus,
+        // rex_logger sammelt aber trotzdem eine Warnung je Aufruf, was bei jedem
+        // Seitenaufruf ohne aufgeloestes Profil den Log fluten wuerde), daher lieber
+        // einmal klar verzweigen als $frontendProfile fuenfmal einzeln "vorsichtig" lesen.
+        if (null !== $frontendProfile) {
+            $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+            $frontendResetCountdown = $frontendProfile->chatResetCountdown;
+            $frontendCopyHistory = $frontendProfile->chatCopyHistory;
+            $personalization = '' !== $frontendProfile->personalizationMode ? $frontendProfile->personalizationMode : (string) $addon->getConfig('personalization_mode', 'off');
+            $profileIdAttrValue = $frontendProfile->id;
+            $uiLanguage = $frontendProfile->uiLanguage;
+        } else {
+            $greeting = (string) $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+            $frontendResetCountdown = 0;
+            $frontendCopyHistory = false;
+            $personalization = (string) $addon->getConfig('personalization_mode', 'off');
+            $profileIdAttrValue = 0;
+            $uiLanguage = 'de';
+        }
+        if ('' === $personalization) {
+            $personalization = 'off';
+        }
+        // Darstellung: profil-eigene theme_*-Werte gehen vor der globalen Einstellung
+        // (siehe ProfileTheme) - ermoeglicht z.B. unterschiedliches Branding je Domain.
+        // ProfileTheme::resolve*()/buildInlineStyle() akzeptieren bewusst ein nullbares
+        // Profil und fallen dann direkt auf die globale Einstellung zurueck.
+        $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
+        $primaryColor = ProfileTheme::resolvePrimaryColor($frontendProfile, $addon);
+        $mode = $addon->getConfig('frontend_mode', 'bubble');
+        // War hier lange hart auf 'false' verdrahtet, obwohl "Scope-Switch erlauben"
+        // auf der Darstellung-Einstellungsseite als aktiv nutzbare Option angezeigt
+        // wird - die Einstellung blieb dadurch wirkungslos. Serverseitig bleibt
+        // scope=developer ohnehin nur fuer authentifizierte Backend-Nutzer erlaubt
+        // (siehe ChatQueryService::process()), ein sichtbarer Umschalter fuer
+        // anonyme Besucher ist also ungefaehrlich, nur je nach Website ggf. unerwuenschte UX.
+        $allowSwitch = $addon->getConfig('frontend_allow_scope_switch') ? 'true' : 'false';
+        $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendProfile, $addon);
+        $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
+        $frontendCopyAttr = $frontendCopyHistory ? ' copy-history="true"' : '';
 
-            $tag = sprintf(
-                '<ai-chat api-url="%s" scope="frontend" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" allow-scope-switch="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" profile-id="%d" ui-language="%s"%s%s%s></ai-chat>',
-                rex_escape($apiUrl, 'html_attr'),
-                $searchCurrentPageOnly,
-                rex_escape($greeting, 'html_attr'),
-                $position,
-                $primaryColor,
-                $avatarUrl,
-                $mode,
-                $allowSwitch,
-                $personalization,
-                $streamEnabledAttr,
-                (int) $addon->getConfig('max_message_length_frontend', 2000),
-                (int) $addon->getConfig('max_message_length_backend', 20000),
-                $profileIdAttrValue,
-                rex_escape($uiLanguage, 'html_attr'),
-                $frontendResetAttr,
-                $frontendCopyAttr,
-                $styleAttr
-            );
+        // Theme: profil-eigene Farben/Radius gehen vor der globalen Darstellung-
+        // Einstellung (siehe ProfileTheme) - als CSS-Custom-Properties direkt im
+        // style-Attribut des Host-Elements (durchdringen die Shadow-DOM-Grenze), damit
+        // keine JS-Änderung am Web Component nötig ist. Nur valide Hex-Farben/Zahlen
+        // werden übernommen. Ein Inline-Attribut statt eines <style>-Tags mit Selektor
+        // reicht, da pro Seite ohnehin nur ein Frontend-Widget existiert.
+        $themeStyleAttr = ProfileTheme::buildInlineStyle($frontendProfile, $addon);
+        $styleAttr = '' !== $themeStyleAttr ? ' style="' . rex_escape($themeStyleAttr, 'html_attr') . '"' : '';
 
-            return str_replace('</body>', $script . $tag . $testModeBadge . '</body>', $content);
-        });
-    }
+        $tag = sprintf(
+            '<ai-chat api-url="%s" scope="frontend" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" allow-scope-switch="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" profile-id="%d" ui-language="%s"%s%s%s></ai-chat>',
+            rex_escape($apiUrl, 'html_attr'),
+            $searchCurrentPageOnly,
+            rex_escape($greeting, 'html_attr'),
+            $position,
+            $primaryColor,
+            $avatarUrl,
+            $mode,
+            $allowSwitch,
+            $personalization,
+            $streamEnabledAttr,
+            (int) $addon->getConfig('max_message_length_frontend', 2000),
+            (int) $addon->getConfig('max_message_length_backend', 20000),
+            $profileIdAttrValue,
+            rex_escape($uiLanguage, 'html_attr'),
+            $frontendResetAttr,
+            $frontendCopyAttr,
+            $styleAttr
+        );
+
+        return str_replace('</body>', $script . $tag . $testModeBadge . '</body>', $content);
+    });
 }

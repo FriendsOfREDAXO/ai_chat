@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Behoben (Domain-/Sprach-eingeschränkte Profile zeigten Chat/Suche nie oder falsch an)
+- Sobald ein Profil im „Anzeigebereich" auf bestimmte Domains eingeschränkt
+  wurde, verschwand das Chat-/Such-Widget komplett - auch auf der
+  eigentlich passenden Domain. Ursache: die Domain-/Profil-Auflösung lief
+  bislang auf oberster `boot.php`-Ebene, zu einem Zeitpunkt, an dem
+  yrewrite seine eigene Domain-/Pfad-Zuordnung noch nicht fertig
+  aufgebaut hat - `rex_yrewrite::getCurrentDomain()` lieferte dort
+  zuverlässig `null`, obwohl dieselbe Anfrage beim tatsächlichen
+  Seiten-Rendering korrekt auflöst. Die komplette Profil-Auflösung
+  (inkl. `rex_clang::getCurrentId()`) läuft jetzt innerhalb der
+  `OUTPUT_FILTER`-Callback, zum richtigen, späten Zeitpunkt - behebt
+  daneben auch, dass eine Sprach-Einschränkung das Icon fälschlich auf
+  allen Sprachen zeigte (derselbe Ursache: `rex_clang::getCurrentId()`
+  wurde ebenfalls zu früh gelesen).
+
 ### Geändert (YForm-Mapping: URL-Profil als Auswahl statt Freitext)
 - „URL-Profil" (der Namespace fürs url-Addon) ist jetzt ein Auswahlfeld mit
   den tatsächlich registrierten URL-Profilen statt eines Freitextfelds -
