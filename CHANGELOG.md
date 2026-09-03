@@ -42,6 +42,29 @@
   immer, die Suche kannte sie gar nicht. Jetzt dieselbe Regel: `use_shared_scope=1` sieht
   Shared Pool + eigene Quellen, `use_shared_scope=0` ausschließlich die eigenen.
 
+### Behoben (Profil-Erzwingung von Chat/Suche wurde serverseitig ignoriert)
+- **`resolveFrontendAccessDenial()` prüfte nur die globalen Schalter**
+  („Chat im Frontend anzeigen"/„Suche im Frontend aktivieren"), nicht das
+  Tri-State-Override eines Profils (`chat_enabled`/`search_enabled`). Waren
+  beide globalen Schalter aus, blockte dieser Endpoint jede Anfrage mit einer
+  leeren, fehlerfreien Antwort – selbst wenn `boot.php` das Widget wegen
+  eines Profil-Force-On längst korrekt angezeigt hatte. Prüft jetzt dieselbe
+  Tri-State-Logik wie `boot.php`.
+- `pages/settings.access.php` warnt jetzt direkt neben den globalen
+  Sichtbarkeits-Schaltern, wenn ein oder mehrere aktive Profile Chat/Suche
+  per Tri-State erzwingen, samt Link zur Profil-Seite.
+
+### Behoben (Markdown-Formatierung von KI-Antworten ging teilweise verloren)
+- Mehrzeilige Code-Beispiele kamen vom Modell gelegentlich als einzelne
+  Inline-Backticks statt eines Codeblocks zurück, und Listen direkt nach
+  einem Absatz ohne Leerzeile wurden nicht als Liste erkannt (CommonMark/
+  Parsedown-Regel) – beides ließ die Antwort als ein einziger,
+  unformatierter Absatz erscheinen. System-Prompt aller vier Provider weist
+  das Modell jetzt explizit auf saubere Markdown-Formatierung hin
+  (`PromptBuilder::markdownFormattingInstruction()`); zusätzlich fügt
+  `normalizeAnswerMarkdown()` als Sicherheitsnetz eine Leerzeile vor
+  Listenzeilen ein, die direkt auf Fließtext folgen.
+
 ## [1.0.0] - 2026-09-02
 
 Kompletter Neuanfang: Das Addon heißt jetzt `ai_chat` (vormals `klxmchat`/„KLXM

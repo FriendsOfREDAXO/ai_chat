@@ -214,7 +214,7 @@ class GeminiService implements AiServiceInterface
             }
         }
 
-        $instruction = "Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride);
+        $instruction = "Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction();
 
         $fullPrompt = $systemPrompt . " " . $instruction . "\n\n" .
                       $contextText .

@@ -29,6 +29,7 @@ class PromptBuilder
             $systemPrompt .= "\n\nAktuelles System-Kontext:\n"
                 . '- REDAXO Version: ' . rex::getVersion() . "\n"
                 . '- Installierte Addons: ' . SystemToolService::getAddonListContext() . "\n";
+            $systemPrompt .= "\n\n" . self::markdownFormattingInstruction();
 
             return $systemPrompt;
         }
@@ -66,9 +67,26 @@ class PromptBuilder
             $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
         }
 
+        $systemPrompt .= "\n\n" . self::markdownFormattingInstruction();
         $systemPrompt .= "\n\nWenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . self::answerLanguageInstruction($answerLanguageOverride);
 
         return $systemPrompt;
+    }
+
+    /**
+     * Markdown-Formatierungsregel, angehaengt am Ende jedes System-Prompts alle vier Provider-
+     * Implementierungen (OpenAiCompatibleService, GeminiService, CloudflareService, diese Klasse
+     * fuer AiPlatformService) - ohne sie liefern LLMs mehrzeilige Code-Beispiele oft mit
+     * einzelnen Backticks auf einer Zeile statt in einem dreifach-umschlossenen Codeblock, und
+     * trennen Listen/Absaetze nur mit einem einzelnen statt einem doppelten Zeilenumbruch.
+     * Parsedown (parseMarkdown()) und das Frontend-Markdown (ai-chat.js formatMessage()) werten
+     * beides nach CommonMark-Regeln aus: ein einzelner Zeilenumbruch reicht dort nicht, um einen
+     * neuen Absatz/eine neue Liste zu beginnen, wodurch die ganze Antwort als ein einziger,
+     * unformatierter Absatz landet.
+     */
+    public static function markdownFormattingInstruction(): string
+    {
+        return 'Formatiere die Antwort als sauberes Markdown: Trenne Absätze, Listen und Code-Blöcke immer durch eine Leerzeile (nicht nur einen einzelnen Zeilenumbruch). Nutze für Code-Beispiele - auch kurze oder einzeilige - immer einen Codeblock mit dreifachen Backticks und Sprachangabe (z.B. ```html ... ```), niemals nur einzelne Backticks.';
     }
 
     /**

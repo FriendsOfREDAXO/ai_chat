@@ -1,5 +1,8 @@
 <?php
 
+use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
+use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
+
 require __DIR__ . '/settings.shared.php';
 
 /**
@@ -28,6 +31,29 @@ $form->addRawField('<p class="help-block">' . $rawMsg('config_section_access_hin
 // Stellen zwischen Personalisierung und UX-Feineinstellungen verteilt.
 $form->addRawField('<div id="klxm-access-visibility-settings" class="ai-chat-settings-box">');
 $form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_visibility_section_title') . '</p>');
+
+// Warnt statt den globalen Schalter zu verstecken: Profile mit chat_enabled/search_enabled
+// als bewusstem Tri-State-Override (siehe ChatProfile::$chatEnabled/$searchEnabled) gelten
+// weiterhin fuer sich selbst, unabhaengig von der hier gewaehlten globalen Einstellung -
+// ohne diesen Hinweis wundert man sich, warum Chat/Suche trotz "aus" auf der Website
+// erscheinen (oder trotz "an" bei einem bestimmten Profil fehlen). Verstecken waere falsch,
+// da der globale Schalter fuer alle NICHT-ueberschreibenden Profile weiterhin der massgebliche
+// Default ist.
+$overridingProfiles = array_values(array_filter(
+    (new ProfileRepository())->getAll(),
+    static fn (ChatProfile $profile): bool => $profile->status && (null !== $profile->chatEnabled || null !== $profile->searchEnabled),
+));
+if ([] !== $overridingProfiles) {
+    $overrideLabels = implode(', ', array_map(
+        static fn (ChatProfile $profile): string => rex_escape($profile->name),
+        $overridingProfiles,
+    ));
+    $form->addRawField(
+        '<div class="alert alert-warning">' .
+        sprintf($addon->i18n('config_frontend_profile_override_hint'), rex_url::backendPage('ai_chat/profiles'), $overrideLabels) .
+        '</div>',
+    );
+}
 
 $field = $form->addCheckboxField('frontend_enabled');
 $field->addOption($addon->i18n('config_frontend_enabled'), 1);

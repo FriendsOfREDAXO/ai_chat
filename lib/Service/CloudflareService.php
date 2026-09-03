@@ -164,7 +164,7 @@ class CloudflareService implements AiServiceInterface
             }
         }
 
-        $systemPrompt = $systemInstruction . " Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n\n" . $contextText;
+        $systemPrompt = $systemInstruction . " Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction() . "\n\n" . $contextText;
 
         return [
             'messages' => [

@@ -49,7 +49,7 @@ class ChatQueryService
     /**
      * @return array<string, mixed>|null Response to short-circuit with, or null if the request may proceed.
      */
-    private function resolveFrontendAccessDenial(string $mode): ?array
+    private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile): ?array
     {
         $addon = rex_addon::get('ai_chat');
 
@@ -59,9 +59,19 @@ class ChatQueryService
         // Schalter wurde dadurch vollstaendig abgeloest und ist aus den Einstellungen
         // entfernt (siehe pages/settings.access.php); ihn hier weiter auszuwerten wuerde
         // nur einen toten, nicht mehr einstellbaren Config-Wert reaktivieren.
-        $featureEnabled = $mode === 'search'
+        $globalFeatureEnabled = $mode === 'search'
             ? (bool) $addon->getConfig('frontend_search_enabled', true)
             : (bool) $addon->getConfig('frontend_enabled');
+
+        // Tri-State-Override je Profil (chat_enabled/search_enabled) beruecksichtigen -
+        // exakt dieselbe Logik wie boot.php's $showChat/$showSearch. Ohne das hier blockt
+        // dieser Endpoint eine Anfrage weiterhin ueber den globalen Schalter, obwohl
+        // boot.php das Widget wegen eines Profil-Force-On laengst injiziert hat: der
+        // Besucher saehe ein Chat-/Suchfeld, das bei jeder Anfrage leer antwortet. Kein
+        // aufgeloestes Profil = unveraendertes Verhalten, es gilt nur der globale Schalter.
+        $featureEnabled = null !== $profile
+            ? ($mode === 'search' ? ($profile->searchEnabled ?? $globalFeatureEnabled) : ($profile->chatEnabled ?? $globalFeatureEnabled))
+            : $globalFeatureEnabled;
 
         if ($featureEnabled) {
             return null;
@@ -262,7 +272,7 @@ class ChatQueryService
         // überhaupt sichtbar sein darf, ist bereits über die Profil-Neuzuordnung oben
         // (viewerRoles/targetMode/domains/clangs) durchgesetzt.
         if ($scope === 'frontend') {
-            $frontendDenial = $this->resolveFrontendAccessDenial($mode);
+            $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile);
             if ($frontendDenial !== null) {
                 return $frontendDenial;
             }
@@ -858,7 +868,14 @@ class ChatQueryService
         $frontendProviderTypes = [];
 
         if ($scope === 'frontend') {
-            $frontendProviderTypes = $this->getEnabledFrontendProviderSourceTypes();
+            // getEnabledFrontendProviderSourceTypes() liest nur die globale Shared-Pool-
+            // Freigabe - getProfileExclusiveSourceTypes() ergaenzt Quellen, die ein Profil
+            // exklusiv fuer sich selbst gewaehlt hat (PDFs/YForm), unabhaengig davon (siehe
+            // dortiger Kommentar; identisches Muster wie in search()).
+            $frontendProviderTypes = array_values(array_unique(array_merge(
+                $this->getEnabledFrontendProviderSourceTypes(),
+                $this->getProfileExclusiveSourceTypes($profile),
+            )));
             $frontendTypes = array_values(array_unique(array_merge(['article', 'sitemap_url'], $frontendProviderTypes)));
             $whereSql = 'source_type IN (' . implode(', ', array_fill(0, count($frontendTypes), '?')) . ')';
             $params = array_merge($params, $frontendTypes);
@@ -1707,6 +1724,19 @@ class ChatQueryService
         $dateBulletFixed = preg_replace('/^(\s*[-*]\s+)(\d{1,2})\.(\s+)/m', '$1$2\\.$3', $answer);
         if (is_string($dateBulletFixed)) {
             $answer = $dateBulletFixed;
+        }
+
+        // Defense-in-depth zusaetzlich zur Prompt-Anweisung (PromptBuilder::markdownFormattingInstruction()):
+        // LLMs trennen Listen von vorangehendem Fliesstext oft nur mit einem einzelnen
+        // Zeilenumbruch statt einer Leerzeile - nach CommonMark/Parsedown ist das eine reine
+        // Fortsetzung desselben Absatzes ("lazy continuation"), die Liste wird dann nie als
+        // <ol>/<ul> erkannt, sondern zu Fliesstext mit sichtbaren "1." / "-" verschmolzen. Vor
+        // jeder Listenzeile, die nicht schon durch eine Leerzeile abgetrennt ist, eine Leerzeile
+        // einfuegen - trifft auch aufeinanderfolgende Listenpunkte (harmlos, ergibt hoechstens
+        // eine "loose list" mit etwas mehr Absatz je Punkt statt eines Formatierungsfehlers).
+        $listBlockFixed = preg_replace('/(?<=\S)\n([ \t]{0,3}(?:\d{1,3}\.|[-*])\s)/', "\n\n$1", $answer);
+        if (is_string($listBlockFixed)) {
+            $answer = $listBlockFixed;
         }
 
         $sourcesTitle = (string) rex_addon::get('ai_chat')->getConfig('sources_title', 'Links:');

@@ -255,7 +255,7 @@ class OpenAiCompatibleService implements AiServiceInterface
             }
         }
 
-        $instruction = "\n\nANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride);
+        $instruction = "\n\nANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();
         
         $fullSystemPrompt = $systemPrompt . "\n\n" . $contextText . $instruction;
 

@@ -254,7 +254,13 @@ if (
 $frontendChatEnabled = (bool) $addon->getConfig('frontend_enabled');
 $frontendSearchEnabled = (bool) $addon->getConfig('frontend_search_enabled', true);
 
-if (rex::isFrontend() && ($frontendChatEnabled || $frontendSearchEnabled)) {
+// Bewusst NICHT zusaetzlich auf ($frontendChatEnabled || $frontendSearchEnabled)
+// prüfen: chat_enabled/search_enabled sind je Profil erzwingbar (Tri-State, siehe
+// $showChat/$showSearch unten) UNABHAENGIG von den globalen Schaltern - waeren
+// beide global aus, wuerde dieser fruehe Kurzschluss ein Profil, das Chat/Suche
+// explizit erzwingt, nie zum Zug kommen lassen. Die eigentliche Entscheidung
+// passiert ausschliesslich in $showChat/$showSearch weiter unten.
+if (rex::isFrontend()) {
 
     // Chat und Suche im Frontend sind Teil desselben Scopes: EIN aufgeloestes
     // Profil (Kontext/Rolle/Domain/Sprache, siehe ChatProfile) entscheidet
