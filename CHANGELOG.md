@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Behoben (Hintergrund-Indexierung blieb an einzelnen Dokumenten sehr lange hängen)
+- Embedding-Anfragen (für JEDES indexierte Dokument nötig) liefen über denselben,
+  konfigurierbaren Timeout wie die Chat-Antwortgenerierung (Standard 120s, für ein
+  langsames lokales Modell dort sinnvoll) - ein einzelnes Dokument, bei dem der
+  KI-Provider hängt statt zu antworten (z.B. bei einem instabilen Embedding-Gateway),
+  konnte die Hintergrund-Indexierung dadurch bis zu 2× diesen Timeout pro betroffener
+  Datei blockieren (Haupt-URL + Fallback-URL), bevor die Aufgabe als fehlgeschlagen galt
+  und übersprungen wurde - wirkte wie ein Hänger, der "nicht aufgibt". Embedding-Anfragen
+  haben jetzt ihren eigenen, deutlich kürzeren Timeout (30s) unabhängig von der
+  Chat-Einstellung, da eine Embedding-Antwort so gut wie immer in wenigen Sekunden kommt.
+
 ### Neu (Globaler IP-Testmodus: gesamte Website unkompliziert nur für dich freischalten)
 - „Erlaubte IPs" (Einstellungen → Zugriff) war rein kosmetisch: steuerte nur, ob das Widget
   ins Markup injiziert wird, nicht aber, ob der API-Endpunkt selbst direkt aufrufbar war -

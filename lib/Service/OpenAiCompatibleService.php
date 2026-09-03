@@ -17,6 +17,16 @@ class OpenAiCompatibleService implements AiServiceInterface
     // provider-specific input-count or token ceilings.
     private const EMBEDDING_BATCH_SIZE = 100;
 
+    // Bewusst kurz und NICHT an das konfigurierbare "openai_timeout" gekoppelt (das gilt fuer
+    // Chat-Generierung, wo ein langsames lokales Modell legitim 60-120s brauchen kann). Ein
+    // Embedding-Aufruf liefert dagegen praktisch immer in wenigen Sekunden - haengt die
+    // Verbindung deutlich laenger, ist das ein Anzeichen fuer ein Provider-/Netzwerkproblem
+    // (siehe z.B. bekannte Gateway-Aussetzer), kein normaler Slow-Path. Ohne diese eigene,
+    // kurze Obergrenze konnte ein einzelnes haengendes Dokument die Hintergrund-Indexierung
+    // pro betroffener Datei bis zu 2x openai_timeout (Haupt-URL + Fallback-URL) blockieren,
+    // bevor der Task ueberhaupt als fehlgeschlagen galt und uebersprungen wurde.
+    private const EMBEDDING_TIMEOUT_SECONDS = 30;
+
     private string $apiKey;
     private string $baseUrl;
     private string $model;
@@ -77,7 +87,7 @@ class OpenAiCompatibleService implements AiServiceInterface
                 'input' => $batch,
             ];
 
-            $response = $this->executeWithUrlFallback('embeddings', $data, 'POST', 'batch embedding');
+            $response = $this->executeWithUrlFallback('embeddings', $data, 'POST', 'batch embedding', self::EMBEDDING_TIMEOUT_SECONDS);
 
             if (!isset($response['data']) || !is_array($response['data'])) {
                 throw new \Exception('Failed to get embeddings: ' . json_encode($response));
@@ -405,7 +415,7 @@ class OpenAiCompatibleService implements AiServiceInterface
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    private function makeRequest(string $url, array $data = [], string $method = 'POST'): array
+    private function makeRequest(string $url, array $data = [], string $method = 'POST', ?int $timeoutOverride = null): array
     {
         if ($url === '') {
             throw new \Exception('Empty request URL.');
@@ -419,7 +429,11 @@ class OpenAiCompatibleService implements AiServiceInterface
             $headers[] = 'Authorization: Bearer ' . $this->apiKey;
         }
 
-        $timeout = (int) rex_addon::get('ai_chat')->getConfig('openai_timeout', 120);
+        if (null !== $timeoutOverride) {
+            $timeout = $timeoutOverride;
+        } else {
+            $timeout = (int) rex_addon::get('ai_chat')->getConfig('openai_timeout', 120);
+        }
         if ($timeout <= 0) {
             $timeout = 120;
         }
@@ -511,7 +525,7 @@ class OpenAiCompatibleService implements AiServiceInterface
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    private function executeWithUrlFallback(string $endpoint, array $data, string $method, string $label): array
+    private function executeWithUrlFallback(string $endpoint, array $data, string $method, string $label, ?int $timeoutOverride = null): array
     {
         $candidates = $this->buildEndpointCandidates($endpoint);
         if ($candidates === []) {
@@ -522,7 +536,7 @@ class OpenAiCompatibleService implements AiServiceInterface
 
         foreach ($candidates as $index => $candidate) {
             try {
-                return $this->makeRequest($candidate, $data, $method);
+                return $this->makeRequest($candidate, $data, $method, $timeoutOverride);
             } catch (\Throwable $e) {
                 $lastException = $e;
 
