@@ -90,13 +90,14 @@ echo '
                     html += "<strong>Test-URL:</strong> " + escapeHtml(data.ping_url) + "</p>";
 
                     if (Array.isArray(data.attempts) && data.attempts.length > 0) {
-                        html += "<table class=\'table table-striped\'><thead><tr><th>Versuch</th><th>Dauer</th><th>HTTP-Status</th><th>Ausgabe</th></tr></thead><tbody>";
+                        html += "<table class=\'table table-striped\'><thead><tr><th>Versuch</th><th>Dauer</th><th>HTTP-Status</th><th>Response-Header</th><th>Ausgabe</th></tr></thead><tbody>";
                         data.attempts.forEach(function(attempt) {
                             var ok = attempt.http_status === 200;
                             html += "<tr>"
                                 + "<td>" + escapeHtml(attempt.label) + "</td>"
                                 + "<td>" + escapeHtml(attempt.duration_ms) + " ms</td>"
                                 + "<td><span class=\'label " + (ok ? "label-success" : "label-danger") + "\'>" + escapeHtml(attempt.http_status !== null ? attempt.http_status : "kein Status") + "</span></td>"
+                                + "<td><pre style=\'margin:0;max-height:150px;overflow:auto;font-size:11px;\'>" + escapeHtml(attempt.headers || "(keine)") + "</pre></td>"
                                 + "<td><code>" + escapeHtml(attempt.output || "(leer)") + "</code></td>"
                                 + "</tr>";
                         });

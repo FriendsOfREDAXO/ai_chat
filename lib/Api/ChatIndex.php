@@ -471,7 +471,7 @@ class ChatIndex extends rex_api_function
     }
 
     /**
-     * @return list<array{label: string, duration_ms: int, http_status: ?int, output: string}>
+     * @return list<array{label: string, duration_ms: int, http_status: ?int, headers: string, output: string}>
      */
     private static function runSelfCallAttempts(string $curlPath, string $server, string $pingUrl): array
     {
@@ -484,16 +484,23 @@ class ChatIndex extends rex_api_function
         // "-D -"/--dump-header extra parsen zu muessen.
         $statusMarker = '\n__HTTP_STATUS__%{http_code}';
         // Dieselbe User-Agent-Kennung wie der echte Selbstaufruf (siehe
-        // SELF_CALL_USER_AGENT) - ein Test mit curls eigenem Standard-UA waere sonst
-        // nicht aussagekraeftig, falls genau DAS (WAF/ModSecurity-Blockade auf
-        // Scripting-User-Agents) die Ursache ist.
-        $userAgent = ' -A ' . escapeshellarg(self::SELF_CALL_USER_AGENT);
+        // SELF_CALL_USER_AGENT), PLUS uebliche Browser-Header (Accept/-Language/
+        // -Encoding) - viele WAF/ModSecurity-Regelwerke werten mehrere Signale
+        // KUMULATIV (Anomaly-Score), ein einzelner "guter" User-Agent allein reicht
+        // dort nicht zwingend. "-D -" gibt zusaetzlich die vollstaendigen
+        // Response-Header aus (z.B. ein ModSecurity-Referenz-Header oder ein
+        // aufschlussreicher "Server:"-Wert), falls der reine Statuscode/Body nicht
+        // genug fuer die Diagnose hergibt.
+        $commonFlags = ' -A ' . escapeshellarg(self::SELF_CALL_USER_AGENT)
+            . ' -H ' . escapeshellarg('Accept: text/html,application/json;q=0.9,*/*;q=0.8')
+            . ' -H ' . escapeshellarg('Accept-Language: de-DE,de;q=0.9,en;q=0.8')
+            . ' -D -';
 
         $variants = [
-            'Öffentliche URL' => escapeshellarg($curlPath) . ' -s --max-time 15' . $userAgent . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
-            'Loopback 443 (HTTPS)' => escapeshellarg($curlPath) . ' -sk --max-time 15' . $userAgent . ' --connect-to '
+            'Öffentliche URL' => escapeshellarg($curlPath) . ' -s --max-time 15' . $commonFlags . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
+            'Loopback 443 (HTTPS)' => escapeshellarg($curlPath) . ' -sk --max-time 15' . $commonFlags . ' --connect-to '
                 . escapeshellarg($hostPort . ':127.0.0.1:443') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
-            'Loopback 80 (HTTP)' => escapeshellarg($curlPath) . ' -s --max-time 15' . $userAgent . ' --connect-to '
+            'Loopback 80 (HTTP)' => escapeshellarg($curlPath) . ' -s --max-time 15' . $commonFlags . ' --connect-to '
                 . escapeshellarg($hostPort . ':127.0.0.1:80') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
         ];
 
@@ -509,11 +516,28 @@ class ChatIndex extends rex_api_function
                 $raw = trim(substr($raw, 0, -strlen($m[0])));
             }
 
+            // "-D -" schreibt die Response-Header VOR den Body in dieselbe Ausgabe -
+            // durch die Leerzeile dazwischen (HTTP-Spec) sauber trennbar. Bei
+            // mehreren Redirects/Retries koennen mehrere Header-Bloecke vorkommen,
+            // der ERSTE Header-Block bis zur ersten Leerzeile reicht fuer die
+            // Diagnose (welcher Server/welche Regel hat reagiert).
+            $headers = '';
+            $body = $raw;
+            $splitPos = strpos($raw, "\r\n\r\n");
+            if (false === $splitPos) {
+                $splitPos = strpos($raw, "\n\n");
+            }
+            if (false !== $splitPos) {
+                $headers = trim(substr($raw, 0, $splitPos));
+                $body = trim(substr($raw, $splitPos));
+            }
+
             $results[] = [
                 'label' => $label,
                 'duration_ms' => $durationMs,
                 'http_status' => $httpStatus,
-                'output' => mb_substr($raw, 0, 500),
+                'headers' => mb_substr($headers, 0, 800),
+                'output' => mb_substr($body, 0, 500),
             ];
         }
 

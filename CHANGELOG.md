@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Geändert (Hintergrund-Selbstaufruf-Test zeigt jetzt auch Response-Header)
+- Der User-Agent-Fix allein hat einen real gemeldeten 403-Fall nicht gelöst - viele
+  WAF/ModSecurity-Regelwerke werten mehrere Signale kumulativ (Anomaly-Score), nicht nur
+  den User-Agent. Das Diagnose-Werkzeug (Einstellungen → Systemcheck → "Hintergrund-
+  Selbstaufruf testen") sendet jetzt zusätzlich übliche Browser-Header
+  (`Accept`/`Accept-Language`) und zeigt die vollständigen Response-Header jedes
+  Versuchs an (`-D -`) - bei einer Blockade liefert das oft entscheidende Hinweise
+  (z.B. ein ModSecurity-Referenz-Header oder der genaue Server-/PHP-Stack), die der
+  reine Statuscode/Body nicht hergibt.
+
 ### Behoben (Hintergrund-Indexierung konnte je nach Server hängen bleiben)
 - "Im Hintergrund indexieren" ruft NICHT PHP-CLI auf, sondern startet einen abgekoppelten
   `curl`/`wget`-Prozess, der die eigene öffentliche URL selbst aufruft (drei Versuche:
