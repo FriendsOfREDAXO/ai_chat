@@ -285,7 +285,7 @@ ai_chat_config_sidebar_tips_indexing_title = Empfehlungen
 ai_chat_config_sidebar_tips_indexing_text = Für die meisten Websites reicht "Lokale Inhalte" – externe Sitemap nur zusätzlich nutzen, wenn weitere Domains eingebunden werden sollen.||chunk_size 1000 / chunk_overlap 200 ist ein guter Standard; kleinere Chunks bei sehr kurzen Fakteninhalten (z.B. Kontaktseiten) verwenden.||Nach größeren Content-Änderungen die Indexierungs-Seite öffnen und bei Bedarf "RAG-Kandidatenfenster automatisch optimieren" nutzen.||Ausschluss-Selektoren (nav, footer, .cookie-banner) sind nur im HTTP-Crawler-Modus relevant, nicht im internen Renderer.
 
 ai_chat_config_index_source = Indexierungs-Quelle
-ai_chat_config_index_source_notice = Bestimmt nur, ob REDAXO-Struktur-Artikel und/oder externe Sitemap-URLs indexiert werden. Addon-Dokumentation, GitHub-Quellen und aktivierte Content-Provider (z.B. forcal, YForm) laufen davon unabhängig immer mit.
+ai_chat_config_index_source_notice = Bestimmt nur, ob REDAXO-Struktur-Artikel und/oder externe Sitemap-URLs in den gemeinsamen Wissens-Pool (Shared Pool) aufgenommen werden. Addon-Dokumentation, GitHub-Quellen und aktivierte Content-Provider (z.B. forcal, YForm) laufen davon unabhängig immer mit. Getrennt davon kann jedes einzelne Profil (AI Chat → Profile) zusätzlich seine EIGENE Sitemap oder einen eigenen Struktur-Bereich als exklusive Quelle nur für sich selbst festlegen - das ist ein komplett anderer Mechanismus als diese globale Einstellung hier.
 ai_chat_config_index_source_structure = Lokale Inhalte (REDAXO, Doku, Provider)
 ai_chat_config_index_source_sitemap = Nur externe Sitemap
 ai_chat_config_index_source_structure_sitemap = Lokale Inhalte + externe Sitemap
