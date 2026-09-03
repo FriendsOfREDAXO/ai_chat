@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Geändert (YForm-Mapping: URL-Modus zeigt nur das passende Feld)
+- „URL-Feld", „URL-Profil" und „URL-Template" standen bisher immer alle drei
+  gleichzeitig nebeneinander, obwohl sich der gewählte „URL-Modus" für genau
+  eines davon entscheidet - die anderen beiden hatten dann schlicht keine
+  Wirkung, ohne dass das erkennbar war. Zeigt jetzt nur noch das zum
+  gewählten Modus passende Feld, sowohl bei bestehenden Mappings als auch
+  bei neu hinzugefügten.
+
 ### Geändert (Profil-Formular logisch gruppiert)
 - Die Abschnitte auf der Profil-Bearbeitungsseite heißen jetzt „Allgemeine
   Einstellungen" → „Sichtbarkeit" (Kontext, Sichtbar für, Anzeigebereich/

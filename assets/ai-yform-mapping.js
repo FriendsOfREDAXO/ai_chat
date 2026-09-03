@@ -99,6 +99,26 @@
         });
     }
 
+    // Nur das zum gewaehlten URL-Modus passende Feld anzeigen (URL-Feld/-Profil/-Template
+    // schliessen sich gegenseitig aus) statt alle drei immer nebeneinander stehen zu lassen -
+    // vorher war z.B. bei "URL-Profil (Namespace)" nicht ersichtlich, dass "URL-Feld"/
+    // "URL-Template" fuer diesen Modus gar keine Wirkung haben.
+    function updateUrlModeVisibility(urlModeSelect) {
+        if (!urlModeSelect) {
+            return;
+        }
+
+        var row = urlModeSelect.closest('.row');
+        if (!row) {
+            return;
+        }
+
+        var mode = String(urlModeSelect.value || 'field');
+        row.querySelectorAll('[data-url-mode-field]').forEach(function (fieldEl) {
+            fieldEl.style.display = fieldEl.getAttribute('data-url-mode-field') === mode ? '' : 'none';
+        });
+    }
+
     function bindRepeater(repeaterEl) {
         if (!repeaterEl || repeaterEl.dataset.bound === '1') {
             return;
@@ -119,6 +139,14 @@
             tableSelect.addEventListener('change', function () {
                 refreshProfile(profileEl);
             });
+        }
+
+        var urlModeSelect = profileEl.querySelector('.js-url-mode-select');
+        if (urlModeSelect) {
+            urlModeSelect.addEventListener('change', function () {
+                updateUrlModeVisibility(urlModeSelect);
+            });
+            updateUrlModeVisibility(urlModeSelect);
         }
 
         profileEl.querySelectorAll('.klxm-repeater').forEach(function (repeaterEl) {
