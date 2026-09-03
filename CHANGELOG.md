@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Behoben (Fataler Fehler im Frontend bei bestimmten yrewrite-Multidomain-Konstellationen)
+- `rex_yrewrite::getCurrentDomain()` wirft in manchen Multidomain-/
+  Mehrsprachen-Setups (z.B. eine Sprache offline, siehe [#1](https://github.com/FriendsOfREDAXO/ai_chat/issues/1))
+  selbst einen fatalen Fehler statt wie dokumentiert `null` zurückzugeben
+  (`Call to a member function getId() on null` in yrewrite intern) - legte
+  bislang das komplette Frontend lahm, sobald ai_chat aktiv war. Alle vier
+  Aufrufstellen laufen jetzt über die neue, defensive
+  `YrewriteDomainResolver::getCurrentDomain()` (fängt das ab und liefert
+  `null`), inklusive eines zusätzlichen fehlenden Null-Checks bei der
+  PDF-URL-Auflösung (`MediaPoolContentProvider`/`IndexerService`).
+
 ### Neu (Globale PDF-Indexierung, gleichwertig zur profil-eigenen)
 - Die Indexierung-Einstellungen (AI Chat → Indexierung & Chunking) haben jetzt
   dieselben zwei PDF-Auswahlfelder wie ein Profil („PDF-Dokumente" +

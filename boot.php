@@ -14,6 +14,7 @@ use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileResolver;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
+use FriendsOfRedaxo\AiChat\Service\YrewriteDomainResolver;
 
 // smalot/pdfparser fuer die PDF-Indexierung (MediaPoolContentProvider) - falls composer
 // install im Addon-Verzeichnis nie gelaufen ist (z.B. manuelles Deployment ohne vendor/),
@@ -271,10 +272,7 @@ if (rex::isFrontend()) {
     // (z.B. nur Suche ohne Chat-Bubble) - die alten globalen Testmodus-/
     // Domain-/Sprach-Einstellungen wurden dafuer vollstaendig durch das
     // Profil ersetzt.
-    $currentDomain = null;
-    if (rex_addon::get('yrewrite')->isAvailable() && class_exists('rex_yrewrite')) {
-        $currentDomain = rex_yrewrite::getCurrentDomain();
-    }
+    $currentDomain = YrewriteDomainResolver::getCurrentDomain();
 
     // Check Allowed IPs (globale Einschränkung, gilt für Chat UND Suche)
     $allowedIps = $addon->getConfig('frontend_allowed_ips');

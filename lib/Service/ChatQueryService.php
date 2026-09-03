@@ -105,11 +105,7 @@ class ChatQueryService
      */
     private static function resolveCurrentFrontendDomain(): ?\rex_yrewrite_domain
     {
-        if (rex_addon::get('yrewrite')->isAvailable() && class_exists('rex_yrewrite')) {
-            return \rex_yrewrite::getCurrentDomain();
-        }
-
-        return null;
+        return YrewriteDomainResolver::getCurrentDomain();
     }
 
     /**

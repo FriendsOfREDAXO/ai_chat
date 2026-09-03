@@ -1508,7 +1508,7 @@ class IndexerService
                     $server = \rex::getServer();
                     if (!$server) {
                         // Fallback if no server set
-                        $server = \rex_yrewrite::getCurrentDomain()->getUrl();
+                        $server = YrewriteDomainResolver::getCurrentDomain()?->getUrl() ?? '';
                     }
                     $url = rtrim($server, '/') . '/' . ltrim($url, '/');
                 }

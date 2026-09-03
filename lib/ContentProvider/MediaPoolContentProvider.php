@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\AiChat\ContentProvider;
 
 use FriendsOfRedaxo\AiChat\Service\PdfTextExtractor;
+use FriendsOfRedaxo\AiChat\Service\YrewriteDomainResolver;
 use rex;
 use rex_addon;
 use rex_form_base;
@@ -280,8 +281,8 @@ final class MediaPoolContentProvider implements ContentProviderInterface
         }
 
         $server = \rex::getServer();
-        if ('' === $server && rex_addon::get('yrewrite')->isAvailable()) {
-            $server = \rex_yrewrite::getCurrentDomain()->getUrl();
+        if ('' === $server) {
+            $server = YrewriteDomainResolver::getCurrentDomain()?->getUrl() ?? '';
         }
         if ('' === $server) {
             return $url;
