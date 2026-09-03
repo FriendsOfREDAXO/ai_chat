@@ -2,21 +2,27 @@
 
 ## [1.1.0] - 2026-09-03
 
-### Behoben (Doppelte/falsch aussehende Quellen-Links)
-- Dieselbe Seite konnte als 2-3 fast identisch aussehende "Quellen"-Links hintereinander
+### Behoben (Doppelte/falsch aussehende Quellen-Links, generische Anfragen ohne echte Treffer)
+- Dieselbe Seite konnte als 2-4 fast identisch aussehende "Quellen"-Links hintereinander
   erscheinen - z.B. weil eine Seite sowohl über "Struktur" als auch über "Sitemap"
   indexiert wurde (falls beide Indexierungs-Quellen aktiv sind) und dadurch mit leicht
-  unterschiedlicher URL zweimal im Index landet, oder weil mehrere Chunks derselben Seite
-  unabhängig voneinander unter den Top-Treffern lagen. Links werden jetzt zusätzlich per
-  normalisierter URL (ohne Query-String/Fragment/trailing Slash) UND per Titel entdoppelt.
-
-### Neu (Stichwort-Sicherheitsnetz gegen thematisch zufällige Treffer)
+  unterschiedlicher URL zweimal im Index landet, oder weil eine wortgleiche Seite
+  tatsächlich mehrfach existiert (z.B. eine jährlich wiederholte Ankündigung). Links werden
+  jetzt zusätzlich per normalisierter URL (ohne Query-String/Fragment/trailing Slash) UND
+  per Titel entdoppelt - und dieselbe Titel-Dedupe greift jetzt auch schon bei der
+  RAG-Kontext-Auswahl selbst, nicht erst bei der Anzeige: mehrere fast identische Seiten
+  belegten vorher oft ALLE Top-Treffer-Plätze und ließen dadurch keinen Platz mehr für
+  inhaltlich verschiedene, eigentlich passendere Quellen.
 - Bei kurzen, generischen Anfragen mit nur einem aussagekräftigen Wort (z.B. "Referenzen",
-  "Team", "Leistungen") konnte die reine Vektorsuche eine embedding-technisch "naheliegende",
-  aber thematisch zufällige Seite in die Top-Treffer heben, obwohl das Wort selbst z.B. nur
-  im URL-Pfad einer ganz anderen, tatsächlich passenden Kategorie vorkommt. Ein neuer
-  Stichwort-Fallback prüft jetzt zusätzlich Titel/Inhalt/URL auf einen direkten Treffer des
-  Suchworts und ergänzt den Kontext damit, wenn die Vektorsuche allein nichts Passendes fand.
+  "Team", "Leistungen") konnte die reine Vektorsuche mehrere thematisch zufällige Seiten in
+  die Top-Treffer heben, obwohl viele tatsächlich passende Seiten das gesuchte Wort wörtlich
+  im URL-Pfad tragen (z.B. "/agentur/referenzen/..."). Ein neuer Stichwort-Fallback prüft
+  jetzt zusätzlich Titel/Inhalt/URL auf einen direkten Treffer des Suchworts und darf damit
+  gezielt schwache Vektor-Treffer (Ähnlichkeit < 0.6) ersetzen - ein bereits stark
+  passender Vektor-Treffer bleibt unangetastet. Live gegen echte KLXM-Referenzseiten
+  getestet: "Kannst du mir Referenzen nennen" lieferte vorher dieselbe thematisch falsche
+  Seite drei- bis vierfach, jetzt drei tatsächlich unterschiedliche, korrekt beschriebene
+  Projekt-Referenzen.
 
 ### Behoben (Trigger-Zusatzinhalt: Markdown wurde nicht gerendert, KI widersprach dem Trigger)
 - Ein per Trigger angehängter Zusatzinhalt (z. B. eine Öffnungszeiten-Tabelle) landete als

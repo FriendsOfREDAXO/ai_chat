@@ -953,15 +953,32 @@ class ChatQueryService
             usort($results, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
         }
 
+        // Titel-Dedupe ZUSAETZLICH zur Source-Dedupe: mehrere Seiten mit erkennbar demselben
+        // Titel (z.B. eine jaehrlich wiederholte Ankuendigung wie "KLXM macht Weihnachtsferien",
+        // jedes Jahr eine eigene URL/eigener source_id) sind embedding-technisch sich selbst so
+        // aehnlich, dass sie sonst mehrere/alle Top-K-Plaetze belegen - ohne Titel-Dedupe bliebe
+        // dann kein Platz mehr fuer inhaltlich verschiedene, eigentlich relevantere Kandidaten
+        // (siehe Nutzer-Report: "Referenzen"-Anfrage lieferte 3x dieselbe Ankuendigung statt
+        // echter Projekt-Referenzen). $results ist bereits nach Similarity sortiert, die erste
+        // (beste) Instanz je Titel bleibt erhalten.
         $uniqueResults = [];
         $seenSources = [];
+        $seenTitles = [];
         foreach ($results as $result) {
             $sourceKey = $result['source_type'] . '|' . $result['source_id'];
             if (isset($seenSources[$sourceKey])) {
                 continue;
             }
 
+            $titleKey = mb_strtolower(trim($result['title']));
+            if ('' !== $titleKey && isset($seenTitles[$titleKey])) {
+                continue;
+            }
+
             $seenSources[$sourceKey] = true;
+            if ('' !== $titleKey) {
+                $seenTitles[$titleKey] = true;
+            }
             $uniqueResults[] = $result;
 
             if (count($uniqueResults) >= $limit) {
@@ -1051,15 +1068,16 @@ class ChatQueryService
             return $context;
         }
 
-        foreach ($context as $item) {
-            $text = mb_strtolower($item['title'] . ' ' . $item['content'] . ' ' . $item['url']);
-            foreach ($terms as $term) {
-                if ('' !== $term && str_contains($text, mb_strtolower($term))) {
-                    return $context;
-                }
-            }
-        }
-
+        // Bewusst KEIN frueher Ausstieg mehr, nur weil ein bereits gefundener Kandidat den
+        // Suchbegriff selbst enthaelt (fruehere Fassung dieser Methode) - bei einer Anfrage wie
+        // "Referenzen" reicht dafuer schon irgendeine Zufallsseite aus derselben URL-Kategorie
+        // (z.B. "/agentur/referenzen/referenz/irgendwas"), was den Fallback praktisch immer
+        // vorzeitig beendete, obwohl die Vektorsuche NUR diese eine schwache Seite gefunden
+        // hatte. Ergaenzung/Dedupe unten uebernimmt stattdessen komplett, ob ein Kandidat schon
+        // vorhanden ist (per source_type+source_id) - stellt sicher, dass zusaetzliche,
+        // tatsaechlich per Stichwort gefundene Kandidaten den bereits vollen Kontext trotzdem
+        // ergaenzen koennen (findSimilarContent() dedupt jetzt ausserdem per Titel, damit dafuer
+        // auch wirklich Platz frei wird - siehe dortiger Kommentar).
         [$whereSql, $baseParams, $ok] = $this->buildScopeVisibilityWhere($scope, $profile);
         if (!$ok) {
             return $context;
@@ -1086,11 +1104,7 @@ class ChatQueryService
         );
 
         $seen = [];
-        foreach ($context as $item) {
-            $seen[$item['source_type'] . '|' . $item['source_id']] = true;
-        }
-
-        $merged = $context;
+        $keywordItems = [];
         foreach ($rows as $row) {
             $sourceType = (string) ($row['source_type'] ?? '');
             $sourceId = (string) ($row['source_id'] ?? '');
@@ -1108,7 +1122,7 @@ class ChatQueryService
             // jede semantische Bestaetigung ist weniger verlaesslich als ein direkter
             // Provider-Tabellen-Treffer, soll aber die Mindestschwellen in
             // hasSufficientAnswerContext()/collectDisplaySources() zuverlaessig ueberschreiten.
-            $merged[] = [
+            $keywordItems[] = [
                 'content' => (string) ($row['content'] ?? ''),
                 'url' => (string) ($row['url'] ?? ''),
                 'title' => (string) ($row['title'] ?? 'Inhalt'),
@@ -1117,9 +1131,41 @@ class ChatQueryService
                 'source_id' => $sourceId,
             ];
 
+            if (count($keywordItems) >= $maxContext) {
+                break;
+            }
+        }
+
+        if ($keywordItems === []) {
+            return $context;
+        }
+
+        // Keyword-Treffer duerfen schwache Vektor-Kandidaten VERDRAENGEN (nicht nur freie
+        // Plaetze auffuellen) - sonst haetten sie nie eine Chance, wenn $context durch
+        // findSimilarContent() bereits vollstaendig (aber nur schwach relevant) gefuellt ist,
+        // genau der Fall aus dem Nutzer-Report ("Referenzen" fand 3 schwache, thematisch
+        // zufaellige Kandidaten OHNE freien Platz fuer einen echten Volltext-Treffer). Ein
+        // bereits GUT sitzender Vektor-Treffer (similarity >= 0.6, derselbe Schwellenwert wie
+        // oben fuer Keyword-Treffer) bleibt dagegen erhalten, da eine echte semantische
+        // Uebereinstimmung verlaesslicher ist als ein reiner Substring-Treffer.
+        $strongVectorItems = array_values(array_filter($context, static fn(array $c): bool => $c['similarity'] >= 0.6));
+
+        $seenAfterStrong = [];
+        foreach ($strongVectorItems as $item) {
+            $seenAfterStrong[$item['source_type'] . '|' . $item['source_id']] = true;
+        }
+
+        $merged = $strongVectorItems;
+        foreach ($keywordItems as $item) {
             if (count($merged) >= $maxContext) {
                 break;
             }
+            $key = $item['source_type'] . '|' . $item['source_id'];
+            if (isset($seenAfterStrong[$key])) {
+                continue;
+            }
+            $seenAfterStrong[$key] = true;
+            $merged[] = $item;
         }
 
         return $merged;
