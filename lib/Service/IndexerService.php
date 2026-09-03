@@ -1525,7 +1525,10 @@ class IndexerService
                     $dom = new \DOMDocument();
                     // Suppress HTML5 errors
                     libxml_use_internal_errors(true);
-                    $dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+                    // XML-Prolog-Praefix statt mb_convert_encoding(..., 'HTML-ENTITIES', ...) - Letzteres
+                    // ist seit PHP 8.2 deprecated (siehe indexUrl() weiter oben, die bereits dasselbe
+                    // Muster nutzt) und zwingt DOMDocument so zur korrekten UTF-8-Interpretation.
+                    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
                     libxml_clear_errors();
 
                     $xpath = new \DOMXPath($dom);

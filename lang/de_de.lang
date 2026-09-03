@@ -23,8 +23,8 @@ ai_chat_config_api_public_enabled = Public API Endpunkt aktivieren
 ai_chat_config_api_public_enabled_notice = Achtung: Dieser Endpunkt ist wirklich öffentlich – ganz ohne Token und ohne Origin-Prüfung. Einmal aktiviert, kann jeder von überall darauf zugreifen, nicht nur die eigene Website. Nur aktivieren, wenn genau das gewollt ist.
 ai_chat_config_api_token_hint = Für authentifizierten Zugriff (mit Token statt öffentlich) das Addon „api" nutzen: Tokens werden dort unter <a href="%s">API → Token</a> angelegt, mit dem Scope <code>ai_chat/chat/query</code>.
 ai_chat_config_api_token_hint_unavailable = Für authentifizierten Zugriff (mit Token statt öffentlich) wird das Addon „api" (FriendsOfRedaxo) benötigt – aktuell nicht installiert.
-ai_chat_config_frontend_allowed_ips = Erlaubte IPs (Testing)
-ai_chat_config_frontend_allowed_ips_notice = Kommagetrennte Liste von IP-Adressen. Wenn gesetzt, wird der Chat nur für diese IPs angezeigt. Leer lassen für alle.
+ai_chat_config_frontend_allowed_ips = Testmodus: Erlaubte IPs
+ai_chat_config_frontend_allowed_ips_notice = Kommagetrennte Liste von IP-Adressen. Wenn gesetzt, ist Chat/Suche im Frontend NUR für diese IPs sichtbar - für alle anderen (auch eingeloggte Redakteure/Admins von einer anderen IP) komplett gesperrt, serverseitig durchgesetzt, nicht nur versteckt. Zusätzlich hebt es für die erlaubten IPs die "Sichtbar für"-Einschränkung einzelner Profile auf (auch bewusst auf "nur Redakteure/Admins" beschränkte Profile werden sichtbar) - so lässt sich die gesamte Website unkompliziert nur für dich in einen Testmodus versetzen. Leer lassen = keine Einschränkung, normales Verhalten für alle.
 ai_chat_config_frontend_search_current_page_only = Nur aktuelle Seite durchsuchen
 ai_chat_config_search_source_type_labels = Bezeichnungen für Such-Filter
 ai_chat_config_search_source_type_labels_notice = Format pro Zeile: source_type=Label. Beispiel: sitemap_url=Seiten. Diese Labels werden in der Spotlight-Filterleiste angezeigt.

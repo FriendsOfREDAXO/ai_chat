@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+### Neu (Globaler IP-Testmodus: gesamte Website unkompliziert nur für dich freischalten)
+- „Erlaubte IPs" (Einstellungen → Zugriff) war rein kosmetisch: steuerte nur, ob das Widget
+  ins Markup injiziert wird, nicht aber, ob der API-Endpunkt selbst direkt aufrufbar war -
+  wer die URL kannte, kam auch mit falscher IP an Antworten. Jetzt serverseitig
+  durchgesetzt, für Chat UND Suche.
+- Zusätzlich hebt eine zugelassene IP jetzt die "Sichtbar für"-Einschränkung einzelner
+  Profile auf (Domain-/Sprachfilterung bleibt unangetastet) - damit lässt sich die gesamte
+  Website mit einem einzigen globalen Feld in einen Testmodus versetzen, in dem nur du (per
+  IP, ganz ohne Login) alle Profile inkl. bewusst auf "nur Redakteure/Admins" beschränkter
+  siehst, während alle anderen Besucher komplett ausgesperrt bleiben.
+- Das Feld zeigt jetzt direkt die eigene aktuelle IP mit Kopieren-Button und einen Live-
+  Status, ob diese IP bereits in der Liste steht - kein externes "Wie lautet meine IP"-Tool
+  mehr nötig.
+
+### Behoben (Sitemap-Test: irreführende Fehlermeldung bei HTML statt XML)
+- Der "Sitemaps prüfen"-Button auf der Indexierungs-Seite zeigte bei einer falschen URL
+  (z.B. die Domain-Startseite statt der eigentlichen sitemap.xml) nur die rohe, wenig
+  hilfreiche libxml-Fehlermeldung "String could not be parsed as XML" an. Erkennt diesen
+  häufigsten Fall jetzt und gibt stattdessen einen konkreten Hinweis, dass die URL wohl auf
+  eine normale HTML-Seite statt auf die Sitemap-Datei zeigt.
+
+### Behoben (Zwei stille Regressions aus der „globale Einstellung übernehmen"-Umstellung)
+- Die neue nullable Handhabung von `addressing_mode`/`personalization_mode` je Profil (siehe
+  vorheriger Eintrag) hatte zwei Stellen übersehen, die den alten, jetzt falschen
+  Leer-String-Vergleich noch verwendeten (`boot.php`, „Profil testen"-Vorschau in
+  `pages/profiles.php`) - dadurch griff die globale Fallback-Einstellung dort nicht mehr,
+  sondern es wurde stillschweigend der (jetzt mögliche) `null`-Wert direkt weitergereicht.
+  Beide korrigiert.
+- `mb_convert_encoding(..., 'HTML-ENTITIES', ...)` (seit PHP 8.2 deprecated, erzeugt bei
+  jedem HTTP-Crawler-Indexierungslauf eine Deprecation-Meldung) durch dasselbe
+  XML-Prolog-Präfix-Muster ersetzt, das an anderer Stelle im Code bereits verwendet wird.
+
 ## [1.1.0] - 2026-09-03
 
 ### Geändert (Admin-Oberfläche: verständlicheres Wording, klarer wo eine Einstellung wirkt)

@@ -88,7 +88,7 @@ if ('add' === $func || 'edit' === $func) {
             $testScope = $testProfile->context === 'backend' ? 'developer' : 'frontend';
             $testResetAttr = $testProfile->chatResetCountdown > 0 ? ' reset-countdown="' . $testProfile->chatResetCountdown . '"' : '';
             $testCopyAttr = $testProfile->chatCopyHistory ? ' copy-history="true"' : '';
-            $testPersonalization = $testProfile->personalizationMode !== '' ? $testProfile->personalizationMode : 'off';
+            $testPersonalization = $testProfile->personalizationMode ?? (string) $addon->getConfig('personalization_mode', 'off');
             $testPrimaryColor = ProfileTheme::resolvePrimaryColor($testProfile, $addon);
             $testAvatarUrl = ProfileTheme::resolveAvatarUrl($testProfile, $addon);
             $testThemeVars = ProfileTheme::buildInlineStyle($testProfile, $addon);
@@ -185,7 +185,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addSelectField('viewer_roles');
     $field->setLabel('Sichtbar für');
-    $field->setNotice('Ohne Auswahl sieht niemand dieses Profil – es wird dann nie aufgelöst. Ohne "Besucher" wirkt es wie ein Testmodus: nur eingeloggte Redakteure/Admins sehen es (mit Hinweis-Badge im Frontend).');
+    $field->setNotice('Ohne Auswahl sieht niemand dieses Profil – es wird dann nie aufgelöst. Ohne "Besucher" wirkt es wie ein Testmodus: nur eingeloggte Redakteure/Admins sehen es (mit Hinweis-Badge im Frontend). Alternative für nicht eingeloggte Tester: der globale IP-Testmodus (Einstellungen → Zugriff) hebt diese Einschränkung für zugelassene IPs auf, unabhängig vom Login.');
     $field->setAttribute('class', 'selectpicker');
     $field->setAttribute('data-actions-box', 'true');
     $select = $field->getSelect();

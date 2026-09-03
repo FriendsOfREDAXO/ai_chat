@@ -21,7 +21,16 @@ class ProfileResolver
     ) {
     }
 
-    public function resolveForFrontend(?rex_yrewrite_domain $domain, int $clangId, ?rex_user $backendUser): ?ChatProfile
+    /**
+     * @param bool $bypassViewerRoles true, wenn die aktuelle Anfrage ueber den globalen
+     *             IP-Testmodus laeuft (siehe ChatQueryService::resolveIpTestGate()) - erlaubt
+     *             einer zugelassenen Test-IP, JEDES Profil zu sehen, auch ein bewusst auf
+     *             "nur Redakteure/Admins" beschraenktes, ohne dafuer eingeloggt sein zu
+     *             muessen. Domain-/Sprachfilterung bleibt davon unberuehrt (die soll auch im
+     *             Testmodus weiterhin gelten, sonst laesst sich ein domain-beschraenktes
+     *             Profil nie sinnvoll auf einer anderen Domain testen).
+     */
+    public function resolveForFrontend(?rex_yrewrite_domain $domain, int $clangId, ?rex_user $backendUser, bool $bypassViewerRoles = false): ?ChatProfile
     {
         $role = self::deriveRole($backendUser);
         $domainName = $domain?->getName();
@@ -29,7 +38,7 @@ class ProfileResolver
         $candidates = array_values(array_filter(
             $this->repository->getEnabled(),
             static fn (ChatProfile $profile): bool => $profile->matchesContext('frontend')
-                && $profile->matchesViewerRole($role)
+                && ($bypassViewerRoles || $profile->matchesViewerRole($role))
                 && $profile->matchesDomain($domainName)
                 && $profile->matchesClang($clangId),
         ));

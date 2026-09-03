@@ -93,6 +93,25 @@ $field = $form->addTextField('frontend_allowed_ips');
 $field->setLabel($addon->i18n('config_frontend_allowed_ips'));
 $field->setNotice($addon->i18n('config_frontend_allowed_ips_notice'));
 
+// Eigene IP direkt anzeigen (zum Reinkopieren) statt den Admin auf ein externes "Wie
+// lautet meine IP"-Tool zu verweisen - plus ein Live-Status, ob die eingetragene Liste die
+// aktuelle IP bereits enthaelt, damit nicht erst gespeichert und neu geladen werden muss,
+// um das zu sehen.
+$currentRequestIp = rex_server('REMOTE_ADDR', 'string', '');
+if ('' !== $currentRequestIp) {
+    $configuredIps = array_map('trim', explode(',', (string) $addon->getConfig('frontend_allowed_ips', '')));
+    $currentIpListed = in_array($currentRequestIp, $configuredIps, true);
+    $statusHtml = $currentIpListed
+        ? '<span class="text-success"><i class="rex-icon fa-check"></i> ist bereits in der Liste (Testmodus für dich aktiv)</span>'
+        : '<span class="text-muted">ist noch nicht in der Liste</span>';
+    $form->addRawField(
+        '<p class="help-block" style="margin-left:170px;">Deine aktuelle IP: '
+        . '<code id="ai-chat-current-ip">' . rex_escape($currentRequestIp) . '</code> '
+        . '<button type="button" class="btn btn-xs btn-default" onclick="navigator.clipboard.writeText(document.getElementById(\'ai-chat-current-ip\').textContent)"><i class="rex-icon fa-copy"></i> Kopieren</button> '
+        . $statusHtml . '</p>'
+    );
+}
+
 $form->addRawField('</div>');
 
 // Eigener Abschnitt statt Teil der Sichtbarkeits-Box: andere Zielgruppe

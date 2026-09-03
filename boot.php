@@ -291,20 +291,15 @@ if (rex::isFrontend()) {
 
         $currentDomain = YrewriteDomainResolver::getCurrentDomain();
 
-        // Check Allowed IPs (globale Einschränkung, gilt für Chat UND Suche)
-        $allowedIps = $addon->getConfig('frontend_allowed_ips');
-        $ipAllowed = true;
+        // IP-Testmodus (globale Einschränkung, gilt für Chat UND Suche) - siehe
+        // ChatQueryService::resolveIpTestGate() für die genaue Bedeutung der beiden Werte.
+        // Serverseitig wird exakt dieselbe Prüfung nochmal in process() durchgesetzt (siehe
+        // dort) - diese hier steuert nur, ob das Widget überhaupt ins Markup injiziert wird.
+        [$ipGateConfigured, $ipAllowed] = ChatQueryService::resolveIpTestGate();
+        $ipTestModeActive = $ipGateConfigured && $ipAllowed;
 
-        if (!empty($allowedIps)) {
-            $ips = array_map('trim', explode(',', $allowedIps));
-            $userIp = rex_server('REMOTE_ADDR', 'string', '');
-            if (!in_array($userIp, $ips)) {
-                $ipAllowed = false;
-            }
-        }
-
-        $frontendProfile = $ipAllowed
-            ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser())
+        $frontendProfile = (!$ipGateConfigured || $ipAllowed)
+            ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser(), $ipTestModeActive)
             : null;
 
         // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind die globalen
@@ -394,7 +389,7 @@ if (rex::isFrontend()) {
             $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
             $frontendResetCountdown = $frontendProfile->chatResetCountdown;
             $frontendCopyHistory = $frontendProfile->chatCopyHistory;
-            $personalization = '' !== $frontendProfile->personalizationMode ? $frontendProfile->personalizationMode : (string) $addon->getConfig('personalization_mode', 'off');
+            $personalization = $frontendProfile->personalizationMode ?? (string) $addon->getConfig('personalization_mode', 'off');
             $profileIdAttrValue = $frontendProfile->id;
             $uiLanguage = $frontendProfile->uiLanguage;
         } else {

@@ -47,6 +47,36 @@ class ChatQueryService
     }
 
     /**
+     * Wertet die globale IP-Testmodus-Einschraenkung aus (Einstellungen -> Zugriff,
+     * "Erlaubte IPs") - von boot.php (Widget-Injektion) UND process() (server-seitige
+     * Durchsetzung, siehe dort) genutzt, damit beide exakt dieselbe Regel anwenden statt
+     * einer nur kosmetischen Pruefung beim Rendern.
+     *
+     * [0]=false: Feld ist leer, keine Einschraenkung aktiv - [1] ist dann bedeutungslos.
+     * [0]=true, [1]=false: eine Einschraenkung ist konfiguriert, die aktuelle IP steht aber
+     * NICHT auf der Liste - Chat/Suche muessen fuer diese Anfrage komplett blockiert werden.
+     * [0]=true, [1]=true: Testmodus fuer DIESE Anfrage aktiv - die aktuelle IP ist erlaubt,
+     * was zusaetzlich die "Sichtbar für"-Rolleneinschraenkung einzelner Profile umgeht (siehe
+     * ProfileResolver::resolveForFrontend()'s $bypassViewerRoles) - genau der Fall, fuer den
+     * das Feld gedacht ist: als Tester JEDES Profil sehen koennen, auch ein bewusst auf
+     * "nur Redakteure/Admins" beschraenktes, ohne dafuer eingeloggt sein zu muessen.
+     *
+     * @return array{0: bool, 1: bool}
+     */
+    public static function resolveIpTestGate(): array
+    {
+        $allowedIps = trim((string) rex_addon::get('ai_chat')->getConfig('frontend_allowed_ips', ''));
+        if ('' === $allowedIps) {
+            return [false, false];
+        }
+
+        $ips = array_map('trim', explode(',', $allowedIps));
+        $userIp = rex_server('REMOTE_ADDR', 'string', '');
+
+        return [true, in_array($userIp, $ips, true)];
+    }
+
+    /**
      * @return array<string, mixed>|null Response to short-circuit with, or null if the request may proceed.
      */
     private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile): ?array
@@ -189,6 +219,12 @@ class ChatQueryService
         $history = $this->normalizeConversationHistory($input['history'] ?? []);
         $retrievalMessage = $this->buildConversationRetrievalQuery($message, $history);
 
+        // IP-Testmodus (siehe resolveIpTestGate()) wird weiter unten, sobald $mode feststeht,
+        // zusammen mit der uebrigen Frontend-Zugriffskontrolle durchgesetzt - hier schon
+        // vorab ausgewertet, weil resolveForFrontend() direkt danach den Bypass braucht.
+        [$ipGateConfigured, $ipAllowed] = self::resolveIpTestGate();
+        $ipTestModeActive = $scope === 'frontend' && $ipGateConfigured && $ipAllowed;
+
         // Vom Client mitgeschicktes Profil (siehe boot.php: dort per ProfileResolver
         // fuer die aktuelle Domain/Sprache/Rolle aufgeloest) - steuert Wissens-Scope
         // (findSimilarContent) und optional einen eigenen System-Prompt/Anrede. Kein
@@ -214,11 +250,14 @@ class ChatQueryService
             // Fuer eine echte Besucherin bleibt $backendUser hier null (Rolle "visitor");
             // fuer einen testenden Backend-Nutzer ohne explizite profile_id wird stattdessen
             // dessen eigene Rolle (admin/editor) verwendet, damit auch ein nur fuer
-            // Redakteure/Admins sichtbares Profil beim Testen korrekt matcht.
+            // Redakteure/Admins sichtbares Profil beim Testen korrekt matcht. $ipTestModeActive
+            // umgeht zusaetzlich die "Sichtbar für"-Rolleneinschraenkung selbst (siehe
+            // ProfileResolver) - eine zugelassene Test-IP soll jedes Profil sehen koennen.
             $profile = (new ProfileResolver())->resolveForFrontend(
                 self::resolveCurrentFrontendDomain(),
                 rex_clang::getCurrentId(),
                 self::getAuthenticatedBackendUser(),
+                $ipTestModeActive,
             );
         }
 
@@ -275,7 +314,29 @@ class ChatQueryService
         // direkt aufrufen, selbst wenn Chat/Suche im Frontend deaktiviert ist. Wer
         // überhaupt sichtbar sein darf, ist bereits über die Profil-Neuzuordnung oben
         // (viewerRoles/targetMode/domains/clangs) durchgesetzt.
+        //
+        // IP-Testmodus greift davor: ist eine Einschraenkung konfiguriert und die aktuelle
+        // IP steht NICHT auf der Liste, ist fuer nicht angemeldete Besucher hier komplett
+        // Schluss - boot.php prueft das zwar bereits, verhindert damit aber nur die
+        // Widget-Injektion ins Markup, nicht den direkten Aufruf dieses Endpunkts.
         if ($scope === 'frontend') {
+            if ($ipGateConfigured && !$ipAllowed && null === self::getAuthenticatedBackendUser()) {
+                if ($mode === 'search') {
+                    return [
+                        'mode' => 'search',
+                        'query' => '',
+                        'hits' => [],
+                        'filters' => ['source_types' => []],
+                    ];
+                }
+
+                return [
+                    'answer' => '',
+                    'answer_text' => '',
+                    'follow_up_questions' => [],
+                ];
+            }
+
             $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile);
             if ($frontendDenial !== null) {
                 return $frontendDenial;

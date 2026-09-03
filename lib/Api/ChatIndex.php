@@ -133,6 +133,14 @@ class ChatIndex extends rex_api_function
                     }
 
                     $xmlString = $response->getBody();
+
+                    // Haeufigster Fall fuer "String could not be parsed as XML": die URL zeigt auf
+                    // eine normale HTML-Seite (z.B. die Domain-Startseite statt .../sitemap.xml) -
+                    // dafuer ein konkreter, umsetzbarer Hinweis statt der rohen libxml-Fehlermeldung.
+                    if (1 === preg_match('/^\s*<(!doctype\s+html|html\b)/i', $xmlString)) {
+                        throw new \Exception('Die Antwort sieht nach einer normalen HTML-Seite aus, nicht nach einer Sitemap-XML-Datei. Zeigt die URL wirklich direkt auf die sitemap.xml (z.B. https://example.com/sitemap.xml), nicht nur auf die Domain/Startseite?');
+                    }
+
                     $xml = new \SimpleXMLElement($xmlString);
                     $count = 0;
 
