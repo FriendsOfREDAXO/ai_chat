@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Behoben (Interner Renderer indexierte Editor-/Bearbeitungsansicht statt echter Frontend-Ausgabe)
+- Bei der Indexierungs-Methode „Intern (REDAXO-Renderer)" landete teils sichtbare
+  Editor-Oberfläche im Suchindex (z. B. Grid-/Container-Bearbeitungshinweise wie
+  „Containereinstellungen", „Abstand oben", Modul-interne Dev-/Zurück-Links) statt
+  der tatsächlichen Frontend-Ausgabe. Ursache: die Simulation "Artikel wie im
+  Frontend rendern" setzte die REDAXO-Property `is_backend`, tatsächlich prüfen
+  `rex::isBackend()`/`isFrontend()` aber die Property `redaxo` - die Simulation war
+  dadurch wirkungslos, `rex::isBackend()` blieb während des gesamten internen
+  Renderings `true`. Module, die abhängig davon zwischen echter Frontend-Ausgabe
+  und einer Editor-Vorschau unterscheiden, lieferten entsprechend ihre
+  Editor-Variante, die dann mit indexiert und in Suchergebnissen sichtbar wurde.
+
 ### Behoben (Domain-/Sprach-eingeschränkte Profile zeigten Chat/Suche nie oder falsch an)
 - Sobald ein Profil im „Anzeigebereich" auf bestimmte Domains eingeschränkt
   wurde, verschwand das Chat-/Such-Widget komplett - auch auf der

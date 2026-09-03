@@ -1593,15 +1593,22 @@ class IndexerService
         }
 
         if ($method === 'internal' || empty($text)) {
-            // Simulate Frontend Environment for correct module output
+            // Simulate Frontend Environment for correct module output. rex::isBackend()/
+            // isFrontend() lesen intern die Property "redaxo" (siehe core/boot.php:
+            // rex::setProperty('redaxo', $REX['REDAXO'])) - NICHT "is_backend". Ein Modul,
+            // das per rex::isBackend() zwischen echtem Frontend-Output und einer
+            // Editor-Vorschau (Grid-/Container-Bearbeitungs-Overlay, "Zurück"-Devlink, o.ae.)
+            // unterscheidet, hat bei falscher Property also weiterhin "Backend" gesehen und
+            // seine Editor-Ausgabe in den Index geschrieben (siehe GitHub-Issue-Report von Oli:
+            // sichtbare Grid-/Container-Einstellungen im Suchergebnis-Snippet).
             $isBackend = \rex::isBackend();
             $originalArticleId = \rex::getProperty('article_id');
             $originalClang = \rex::getProperty('clang');
 
             if ($isBackend) {
-                \rex::setProperty('is_backend', false);
+                \rex::setProperty('redaxo', false);
             }
-            
+
             // Set context for modules that rely on rex_article::getCurrent() or global properties
             \rex::setProperty('article_id', $article->getId());
             \rex::setProperty('clang', $clangId);
@@ -1612,7 +1619,7 @@ class IndexerService
             } finally {
                 // Restore Environment
                 if ($isBackend) {
-                    \rex::setProperty('is_backend', true);
+                    \rex::setProperty('redaxo', true);
                 }
                 \rex::setProperty('article_id', $originalArticleId);
                 \rex::setProperty('clang', $originalClang);
