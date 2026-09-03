@@ -238,6 +238,97 @@ body.rex-theme-dark #ai-search-root {
   color: var(--ai-search-accent);
 }
 
+/* Das Such-Overlay laeuft (anders als <ai-chat>, das per Shadow DOM komplett isoliert ist)
+   im Light DOM der Host-Seite - ohne eigene code/pre-Regeln uebernimmt es sonst ungewollt
+   das Seiten-Theme (z.B. UIkit's pinkes Standard-<code>), was je nach Website unpassend
+   aussieht und bei langen einzeiligen Code-Schnipseln ohne Zeilenumbruch abgeschnitten
+   wirkt. */
+#ai-search-root .ai-search-answer-body code,
+#ai-search-root .ai-search-answer-sources code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  background: color-mix(in srgb, var(--ai-search-text) 8%, transparent);
+  color: var(--ai-search-text);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#ai-search-root .ai-search-answer-body pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--ai-search-text) 6%, transparent);
+  border: 1px solid var(--ai-search-panel-border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+#ai-search-root .ai-search-answer-body pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  white-space: pre;
+  display: block;
+}
+
+/* Haelt eine lange KI-Antwort davon ab, die eigentliche Trefferliste weit nach unten zu
+   schieben - die Quellen-Links (abgetrennt am server-seitig eingefuegten <hr>, siehe
+   ChatQueryService::parseMarkdown()) bleiben bewusst AUSSERHALB dieses Containers und
+   damit immer sichtbar, auch eingeklappt. */
+#ai-search-root .ai-search-answer-collapse {
+  max-height: 160px;
+  overflow: hidden;
+  position: relative;
+}
+
+#ai-search-root .ai-search-answer-collapse.ai-search-answer-collapse-clamped::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--ai-search-panel-bg));
+  pointer-events: none;
+}
+
+#ai-search-root .ai-search-answer-collapse.ai-search-answer-expanded {
+  max-height: none;
+}
+
+#ai-search-root .ai-search-answer-collapse.ai-search-answer-expanded::after {
+  display: none;
+}
+
+#ai-search-root .ai-search-answer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ai-search-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-answer-toggle:hover {
+  text-decoration: underline;
+}
+
+#ai-search-root .ai-search-answer-sources {
+  margin-top: 8px;
+}
+
+#ai-search-root .ai-search-answer-sources hr {
+  border: 0;
+  border-top: 1px solid var(--ai-search-panel-border);
+  margin: 8px 0;
+}
+
 #ai-search-root .ai-search-answer-loading-row {
   display: inline-flex;
   align-items: center;

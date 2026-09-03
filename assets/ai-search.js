@@ -796,8 +796,66 @@
     body.innerHTML = answerHtml;
 
     box.appendChild(title);
-    box.appendChild(body);
+    box.appendChild(this.buildAnswerBodyContent(body));
     this.answerHost.appendChild(box);
+  };
+
+  // Trennt einen etwaigen Quellen-Block ("Links:") vom Rest ab, BEVOR die Hoehen-Begrenzung
+  // greift - der Quellen-Block bleibt so immer sichtbar, auch eingeklappt. Der Server fuegt
+  // vor dem Quellen-Absatz ein <hr> ein (siehe ChatQueryService::parseMarkdown()), das hier
+  // als verlaesslicher, sprachunabhaengiger Trennpunkt dient (der konfigurierbare Titel
+  // "Links:"/"Quellen:" waere dem Client sonst gar nicht bekannt).
+  SearchUi.prototype.buildAnswerBodyContent = function (body) {
+    var fragment = document.createDocumentFragment();
+    var hrs = body.querySelectorAll('hr');
+    var lastHr = hrs.length > 0 ? hrs[hrs.length - 1] : null;
+
+    var sourcesNodes = [];
+    if (lastHr) {
+      var node = lastHr;
+      while (node) {
+        var next = node.nextSibling;
+        sourcesNodes.push(node);
+        node = next;
+      }
+      sourcesNodes.forEach(function (n) { body.removeChild(n); });
+    }
+
+    var collapse = document.createElement('div');
+    collapse.className = 'ai-search-answer-collapse';
+    collapse.appendChild(body);
+    fragment.appendChild(collapse);
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'ai-search-answer-toggle';
+    var showMoreLabel = this.t('search_answer_show_more', 'Mehr anzeigen');
+    var showLessLabel = this.t('search_answer_show_less', 'Weniger anzeigen');
+    toggle.textContent = showMoreLabel;
+    toggle.hidden = true;
+    toggle.addEventListener('click', function () {
+      var expanded = collapse.classList.toggle('ai-search-answer-expanded');
+      toggle.textContent = expanded ? showLessLabel : showMoreLabel;
+    });
+    fragment.appendChild(toggle);
+
+    if (sourcesNodes.length > 0) {
+      var sources = document.createElement('div');
+      sources.className = 'ai-search-answer-sources';
+      sourcesNodes.forEach(function (n) { sources.appendChild(n); });
+      fragment.appendChild(sources);
+    }
+
+    // Erst nach dem Einhaengen ins Dokument hat scrollHeight einen verlaesslichen Wert -
+    // requestAnimationFrame wartet auf das naechste Layout, ohne synchron zu blockieren.
+    requestAnimationFrame(function () {
+      if (collapse.scrollHeight > collapse.clientHeight + 4) {
+        collapse.classList.add('ai-search-answer-collapse-clamped');
+        toggle.hidden = false;
+      }
+    });
+
+    return fragment;
   };
 
   SearchUi.prototype.renderToolbar = function (filters, labelFilters) {

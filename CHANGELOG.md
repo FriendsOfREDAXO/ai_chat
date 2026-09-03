@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Verbessert (Such-Widget: KI-Antwortbox)
+- Eine lange KI-Antwort im Such-Overlay schiebt nicht mehr die eigentliche
+  Trefferliste weit nach unten - die Antwortbox begrenzt ihre Höhe jetzt und
+  bekommt bei Bedarf einen „Mehr anzeigen"/„Weniger anzeigen"-Umschalter. Ein
+  eventueller Quellen-Block („Links:") bleibt dabei immer vollständig
+  sichtbar, auch eingeklappt.
+- Code-Beispiele (Inline und Blöcke) in der Antwort sehen jetzt unabhängig
+  vom Website-Theme konsistent aus - das Such-Overlay läuft anders als
+  `<ai-chat>` (Shadow DOM) im Light DOM der Seite und übernahm bisher
+  ungewollt globale `<code>`-Styles der jeweiligen Website (z.B. UIkits
+  pinkes Standard-Inline-Code), inklusive Abschneiden bei langen einzeiligen
+  Code-Schnipseln ohne Zeilenumbruch.
+
 ### Behoben (Fataler Fehler im Frontend bei bestimmten yrewrite-Multidomain-Konstellationen)
 - `rex_yrewrite::getCurrentDomain()` wirft in manchen Multidomain-/
   Mehrsprachen-Setups (z.B. eine Sprache offline, siehe [#1](https://github.com/FriendsOfREDAXO/ai_chat/issues/1))
