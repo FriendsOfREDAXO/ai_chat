@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.1] - 2026-09-03
 
 ### Verbessert (Such-Widget: KI-Antwortbox)
 - Eine lange KI-Antwort im Such-Overlay schiebt nicht mehr die eigentliche
