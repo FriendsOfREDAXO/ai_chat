@@ -57,6 +57,36 @@ class ReindexWorker extends rex_api_function
         }
         @set_time_limit(0);
 
+        // Dem aufrufenden curl/wget-Prozess SOFORT antworten und die Verbindung
+        // schliessen, statt ihn auf die komplette (potenziell viele Minuten dauernde)
+        // Laufzeit warten zu lassen. ChatIndex::buildCurlSelfCallCommand() setzt je
+        // Versuch ein `--max-time 20` UND verkettet drei Versuche per `||`
+        // (oeffentliche URL -> Loopback 443 -> Loopback 80) - ohne dieses fruehe
+        // Response wuerde JEDER Lauf, der laenger als 20s braucht, den ersten
+        // Versuch als "fehlgeschlagen" erscheinen lassen, WAEHREND er dank
+        // ignore_user_abort() serverseitig weiterlief - der `||`-Fallback haette
+        // dann einen zweiten, ueberlappenden Lauf gegen denselben Token gestartet
+        // (zwei Prozesse schreiben dann gleichzeitig/durcheinander in dieselbe
+        // IndexRunStore-Datei). Erklaert vermutlich den gemeldeten Unterschied
+        // "haengt auf einer Website, laeuft auf der anderen durch": betrifft nur
+        // Installationen, deren Gesamtlaufzeit ueber 20s liegt (groesserer Index,
+        // langsamerer Embedding-Provider, langsamere Verbindung).
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+        rex_response::sendJson(['ok' => true, 'accepted' => true]);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } else {
+            // Fallback fuer Nicht-FPM-SAPIs (z.B. mod_php) - schliesst die Verbindung
+            // nicht ganz so sauber wie fastcgi_finish_request(), reicht aber, damit
+            // curl/wget nicht laenger als noetig blockiert.
+            if (!headers_sent()) {
+                header('Connection: close');
+            }
+            flush();
+        }
+
         try {
             $service = new IndexerService();
             $onProgress = static function (array $progress): void {
@@ -85,6 +115,13 @@ class ReindexWorker extends rex_api_function
             ]));
         }
 
-        $this->sendJsonClean(['ok' => true]);
+        // Kein weiterer Response noetig - die Antwort ist bereits oben, vor dem
+        // eigentlichen Indexierungslauf, an den Client gegangen (siehe Kommentar dort).
+        // Ein erneuter header()/echo-Versuch hier wuerde nach fastcgi_finish_request()
+        // ohnehin nirgendwo mehr ankommen. exit statt eines regulaeren "return", da
+        // execute() laut rex_api_function-Vertrag ein rex_api_result liefern muesste -
+        // wie bei jedem anderen sendJsonClean()-Pfad in diesem Addon auch gibt es das
+        // hier nie, das Skript endet stattdessen einfach.
+        exit;
     }
 }

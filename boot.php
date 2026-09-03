@@ -6,6 +6,7 @@ use FriendsOfRedaxo\AiChat\Api\ChatQuery as ApiChatQuery;
 use FriendsOfRedaxo\AiChat\Api\ChatTest as ApiChatTest;
 use FriendsOfRedaxo\AiChat\Api\CloudflareModels as ApiCloudflareModels;
 use FriendsOfRedaxo\AiChat\Api\ReindexWorker as ApiReindexWorker;
+use FriendsOfRedaxo\AiChat\Api\SelfCallPing as ApiSelfCallPing;
 use FriendsOfRedaxo\AiChat\Api\RoutePackage\Backend\AiChat as ApiBackendAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\RoutePackage\AiChat as ApiAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\WidgetTranslations as ApiWidgetTranslations;
@@ -43,6 +44,10 @@ rex_api_function::register('ai_chat_cloudflare_models', ApiCloudflareModels::cla
 // published=true (siehe ReindexWorker) - wird vom detached curl/wget-Hintergrundprozess
 // ohne Backend-Session aufgerufen, absichern übernimmt der Einmal-Token aus IndexRunStore.
 rex_api_function::register('ai_chat_reindex_worker', ApiReindexWorker::class);
+// published=true: wirkungsloser Echo-Endpunkt fuer den Selbstaufruf-Diagnosetest
+// (Einstellungen -> Systemcheck), aus demselben Grund wie ai_chat_reindex_worker ohne
+// Backend-Session erreichbar sein muss - gibt aber keinerlei Daten preis.
+rex_api_function::register('ai_chat_selfcall_ping', ApiSelfCallPing::class);
 // published=true: reine Widget-UI-Texte, auch für anonyme Frontend-Besucher ohne Session.
 rex_api_function::register('ai_chat_widget_translations', ApiWidgetTranslations::class);
 

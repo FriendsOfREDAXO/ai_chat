@@ -91,6 +91,10 @@ class ChatIndex extends rex_api_function
                 $this->sendJsonClean(['success' => true] + SystemCheckService::backgroundRunnerDiagnostics());
             }
 
+            if ($action === 'test_background_selfcall') {
+                $this->handleTestBackgroundSelfCall();
+            }
+
             if ($action === 'start_background') {
                 $this->handleStartBackground();
             }
@@ -395,5 +399,105 @@ class ChatIndex extends rex_api_function
     private static function backgroundRunnerAvailable(): bool
     {
         return (bool) SystemCheckService::backgroundRunnerDiagnostics()['available'];
+    }
+
+    /**
+     * Diagnose-Werkzeug fuer "Einstellungen -> Systemcheck": spielt denselben
+     * Selbstaufruf-Mechanismus wie handleStartBackground()/buildCurlSelfCallCommand()
+     * durch, aber SYNCHRON (nicht per shell_exec('... &') abgekoppelt) und gegen den
+     * wirkungslosen Api\SelfCallPing statt des echten Arbeiters - liefert dadurch
+     * sofort ein vollstaendiges Ergebnis pro Versuch (oeffentliche URL/Loopback 443/
+     * Loopback 80: Dauer, HTTP-Status, Rohausgabe) statt nur "hat irgendwas
+     * funktioniert". Zusaetzlich der letzte reale Hintergrundlauf-Log sowie ob ein
+     * gemerkter PID-Prozess noch lebt - beides wurde bisher nirgends angezeigt,
+     * obwohl es bei jedem echten Lauf mitgeschrieben wird.
+     */
+    private function handleTestBackgroundSelfCall(): void
+    {
+        $diagnostics = SystemCheckService::backgroundRunnerDiagnostics();
+        $curlPath = SystemCheckService::resolveBinary('curl');
+        $wgetPath = SystemCheckService::resolveBinary('wget');
+
+        $server = rtrim(rex::getServer(), '/');
+        $pingUrl = $server . '/index.php?rex-api-call=ai_chat_selfcall_ping';
+
+        $attempts = [];
+        if ($curlPath !== null) {
+            $attempts = self::runSelfCallAttempts($curlPath, $server, $pingUrl);
+        }
+
+        $logFile = rex_path::addonData('ai_chat', 'reindex_background.log');
+        $pidFile = rex_path::addonData('ai_chat', 'reindex_background.pid');
+        $lastLog = is_file($logFile) ? trim((string) file_get_contents($logFile)) : '';
+
+        $pidStillRunning = false;
+        if (is_file($pidFile)) {
+            $pid = (int) trim((string) file_get_contents($pidFile));
+            if ($pid > 0) {
+                // posix_kill($pid, 0) ist oft nicht kompiliert (Shared-Hosting) - `ps -p`
+                // als portablerer Fallback, funktioniert ueberall wo shell_exec() selbst
+                // schon verfuegbar sein muss (sonst waere backgroundRunnerAvailable() eh
+                // false und wir kaemen hier nie an).
+                $pidStillRunning = '' !== trim((string) shell_exec('ps -p ' . $pid . ' -o pid= 2>/dev/null'));
+            }
+        }
+
+        $this->sendJsonClean([
+            'success' => true,
+            'runner_available' => $diagnostics['available'],
+            'runner_reason' => $diagnostics['reason'],
+            'curl_path' => $curlPath,
+            'wget_path' => $wgetPath,
+            'ping_url' => $pingUrl,
+            'attempts' => $attempts,
+            'last_run_log' => '' !== $lastLog ? mb_substr($lastLog, -4000) : null,
+            'pid_file_present' => is_file($pidFile),
+            'pid_still_running' => $pidStillRunning,
+        ]);
+    }
+
+    /**
+     * @return list<array{label: string, duration_ms: int, http_status: ?int, output: string}>
+     */
+    private static function runSelfCallAttempts(string $curlPath, string $server, string $pingUrl): array
+    {
+        $scheme = parse_url($server, PHP_URL_SCHEME) ?: 'https';
+        $host = parse_url($server, PHP_URL_HOST) ?: 'localhost';
+        $port = parse_url($server, PHP_URL_PORT) ?: ('https' === $scheme ? 443 : 80);
+        $hostPort = $host . ':' . $port;
+        // %{http_code} auf einer eigenen Zeile angehaengt, damit wir Nutzlast und
+        // HTTP-Status nachtraeglich wieder sauber trennen koennen, ohne curls
+        // "-D -"/--dump-header extra parsen zu muessen.
+        $statusMarker = '\n__HTTP_STATUS__%{http_code}';
+
+        $variants = [
+            'Öffentliche URL' => escapeshellarg($curlPath) . ' -s --max-time 15 -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
+            'Loopback 443 (HTTPS)' => escapeshellarg($curlPath) . ' -sk --max-time 15 --connect-to '
+                . escapeshellarg($hostPort . ':127.0.0.1:443') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
+            'Loopback 80 (HTTP)' => escapeshellarg($curlPath) . ' -s --max-time 15 --connect-to '
+                . escapeshellarg($hostPort . ':127.0.0.1:80') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
+        ];
+
+        $results = [];
+        foreach ($variants as $label => $command) {
+            $start = microtime(true);
+            $raw = trim((string) shell_exec($command . ' 2>&1'));
+            $durationMs = (int) round((microtime(true) - $start) * 1000);
+
+            $httpStatus = null;
+            if (1 === preg_match('/__HTTP_STATUS__(\d{3})$/', $raw, $m)) {
+                $httpStatus = (int) $m[1];
+                $raw = trim(substr($raw, 0, -strlen($m[0])));
+            }
+
+            $results[] = [
+                'label' => $label,
+                'duration_ms' => $durationMs,
+                'http_status' => $httpStatus,
+                'output' => mb_substr($raw, 0, 500),
+            ];
+        }
+
+        return $results;
     }
 }

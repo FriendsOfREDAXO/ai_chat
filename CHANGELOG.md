@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### Behoben (Hintergrund-Indexierung konnte je nach Server hängen bleiben)
+- "Im Hintergrund indexieren" ruft NICHT PHP-CLI auf, sondern startet einen abgekoppelten
+  `curl`/`wget`-Prozess, der die eigene öffentliche URL selbst aufruft (drei Versuche:
+  öffentliche URL, dann Loopback über Port 443/80, je mit 20s Zeitlimit). Der aufgerufene
+  Worker antwortete bisher aber erst NACH Abschluss der kompletten (potenziell viele
+  Minuten dauernden) Indexierung - lief ein Durchlauf länger als 20s, wertete curl das als
+  gescheitert und startete über die verkettete Fallback-Logik einen ZWEITEN, mit dem
+  ersten (dank `ignore_user_abort()` weiterlaufenden) Lauf überlappenden Versuch gegen
+  denselben Lauf-Token. Zwei Prozesse schrieben dann gleichzeitig in denselben
+  Fortschritts-Speicher - sichtbares Symptom: hängender Fortschritt, funktioniert aber auf
+  einer anderen, z.B. kleineren Installation, deren Gesamtlaufzeit zufällig unter 20s
+  bleibt. Der Worker antwortet jetzt sofort nach dem Start (`fastcgi_finish_request()`,
+  wo verfügbar) und lässt die eigentliche Indexierung erst danach laufen - der
+  Fallback-Mechanismus greift dadurch nur noch bei echten Erreichbarkeitsproblemen, nicht
+  mehr bei einer schlicht lang laufenden Indexierung.
+- Neues Diagnose-Werkzeug unter **Einstellungen → Systemcheck**: "Hintergrund-Selbstaufruf
+  testen" spielt denselben Mechanismus einmal harmlos durch (eigener, wirkungsloser
+  Echo-Endpunkt statt eines echten Indexierungslaufs) und zeigt für jeden der drei
+  Versuche Dauer, HTTP-Status und Rohausgabe - bisher gab es dafür keinerlei Einblick,
+  obwohl `curl`/`wget` bei jedem echten Lauf bereits ein Log mitschrieben, das nirgends
+  angezeigt wurde. Das Log des letzten echten Hintergrundlaufs sowie der Status eines
+  gemerkten PID-Prozesses werden jetzt ebenfalls mit angezeigt.
+
 ### Behoben (Statistiken: Profil-/Zeitraum-Filter landete auf der Struktur-Seite)
 - Das Profil-/Zeitraum-Filterformular auf der Statistiken-Seite ist ein GET-Formular,
   dessen `action` die Ziel-URL inkl. `?page=ai_chat/statistics` enthielt - beim Absenden
