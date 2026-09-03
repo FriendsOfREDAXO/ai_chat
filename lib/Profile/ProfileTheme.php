@@ -73,6 +73,17 @@ final class ProfileTheme
         $addColorVar('--ai-chat-bg', $theme?->chatBgColor);
         $addColorVar('--ai-chat-text', $theme?->textColor);
         $addColorVar('--ai-chat-bot-msg-bg', $theme?->botMessageBgColor);
+        // Fehlen diese, greift im Widget-CSS eine Fallback-Kette (Bot-Sprechblase ->
+        // --ai-chat-text -> #333, Nutzer-Sprechblase -> fest "white") - unveraendertes
+        // Verhalten fuer jedes Theme, das diese Felder nicht setzt.
+        $addColorVar('--ai-chat-bot-msg-text', $theme?->botMessageTextColor);
+        $addColorVar('--ai-chat-user-msg-text', $theme?->userMessageTextColor);
+        // --ai-chat-input-* existierten im Widget-CSS bereits vorher, waren aber von
+        // keinem Theme-Feld aus befuellbar - ohne diese Zeilen bliebe das Eingabefeld auf
+        // einem dunklen Theme stur weiss/dunkelgrau umrandet.
+        $addColorVar('--ai-chat-input-bg', $theme?->inputBgColor);
+        $addColorVar('--ai-chat-input-text', $theme?->inputTextColor);
+        $addColorVar('--ai-chat-input-border', $theme?->inputBorderColor);
 
         // Bewusst KEIN ?: - PHP behandelt den String "0" als falsy, ein bewusst eingegebener
         // Eckenradius von 0 (eckige Ecken) wuerde damit wie "leer" behandelt.

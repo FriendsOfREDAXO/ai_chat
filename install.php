@@ -181,6 +181,20 @@ rex_sql_table::get(rex::getTable('ai_chat_theme'))
     ->ensureColumn(new rex_sql_column('chat_bg_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('text_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('bot_message_bg_color', 'varchar(20)', true))
+    // NULL = folgt weiterhin text_color (Kopfzeile) bzw. dem festen "white" der Bibliothek,
+    // siehe Fallback-Kette in assets/ai-chat.js (.message-bot/.message-user color) -
+    // eigene Werte hier sind nur fuer den Kontrastfall noetig (z.B. dunkles Theme mit
+    // dunkler Bot-Blase, oder eine sehr helle Akzentfarbe, auf der weisser Text kaum
+    // lesbar waere).
+    ->ensureColumn(new rex_sql_column('bot_message_text_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('user_message_text_color', 'varchar(20)', true))
+    // Eingabefeld: --ai-chat-input-bg/-text/-border existierten im Widget-CSS schon vorher
+    // (assets/ai-chat.js), waren aber bislang von KEINEM Theme-Feld aus befuellbar - ein
+    // dunkles Theme bekam dadurch trotz dunklem Chat-/Kopfzeilen-Hintergrund ein
+    // stur weisses Eingabefeld. NULL = Bibliotheks-Default (weiss/#333/#ddd), wie bisher.
+    ->ensureColumn(new rex_sql_column('input_bg_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('input_text_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('input_border_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('border_radius', 'varchar(10)', true))
     ->ensureColumn(new rex_sql_column('avatar', 'varchar(255)', true))
     ->ensureColumn(new rex_sql_column('createdate', 'datetime'))

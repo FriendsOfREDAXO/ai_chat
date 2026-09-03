@@ -16,6 +16,13 @@
   `#007bffcc`), inklusive Hex-Eingabe, Farbfläche/Regler und Voreinstellungen.
 - Die Widget-Position (unten rechts/links) bleibt bewusst unabhängig von Themes -
   weiterhin sowohl global als auch je Profil überschreibbar.
+- Jedes Theme hat jetzt eigene Textfarben für Bot- und Nutzer-Sprechblase, statt die
+  Bot-Blase zwangsläufig dieselbe Farbe wie die Kopfzeile tragen zu lassen und die
+  Nutzer-Blase fest auf Weiß zu belassen - wichtig z.B. bei einer hellen Akzentfarbe
+  (Weiß darauf ist kaum lesbar) oder einem dunklen Theme. Zusätzlich lassen sich jetzt
+  auch Hintergrund, Textfarbe und Rahmen des Eingabefelds pro Theme setzen - vorher blieb
+  das Eingabefeld unabhängig vom gewählten Theme immer weiß, was bei einem dunklen Theme
+  wie ein vergessenes UI-Element wirkte.
 - Die Live-Vorschau bettet dafür die echte `<ai-chat>`-Widget-Komponente ein (dieselbe
   Technik wie beim bestehenden "Profil testen"-Fenster), statt sie nachzubauen - die
   Vorschau sieht dadurch exakt wie der echte Chat aus (inkl. Kopfzeile, Sprechblasen mit

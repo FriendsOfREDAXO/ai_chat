@@ -21,6 +21,11 @@ final class ChatTheme
         public readonly ?string $chatBgColor,
         public readonly ?string $textColor,
         public readonly ?string $botMessageBgColor,
+        public readonly ?string $botMessageTextColor,
+        public readonly ?string $userMessageTextColor,
+        public readonly ?string $inputBgColor,
+        public readonly ?string $inputTextColor,
+        public readonly ?string $inputBorderColor,
         public readonly ?string $borderRadius,
         public readonly ?string $avatar,
     ) {
@@ -39,6 +44,11 @@ final class ChatTheme
             chatBgColor: self::nullableString($row['chat_bg_color'] ?? null),
             textColor: self::nullableString($row['text_color'] ?? null),
             botMessageBgColor: self::nullableString($row['bot_message_bg_color'] ?? null),
+            botMessageTextColor: self::nullableString($row['bot_message_text_color'] ?? null),
+            userMessageTextColor: self::nullableString($row['user_message_text_color'] ?? null),
+            inputBgColor: self::nullableString($row['input_bg_color'] ?? null),
+            inputTextColor: self::nullableString($row['input_text_color'] ?? null),
+            inputBorderColor: self::nullableString($row['input_border_color'] ?? null),
             borderRadius: self::nullableString($row['border_radius'] ?? null),
             avatar: self::nullableString($row['avatar'] ?? null),
         );

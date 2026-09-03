@@ -64,8 +64,22 @@ if ('add' === $func || 'edit' === $func) {
     $colorField($form, 'primary_color', 'Akzentfarbe', 'ai-chat-theme-primary', '#007bff');
     $colorField($form, 'header_bg_color', 'Kopfzeile Hintergrund', 'ai-chat-theme-header-bg', '#f8f9fa');
     $colorField($form, 'chat_bg_color', 'Chat-Hintergrund', 'ai-chat-theme-chat-bg', '#ffffff');
-    $colorField($form, 'text_color', 'Textfarbe', 'ai-chat-theme-text', '#333333');
+    $colorField($form, 'text_color', 'Textfarbe (Kopfzeile)', 'ai-chat-theme-text', '#333333');
     $colorField($form, 'bot_message_bg_color', 'Bot-Sprechblase Hintergrund', 'ai-chat-theme-bot-bg', '#f1f3f5');
+    // Vorher teilte sich die Bot-Sprechblase die Textfarbe mit der Kopfzeile (dasselbe
+    // Feld), und die Nutzer-Sprechblase hatte ueberhaupt kein Textfarb-Feld (im
+    // Widget-CSS fest auf "white" verdrahtet) - bei einer hellen Akzentfarbe war der
+    // Text darin praktisch unlesbar. Beide sind jetzt eigene, unabhaengige Felder.
+    $colorField($form, 'bot_message_text_color', 'Bot-Sprechblase Textfarbe', 'ai-chat-theme-bot-text', '#333333');
+    $colorField($form, 'user_message_text_color', 'Nutzer-Sprechblase Textfarbe', 'ai-chat-theme-user-text', '#ffffff');
+
+    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Eingabefeld</p>');
+    // --ai-chat-input-* existierten im Widget-CSS schon vorher, waren aber bislang von
+    // keinem Theme-Feld aus befuellbar - ein dunkles Theme bekam dadurch trotz dunklem
+    // Chat-/Kopfzeilen-Hintergrund ein stur weisses Eingabefeld.
+    $colorField($form, 'input_bg_color', 'Hintergrund', 'ai-chat-theme-input-bg', '#ffffff');
+    $colorField($form, 'input_text_color', 'Textfarbe', 'ai-chat-theme-input-text', '#333333');
+    $colorField($form, 'input_border_color', 'Rahmen', 'ai-chat-theme-input-border', '#dddddd');
 
     $field = $form->addTextField('border_radius');
     $field->setLabel('Eckenradius (px)');
@@ -207,6 +221,11 @@ if ('add' === $func || 'edit' === $func) {
             chatBg: document.getElementById("ai-chat-theme-chat-bg"),
             text: document.getElementById("ai-chat-theme-text"),
             botBg: document.getElementById("ai-chat-theme-bot-bg"),
+            botText: document.getElementById("ai-chat-theme-bot-text"),
+            userText: document.getElementById("ai-chat-theme-user-text"),
+            inputBg: document.getElementById("ai-chat-theme-input-bg"),
+            inputText: document.getElementById("ai-chat-theme-input-text"),
+            inputBorder: document.getElementById("ai-chat-theme-input-border"),
             radius: document.getElementById("ai-chat-theme-radius")
         };
 
@@ -235,6 +254,11 @@ if ('add' === $func || 'edit' === $func) {
             if (fields.chatBg) preview.style.setProperty("--ai-chat-bg", fields.chatBg.value || "#ffffff");
             if (fields.text) preview.style.setProperty("--ai-chat-text", fields.text.value || "#333333");
             if (fields.botBg) preview.style.setProperty("--ai-chat-bot-msg-bg", fields.botBg.value || "#f1f3f5");
+            if (fields.botText) preview.style.setProperty("--ai-chat-bot-msg-text", fields.botText.value || "#333333");
+            if (fields.userText) preview.style.setProperty("--ai-chat-user-msg-text", fields.userText.value || "#ffffff");
+            if (fields.inputBg) preview.style.setProperty("--ai-chat-input-bg", fields.inputBg.value || "#ffffff");
+            if (fields.inputText) preview.style.setProperty("--ai-chat-input-text", fields.inputText.value || "#333333");
+            if (fields.inputBorder) preview.style.setProperty("--ai-chat-input-border", fields.inputBorder.value || "#dddddd");
             if (fields.radius) preview.style.setProperty("--ai-chat-radius", (fields.radius.value || "12") + "px");
 
             // --ai-chat-primary wird von der Komponente dagegen NUR aus dem

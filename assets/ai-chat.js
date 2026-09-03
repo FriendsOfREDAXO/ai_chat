@@ -1749,14 +1749,14 @@ class AiChat extends HTMLElement {
                 .message-user {
                     align-self: flex-end;
                     background: var(--ai-chat-primary, ${primaryColor});
-                    color: white;
+                    color: var(--ai-chat-user-msg-text, white);
                     border-bottom-right-radius: 2px;
                 }
 
                 .message-bot {
                     align-self: flex-start;
                     background: var(--ai-chat-bot-msg-bg, #f1f3f5);
-                    color: var(--ai-chat-text, #333);
+                    color: var(--ai-chat-bot-msg-text, var(--ai-chat-text, #333));
                     border-bottom-left-radius: 2px;
                 }
                 
