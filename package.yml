@@ -13,6 +13,7 @@ page:
     subpages:
         statistics: { title: 'Statistiken' }
         profiles: { title: 'Profile', perm: 'ai_chat[chatadmin]' }
+        themes: { title: 'Themes', perm: 'ai_chat[chatadmin]' }
         content: { title: 'Indexierung', perm: 'ai_chat[chatadmin]' }
         triggers: { title: 'Trigger & Antworten' }
         cache: { title: 'Cache-Fragen', perm: 'ai_chat[chatadmin]' }

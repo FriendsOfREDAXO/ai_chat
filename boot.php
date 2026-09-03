@@ -138,6 +138,17 @@ if (rex::isBackend() && rex::getUser()) {
         rex_view::addJsFile($addon->getAssetsUrl('ai-yform-mapping.js?v=' . $assetVersion('ai-yform-mapping.js')));
     }
 
+    // Pickit Color (https://github.com/skerbis/pickit_color) - alpha-faehiger Colorpicker
+    // fuer die zentrale Theme-Verwaltung (siehe pages/themes.php). Profile waehlen nur noch
+    // ein fertiges Theme aus einem Dropdown, brauchen also keinen eigenen Colorpicker mehr.
+    if (
+        rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
+        && rex_be_controller::getCurrentPagePart(2) === 'themes'
+    ) {
+        rex_view::addCssFile($addon->getAssetsUrl('pickit-color/colorpicker.min.css?v=' . $assetVersion('pickit-color/colorpicker.min.css')));
+        rex_view::addJsFile($addon->getAssetsUrl('pickit-color/colorpicker.min.js?v=' . $assetVersion('pickit-color/colorpicker.min.js')));
+    }
+
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
         && rex_be_controller::getCurrentPagePart(2) === 'settings'
@@ -403,12 +414,12 @@ if (rex::isFrontend()) {
         if ('' === $personalization) {
             $personalization = 'off';
         }
-        // Darstellung: profil-eigene theme_*-Werte gehen vor der globalen Einstellung
-        // (siehe ProfileTheme) - ermoeglicht z.B. unterschiedliches Branding je Domain.
-        // ProfileTheme::resolve*()/buildInlineStyle() akzeptieren bewusst ein nullbares
-        // Profil und fallen dann direkt auf die globale Einstellung zurueck.
+        // Darstellung: das per Profil gewaehlte Theme (oder, falls keins gewaehlt, das
+        // globale Standard-Theme) liefert Farben/Avatar/Eckenradius - die Position bleibt
+        // bewusst ein eigenes, vom Theme unabhaengiges Profil-Override (siehe ProfileTheme).
+        $frontendTheme = ProfileTheme::resolveTheme($frontendProfile, $addon);
         $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
-        $primaryColor = ProfileTheme::resolvePrimaryColor($frontendProfile, $addon);
+        $primaryColor = ProfileTheme::resolvePrimaryColor($frontendTheme);
         $mode = $addon->getConfig('frontend_mode', 'bubble');
         // War hier lange hart auf 'false' verdrahtet, obwohl "Scope-Switch erlauben"
         // auf der Darstellung-Einstellungsseite als aktiv nutzbare Option angezeigt
@@ -417,17 +428,16 @@ if (rex::isFrontend()) {
         // (siehe ChatQueryService::process()), ein sichtbarer Umschalter fuer
         // anonyme Besucher ist also ungefaehrlich, nur je nach Website ggf. unerwuenschte UX.
         $allowSwitch = $addon->getConfig('frontend_allow_scope_switch') ? 'true' : 'false';
-        $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendProfile, $addon);
+        $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendTheme);
         $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
         $frontendCopyAttr = $frontendCopyHistory ? ' copy-history="true"' : '';
 
-        // Theme: profil-eigene Farben/Radius gehen vor der globalen Darstellung-
-        // Einstellung (siehe ProfileTheme) - als CSS-Custom-Properties direkt im
-        // style-Attribut des Host-Elements (durchdringen die Shadow-DOM-Grenze), damit
-        // keine JS-Änderung am Web Component nötig ist. Nur valide Hex-Farben/Zahlen
-        // werden übernommen. Ein Inline-Attribut statt eines <style>-Tags mit Selektor
-        // reicht, da pro Seite ohnehin nur ein Frontend-Widget existiert.
-        $themeStyleAttr = ProfileTheme::buildInlineStyle($frontendProfile, $addon);
+        // Theme-Farben/-Radius als CSS-Custom-Properties direkt im style-Attribut des
+        // Host-Elements (durchdringen die Shadow-DOM-Grenze), damit keine JS-Änderung am
+        // Web Component nötig ist. Nur valide Hex-Farben/Zahlen werden übernommen. Ein
+        // Inline-Attribut statt eines <style>-Tags mit Selektor reicht, da pro Seite
+        // ohnehin nur ein Frontend-Widget existiert.
+        $themeStyleAttr = ProfileTheme::buildInlineStyle($frontendTheme);
         $styleAttr = '' !== $themeStyleAttr ? ' style="' . rex_escape($themeStyleAttr, 'html_attr') . '"' : '';
 
         $tag = sprintf(

@@ -53,21 +53,6 @@ if ('add' === $func || 'edit' === $func) {
     // Stand, nicht den ggf. noch ungespeicherten Formularinhalt. Bewusst NICHT Teil
     // von $form (kein addRawField) - lebt stattdessen als eigene Sidebar-Box neben
     // dem Formular, siehe Layout weiter unten.
-    // Aufgeloeste globale Theme-Werte (AI Chat -> Darstellung) - dieselben Fallback-Werte, die
-    // ProfileTheme::buildInlineStyle() beim Speichern serverseitig fuer ein Profil mit leeren
-    // theme_*-Feldern verwenden wuerde. Immer verfuegbar (nicht an den Test-Widget-Block
-    // gebunden), damit auch beim Neuanlegen eines Profils die Farbfelder korrekt initialisiert
-    // werden koennen statt das irrefuehrende Browser-Standard-Schwarz von input[type=color]
-    // ohne Wert zu zeigen.
-    $themeGlobals = [
-        'primary' => (string) $addon->getConfig('primary_color', '#007bff'),
-        'headerBg' => (string) $addon->getConfig('header_bg_color', '#f8f9fa'),
-        'chatBg' => (string) $addon->getConfig('chat_bg_color', '#ffffff'),
-        'text' => (string) $addon->getConfig('text_color', '#333333'),
-        'botBg' => (string) $addon->getConfig('bot_message_bg_color', '#f1f3f5'),
-        'radius' => (string) $addon->getConfig('border_radius', '12'),
-    ];
-
     $testWidgetHtml = '';
     if ('edit' === $func && $id > 0) {
         $testProfile = (new ProfileRepository())->find($id);
@@ -89,9 +74,10 @@ if ('add' === $func || 'edit' === $func) {
             $testResetAttr = $testProfile->chatResetCountdown > 0 ? ' reset-countdown="' . $testProfile->chatResetCountdown . '"' : '';
             $testCopyAttr = $testProfile->chatCopyHistory ? ' copy-history="true"' : '';
             $testPersonalization = $testProfile->personalizationMode ?? (string) $addon->getConfig('personalization_mode', 'off');
-            $testPrimaryColor = ProfileTheme::resolvePrimaryColor($testProfile, $addon);
-            $testAvatarUrl = ProfileTheme::resolveAvatarUrl($testProfile, $addon);
-            $testThemeVars = ProfileTheme::buildInlineStyle($testProfile, $addon);
+            $testTheme = ProfileTheme::resolveTheme($testProfile, $addon);
+            $testPrimaryColor = ProfileTheme::resolvePrimaryColor($testTheme);
+            $testAvatarUrl = ProfileTheme::resolveAvatarUrl($testTheme);
+            $testThemeVars = ProfileTheme::buildInlineStyle($testTheme);
             $testInlineStyle = 'display:block;width:100%;--ai-chat-height:480px;' . ('' !== $testThemeVars ? $testThemeVars . ';' : '');
 
             // Ohne dieses Attribut liest ai-chat.js "stream-enabled" als fehlend und sendet
@@ -110,7 +96,7 @@ if ('add' === $func || 'edit' === $func) {
             $testWidgetHtml = '<div class="panel panel-default" style="position:sticky;top:20px;">'
                 . '<header class="panel-heading"><div class="panel-title"><i class="rex-icon fa-comments"></i> Profil testen</div></header>'
                 . '<div class="panel-body">'
-                . '<p class="help-block" style="margin-top:0;">Testet den <strong>gespeicherten</strong> Stand dieses Profils live - ungespeicherte Änderungen links zuerst speichern, dann diese Seite neu laden. "Frontend"/"Developer" oben im Fenster wechselt zwischen den zwei Arten, wie dieses Profil im Chat verwendet werden kann (Website-Besucher vs. automatisch eingebundener Backend-Chat). Die Theme-Felder links (Farben/Eckenradius) aktualisieren dieses Fenster sofort beim Tippen, noch vor dem Speichern.</p>'
+                . '<p class="help-block" style="margin-top:0;">Testet den <strong>gespeicherten</strong> Stand dieses Profils live - ungespeicherte Änderungen links zuerst speichern, dann diese Seite neu laden. "Frontend"/"Developer" oben im Fenster wechselt zwischen den zwei Arten, wie dieses Profil im Chat verwendet werden kann (Website-Besucher vs. automatisch eingebundener Backend-Chat).</p>'
                 . sprintf(
                     '<ai-chat id="ai-chat-profile-test-widget" mode="inline" style="%s" api-url="%s" scope="%s" allow-scope-switch="true" title="%s" greeting="%s" primary-color="%s" avatar-url="%s" position="%s" personalization-mode="%s" stream-enabled="%s" profile-id="%d" ui-language="%s"%s%s></ai-chat>',
                     rex_escape($testInlineStyle, 'html_attr'),
@@ -129,11 +115,6 @@ if ('add' === $func || 'edit' === $func) {
                     $testCopyAttr
                 )
                 . '</div></div>';
-
-            // Live-Theming (Farbfelder -> Test-Widget) lebt jetzt im immer gerenderten Script
-            // unten bei den Theme-Feldern selbst (nicht mehr hier), da es seit der
-            // Schwarz-Swatch-Korrektur auch ohne Test-Widget (neues Profil) laufen muss -
-            // siehe Kommentar dort.
         }
     }
 
@@ -509,183 +490,31 @@ if ('add' === $func || 'edit' === $func) {
     }
     $form->addRawField('</div>');
 
-    // Theme: rein optionale Darstellung-Overrides je Profil - leer gelassene Felder nutzen
-    // weiterhin die globale Einstellung (AI Chat → Darstellung), siehe ProfileTheme. Sinnvoll
-    // z.B. fuer unterschiedliches Branding je Domain/Marke bei mehreren Profilen.
+    // Darstellung: Farben/Avatar/Eckenradius kommen seit der zentralen Theme-Verwaltung
+    // aus einem zentral gepflegten, wiederverwendbaren Theme (AI Chat -> Themes) statt aus
+    // eigenen Farbfeldern je Profil - hier wird nur noch AUSGEWAEHLT. Die Position bleibt
+    // bewusst ein eigenes, vom Theme unabhaengiges Override (siehe ProfileTheme).
     $form->addRawField('<div class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Theme</p>');
-    $form->addRawField('<p class="help-block">Optional: überschreibt für dieses Profil die globale Darstellung (AI Chat → Darstellung). Leer gelassene Felder übernehmen weiterhin die globale Einstellung. Das Ergebnis lässt sich direkt in der Box „Profil testen" nebenan live prüfen.</p>');
+    $form->addRawField('<p class="ai-chat-settings-box-title">Darstellung</p>');
 
-    $colorFieldAttrs = static function (rex_form_element $field, string $inputId): void {
-        $field->setAttribute('type', 'color');
-        $field->setAttribute('id', $inputId);
-        $field->setAttribute('style', 'width:100px;height:40px;padding:0;');
-    };
-
-    $field = $form->addTextField('theme_primary_color');
-    $field->setLabel('Akzentfarbe');
-    $colorFieldAttrs($field, 'ai-chat-profile-theme-primary');
-    $field->setNotice('Leer = globale Akzentfarbe.');
-
-    $field = $form->addTextField('theme_header_bg_color');
-    $field->setLabel('Kopfzeile Hintergrund');
-    $colorFieldAttrs($field, 'ai-chat-profile-theme-header-bg');
-    $field->setNotice('Leer = globale Einstellung.');
-
-    $field = $form->addTextField('theme_chat_bg_color');
-    $field->setLabel('Chat-Hintergrund');
-    $colorFieldAttrs($field, 'ai-chat-profile-theme-chat-bg');
-    $field->setNotice('Leer = globale Einstellung.');
-
-    $field = $form->addTextField('theme_text_color');
-    $field->setLabel('Textfarbe');
-    $colorFieldAttrs($field, 'ai-chat-profile-theme-text');
-    $field->setNotice('Leer = globale Einstellung.');
-
-    $field = $form->addTextField('theme_bot_message_bg_color');
-    $field->setLabel('Bot-Sprechblase Hintergrund');
-    $colorFieldAttrs($field, 'ai-chat-profile-theme-bot-bg');
-    $field->setNotice('Leer = globale Einstellung.');
-
-    $field = $form->addTextField('theme_border_radius');
-    $field->setLabel('Eckenradius (px)');
-    $field->setAttribute('type', 'number');
-    $field->setAttribute('min', '0');
-    $field->setAttribute('max', '30');
-    $field->setAttribute('style', 'width:80px;');
-    $field->setAttribute('id', 'ai-chat-profile-theme-radius');
-    $field->setNotice('Leer = globale Einstellung.');
+    $field = $form->addSelectField('theme_id');
+    $field->setLabel('Theme');
+    $select = $field->getSelect();
+    $select->addOption('Globales Standard-Theme verwenden', '');
+    foreach ((new \FriendsOfRedaxo\AiChat\Profile\ThemeRepository())->getAll() as $theme) {
+        $select->addOption($theme->name, (string) $theme->id);
+    }
+    $field->setNotice('Farben, Avatar und Eckenradius kommen aus dem hier gewählten Theme. Themes werden zentral unter <a href="' . rex_url::backendPage('ai_chat/themes') . '">AI Chat → Themes</a> angelegt und gepflegt - dieselbe Änderung dort wirkt sich automatisch auf jedes Profil aus, das dieses Theme verwendet.');
 
     $field = $form->addSelectField('theme_position');
     $field->setLabel('Position');
-    $field->setAttribute('id', 'ai-chat-profile-theme-position');
     $select = $field->getSelect();
     $select->addOption('Globale Einstellung', '');
     $select->addOption('Unten rechts', 'bottom-right');
     $select->addOption('Unten links', 'bottom-left');
+    $field->setNotice('Wo das Widget auf dem Bildschirm erscheint - unabhängig vom gewählten Theme.');
 
-    $field = $form->addMediaField('theme_avatar');
-    $field->setLabel('Avatar');
-    $field->setNotice('Leer = globaler Avatar (falls gesetzt).');
-
-    $form->addRawField('<button type="button" id="ai-chat-profile-theme-reset" class="btn btn-default"><i class="rex-icon fa-undo"></i> Theme zurücksetzen</button>');
     $form->addRawField('</div>');
-
-    // input[type=color] OHNE Wert zeigt im Browser das irrefuehrende Standard-Schwarz, obwohl
-    // "leer" tatsaechlich "globale Farbe" bedeutet (siehe Notice an jedem Feld oben). Die Felder
-    // werden hier daher visuell mit der tatsaechlich aufgeloesten globalen Farbe vorbefuellt
-    // (data-inherited="true"), OHNE dass das als echter Wert gilt: Bearbeitet der Nutzer das
-    // Feld NICHT, wird es beim Speichern per submit-Listener wieder auf "" zurueckgesetzt (echtes
-    // "folgt weiterhin der globalen Einstellung", nicht "wurde zufaellig auf den aktuellen
-    // globalen Wert eingefroren"). "Theme zurücksetzen" nutzt denselben Mechanismus, zeigt nach
-    // dem Reset also wieder die korrekte globale Farbe statt Schwarz. Laeuft unabhaengig davon,
-    // ob das Test-Widget existiert (auch beim Neuanlegen eines Profils relevant) - existiert es,
-    // wird es zusaetzlich live aktualisiert (dieselbe CSS-Custom-Property-Technik wie zuvor).
-    $form->addRawField('
-<script>
-(function() {
-    function initAiChatProfileThemeFields() {
-        var globals = ' . json_encode($themeGlobals, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . ';
-        var widget = document.getElementById("ai-chat-profile-test-widget");
-
-        var colorFields = [
-            ["ai-chat-profile-theme-primary", "--ai-chat-primary", globals.primary],
-            ["ai-chat-profile-theme-header-bg", "--ai-chat-header-bg", globals.headerBg],
-            ["ai-chat-profile-theme-chat-bg", "--ai-chat-bg", globals.chatBg],
-            ["ai-chat-profile-theme-text", "--ai-chat-text", globals.text],
-            ["ai-chat-profile-theme-bot-bg", "--ai-chat-bot-msg-bg", globals.botBg]
-        ];
-        var radiusField = ["ai-chat-profile-theme-radius", "--ai-chat-radius", globals.radius];
-        var firstColorEl = document.getElementById(colorFields[0][0]);
-        if (!firstColorEl) return;
-
-        function bindColor(entry) {
-            var el = document.getElementById(entry[0]);
-            if (!el) return;
-            // Die .value-Property von input[type=color] ist NIE ein echter Leerstring (die
-            // HTML5-Spec normalisiert das DOM-Property beim Lesen immer auf einen gueltigen
-            // Hex-Wert) - nur das rohe value-HTML-Attribut spiegelt noch zuverlaessig
-            // "serverseitig leer" wider.
-            if ((el.getAttribute("value") || "").trim() === "") {
-                el.value = entry[2];
-                el.dataset.inherited = "true";
-            }
-            el.addEventListener("input", function() {
-                el.dataset.inherited = "false";
-                if (widget) widget.style.setProperty(entry[1], el.value.trim() || entry[2]);
-            });
-        }
-
-        function bindRadius(entry) {
-            var el = document.getElementById(entry[0]);
-            if (!el || !widget) return;
-            el.addEventListener("input", function() {
-                widget.style.setProperty(entry[1], (el.value.trim() || entry[2]) + "px");
-            });
-        }
-
-        colorFields.forEach(bindColor);
-        bindRadius(radiusField);
-
-        var resetButton = document.getElementById("ai-chat-profile-theme-reset");
-        if (resetButton) {
-            resetButton.addEventListener("click", function() {
-                colorFields.forEach(function(entry) {
-                    var el = document.getElementById(entry[0]);
-                    if (!el) return;
-                    el.value = entry[2];
-                    el.dataset.inherited = "true";
-                    if (widget) widget.style.setProperty(entry[1], entry[2]);
-                });
-                var radiusEl = document.getElementById(radiusField[0]);
-                if (radiusEl) {
-                    radiusEl.value = "";
-                    if (widget) widget.style.setProperty(radiusField[1], radiusField[2] + "px");
-                }
-                var positionSelect = document.getElementById("ai-chat-profile-theme-position");
-                if (positionSelect) positionSelect.value = "";
-            });
-        }
-
-        var form = firstColorEl.closest("form");
-        if (form) {
-            form.addEventListener("submit", function() {
-                colorFields.forEach(function(entry) {
-                    var el = document.getElementById(entry[0]);
-                    if (!el || el.dataset.inherited !== "true") {
-                        return;
-                    }
-                    // input[type=color].value laesst sich NICHT auf "" setzen - der Browser
-                    // lehnt jeden ungueltigen CSS-Farbwert (auch einen Leerstring) beim
-                    // Zuweisen still ab (Konsolen-Warnung "must be a valid CSS color", der
-                    // alte Wert bleibt bestehen). Ein per JS auf das Feld gesetzter Wert wird
-                    // also IMMER mitgesendet, selbst wenn er nur zur Anzeige der globalen Farbe
-                    // gedacht war - deshalb hier stattdessen den echten Feldnamen auf ein
-                    // verstecktes Ersatzfeld mit Leerwert umleiten und dem Farbfeld selbst
-                    // vorübergehend einen neutralen Namen geben, den rex_form beim Speichern
-                    // ignoriert.
-                    var fieldName = el.getAttribute("name");
-                    if (!fieldName) {
-                        return;
-                    }
-                    el.removeAttribute("name");
-                    var hidden = document.createElement("input");
-                    hidden.type = "hidden";
-                    hidden.name = fieldName;
-                    hidden.value = "";
-                    form.appendChild(hidden);
-                });
-            });
-        }
-    }
-
-    if (typeof jQuery !== "undefined") {
-        jQuery(document).on("rex:ready", initAiChatProfileThemeFields);
-    } else {
-        document.addEventListener("DOMContentLoaded", initAiChatProfileThemeFields);
-    }
-})();
-</script>');
 
     $form->addRawField($tooltipInitScript);
     $form->addRawField('

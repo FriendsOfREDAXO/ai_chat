@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+### Neu (Zentrale Theme-Verwaltung statt Theme-Editor je Profil)
+- Farben/Avatar/Eckenradius für das Chat-Widget wurden bisher in JEDEM Profil einzeln
+  gepflegt (identische Felder mehrfach, keine Wiederverwendung, native
+  `<input type="color">`-Felder ohne Transparenz). Jetzt gibt es einen neuen Reiter
+  **AI Chat → Themes**: mehrere benannte, wiederverwendbare Themes mit Live-Vorschau, die
+  Profile nur noch aus einem Dropdown auswählen (`theme_id`, `NULL` = globales
+  Standard-Theme verwenden). Die alten profil-eigenen Theme-Felder bleiben in der
+  Datenbank erhalten (keine Datenmigration nötig, still gelegt), bestehende Profile ohne
+  eigene Farben verwenden ab sofort automatisch das globale Standard-Theme.
+- Neuer, alpha-fähiger Colorpicker (`skerbis/pickit_color`) statt des nativen
+  Browser-Farbfelds - Farben können jetzt auch teiltransparent gewählt werden (z.B.
+  `#007bffcc`), inklusive Hex-Eingabe, Farbfläche/Regler und Voreinstellungen.
+- Die Widget-Position (unten rechts/links) bleibt bewusst unabhängig von Themes -
+  weiterhin sowohl global als auch je Profil überschreibbar.
+
+### Behoben (Theme-Editor: doppelter Colorpicker, Live-Vorschau ohne Wirkung, leere Felder wurden überschrieben)
+- War auf einer Instanz noch ein weiteres Addon aktiv, das dieselbe Colorpicker-
+  Bibliothek ebenfalls global lädt (z.B. `uikit_theme_builder`), initialisierte sich pro
+  Farbfeld eine zweite, überlappende Picker-Oberfläche - jede geladene Kopie der
+  Bibliothek scannt unabhängig nach `[data-colorpicker]`-Feldern. Das Attribut wird jetzt
+  erst durch ein eigenes Init-Script gesetzt, nachdem alle automatischen Scans bereits
+  gelaufen sind, und die Initialisierung danach gezielt genau einmal ausgelöst.
+- Das Vorschau-/Init-Script landete durch eine falsche Reihenfolge nie im ausgegebenen
+  HTML (wurde dem Formular hinzugefügt, nachdem dessen HTML bereits gerendert war) -
+  weder Live-Vorschau noch Colorpicker liefen dadurch jemals automatisch an.
+- Ein per Hex-Eingabe getippter Farbwert (z.B. für einen exakten Transparenzwert) wurde
+  von der Bibliothek nur in der eigenen Vorschau übernommen, aber nie in das tatsächlich
+  gespeicherte Formularfeld geschrieben (nur Ziehen an Farbfläche/Reglern committete
+  sofort) - ein Enter/Verlassen des Hex-Feldes übernimmt den Wert jetzt zuverlässig.
+- Ein neu angelegtes Theme, bei dem nur eine Farbe bewusst geändert wurde, bekam für alle
+  übrigen, unberührten Farbfelder automatisch dieselbe generische Bibliotheks-Vorgabe
+  (Blau) statt sinnvoller, feldspezifischer Startwerte - jedes Farbfeld startet jetzt mit
+  seinem eigenen passenden Vorgabewert.
+
 ### Geändert (Einstellungs-Reiter neu gruppiert: Global vs. Hauptprofil)
 - Die sechs Einstellungs-Reiter waren thematisch uneinheitlich gruppiert - z.B. lag
   "Chunking & Feinsteuerung Embeddings" (gilt für ALLE Quellen/Profile) mitten in der

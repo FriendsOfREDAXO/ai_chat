@@ -148,8 +148,12 @@ $profileTable
     ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('chat_reset_countdown', 'int(10)', false, '0'))
     ->ensureColumn(new rex_sql_column('chat_copy_history', 'tinyint(1)', false, '0'))
-    // Alle theme_*-Spalten leer = globale Darstellung-Einstellung greift (siehe
-    // ProfileTheme). Erlaubt z.B. unterschiedliches Branding je Domain/Marke.
+    // Alle theme_*-Farb-/Avatar-/Radius-Spalten sind Altlasten (siehe Migration unten,
+    // "Zentrale Theme-Verwaltung") - abgeloest durch theme_id auf ein Theme aus
+    // ai_chat_theme. Bleiben in der DB bestehen (nicht droppen), werden aber nirgends
+    // mehr gelesen/geschrieben. theme_position ist NICHT betroffen: die Widget-Position
+    // ist bewusst kein Theme-Bestandteil und bleibt weiterhin ein eigenes, unabhaengiges
+    // Override je Profil (siehe ProfileTheme::resolvePosition()).
     ->ensureColumn(new rex_sql_column('theme_primary_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('theme_header_bg_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('theme_chat_bg_color', 'varchar(20)', true))
@@ -158,9 +162,29 @@ $profileTable
     ->ensureColumn(new rex_sql_column('theme_border_radius', 'varchar(10)', true))
     ->ensureColumn(new rex_sql_column('theme_position', 'varchar(20)', true)) // bottom-right|bottom-left
     ->ensureColumn(new rex_sql_column('theme_avatar', 'varchar(255)', true))
+    // NULL = globales Standard-Theme (Config "default_theme_id") verwenden - siehe
+    // ai_chat_theme weiter unten und ProfileTheme.
+    ->ensureColumn(new rex_sql_column('theme_id', 'int(10) unsigned', true))
     ->ensureColumn(new rex_sql_column('createdate', 'datetime'))
     ->ensureColumn(new rex_sql_column('updatedate', 'datetime'))
     ->ensureIndex(new rex_sql_index('status_context', ['status', 'context']))
+    ->ensure();
+
+// Zentrale Theme-Verwaltung: mehrere benannte, wiederverwendbare Themes statt eines
+// Farbfeld-Satzes je Profil (siehe theme_id oben) - Farben/Avatar/Eckenradius, OHNE
+// Position (siehe Kommentar oben, bleibt bewusst separat).
+rex_sql_table::get(rex::getTable('ai_chat_theme'))
+    ->ensurePrimaryIdColumn()
+    ->ensureColumn(new rex_sql_column('name', 'varchar(190)'))
+    ->ensureColumn(new rex_sql_column('primary_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('header_bg_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('chat_bg_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('text_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('bot_message_bg_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('border_radius', 'varchar(10)', true))
+    ->ensureColumn(new rex_sql_column('avatar', 'varchar(255)', true))
+    ->ensureColumn(new rex_sql_column('createdate', 'datetime'))
+    ->ensureColumn(new rex_sql_column('updatedate', 'datetime'))
     ->ensure();
 
 // Einmalige Migration: bestehende Profile mit dem alten, unbenannten sitemap_urls-Textfeld
@@ -220,5 +244,66 @@ if (0 === (int) $defaultProfileSql->getValue('total')) {
     $seedSql->setDateTimeValue('createdate', time());
     $seedSql->setDateTimeValue('updatedate', time());
     $seedSql->insert();
+}
+
+// Zentrale Theme-Verwaltung: genau ein Standard-Theme, das ohne jede weitere Konfiguration
+// sofort greift - aus den BISHERIGEN globalen Darstellung-Werten erzeugt (nicht aus
+// hartcodierten Defaults), damit bereits vorgenommenes Branding einer bestehenden
+// Installation beim Umstieg auf Themes automatisch erhalten bleibt.
+$themeCountSql = rex_sql::factory();
+$themeCountSql->setQuery('SELECT COUNT(*) AS total FROM ' . rex::getTable('ai_chat_theme'));
+if (0 === (int) $themeCountSql->getValue('total')) {
+    $themeAddon = rex_addon::get('ai_chat');
+
+    $defaultThemeSql = rex_sql::factory();
+    $defaultThemeSql->setTable(rex::getTable('ai_chat_theme'));
+    $defaultThemeSql->setValue('name', 'Standard');
+    $defaultThemeSql->setValue('primary_color', (string) $themeAddon->getConfig('primary_color', '#007bff'));
+    $defaultThemeSql->setValue('header_bg_color', (string) $themeAddon->getConfig('header_bg_color', '#f8f9fa'));
+    $defaultThemeSql->setValue('chat_bg_color', (string) $themeAddon->getConfig('chat_bg_color', '#ffffff'));
+    $defaultThemeSql->setValue('text_color', (string) $themeAddon->getConfig('text_color', '#333333'));
+    $defaultThemeSql->setValue('bot_message_bg_color', (string) $themeAddon->getConfig('bot_message_bg_color', '#f1f3f5'));
+    $defaultThemeSql->setValue('border_radius', (string) $themeAddon->getConfig('border_radius', '12'));
+    $defaultThemeSql->setValue('avatar', (string) $themeAddon->getConfig('avatar', ''));
+    $defaultThemeSql->setDateTimeValue('createdate', time());
+    $defaultThemeSql->setDateTimeValue('updatedate', time());
+    $defaultThemeSql->insert();
+
+    if (!$themeAddon->hasConfig('default_theme_id')) {
+        $themeAddon->setConfig('default_theme_id', (int) $defaultThemeSql->getLastId());
+    }
+
+    // Einmalige Migration: Profile, die bereits eigene theme_*-Farben/Avatar/Radius gesetzt
+    // hatten (vor der zentralen Theme-Verwaltung), bekommen ein eigenes, aus genau diesen
+    // Werten erzeugtes Theme zugewiesen - verhindert stillen Branding-Verlust bei bereits
+    // individuell eingefaerbten Profilen. theme_position ist bewusst aussen vor (bleibt ein
+    // eigenes, von Themes unabhaengiges Profil-Override, siehe Kommentar weiter oben).
+    $profilesWithOwnThemeSql = rex_sql::factory();
+    $profilesWithOwnThemeSql->setQuery(
+        'SELECT id, name, theme_primary_color, theme_header_bg_color, theme_chat_bg_color, theme_text_color, theme_bot_message_bg_color, theme_border_radius, theme_avatar
+         FROM ' . rex::getTable('ai_chat_profile') . "
+         WHERE COALESCE(theme_primary_color, theme_header_bg_color, theme_chat_bg_color, theme_text_color, theme_bot_message_bg_color, theme_border_radius, theme_avatar, '') != ''",
+    );
+    foreach ($profilesWithOwnThemeSql as $profileRow) {
+        $migratedThemeSql = rex_sql::factory();
+        $migratedThemeSql->setTable(rex::getTable('ai_chat_theme'));
+        $migratedThemeSql->setValue('name', (string) $profileRow->getValue('name') . ' (migriert)');
+        $migratedThemeSql->setValue('primary_color', (string) $profileRow->getValue('theme_primary_color'));
+        $migratedThemeSql->setValue('header_bg_color', (string) $profileRow->getValue('theme_header_bg_color'));
+        $migratedThemeSql->setValue('chat_bg_color', (string) $profileRow->getValue('theme_chat_bg_color'));
+        $migratedThemeSql->setValue('text_color', (string) $profileRow->getValue('theme_text_color'));
+        $migratedThemeSql->setValue('bot_message_bg_color', (string) $profileRow->getValue('theme_bot_message_bg_color'));
+        $migratedThemeSql->setValue('border_radius', (string) $profileRow->getValue('theme_border_radius'));
+        $migratedThemeSql->setValue('avatar', (string) $profileRow->getValue('theme_avatar'));
+        $migratedThemeSql->setDateTimeValue('createdate', time());
+        $migratedThemeSql->setDateTimeValue('updatedate', time());
+        $migratedThemeSql->insert();
+
+        $assignThemeSql = rex_sql::factory();
+        $assignThemeSql->setTable(rex::getTable('ai_chat_profile'));
+        $assignThemeSql->setWhere(['id' => (int) $profileRow->getValue('id')]);
+        $assignThemeSql->setValue('theme_id', (int) $migratedThemeSql->getLastId());
+        $assignThemeSql->update();
+    }
 }
 

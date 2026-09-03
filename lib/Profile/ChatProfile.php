@@ -54,14 +54,13 @@ final class ChatProfile
         public readonly ?string $personalizationMode,
         public readonly int $chatResetCountdown,
         public readonly bool $chatCopyHistory,
-        public readonly ?string $themePrimaryColor,
-        public readonly ?string $themeHeaderBgColor,
-        public readonly ?string $themeChatBgColor,
-        public readonly ?string $themeTextColor,
-        public readonly ?string $themeBotMessageBgColor,
-        public readonly ?string $themeBorderRadius,
+        // NULL = globales Standard-Theme verwenden (siehe ThemeRepository, ProfileTheme) -
+        // Farben/Avatar/Eckenradius kamen frueher aus den (jetzt geloeschten) theme_*-
+        // Farbfeldern direkt auf diesem Objekt, siehe Git-Historie.
+        public readonly ?int $themeId,
+        // Die Widget-Position ist bewusst KEIN Theme-Bestandteil und bleibt ein eigenes,
+        // unabhaengiges Override je Profil (siehe ProfileTheme::resolvePosition()).
         public readonly ?string $themePosition,
-        public readonly ?string $themeAvatar,
     ) {
     }
 
@@ -97,14 +96,8 @@ final class ChatProfile
             personalizationMode: self::nullableString($row['personalization_mode'] ?? null),
             chatResetCountdown: (int) $row['chat_reset_countdown'],
             chatCopyHistory: (bool) $row['chat_copy_history'],
-            themePrimaryColor: self::nullableString($row['theme_primary_color'] ?? null),
-            themeHeaderBgColor: self::nullableString($row['theme_header_bg_color'] ?? null),
-            themeChatBgColor: self::nullableString($row['theme_chat_bg_color'] ?? null),
-            themeTextColor: self::nullableString($row['theme_text_color'] ?? null),
-            themeBotMessageBgColor: self::nullableString($row['theme_bot_message_bg_color'] ?? null),
-            themeBorderRadius: self::nullableString($row['theme_border_radius'] ?? null),
+            themeId: null !== ($row['theme_id'] ?? null) ? (int) $row['theme_id'] : null,
             themePosition: self::nullableString($row['theme_position'] ?? null),
-            themeAvatar: self::nullableString($row['theme_avatar'] ?? null),
         );
     }
 
