@@ -1,8 +1,42 @@
 <?php
 
 use FriendsOfREDAXO\ECharts\ChartRenderer;
+use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
+use FriendsOfRedaxo\AiChat\Service\SystemCheckService;
 
 $addon = rex_addon::get('ai_chat');
+
+// Systemcheck und Nutzungsstatistik bewusst auf einer Seite statt verstreut (Vektor-Status
+// vorher nur auf der Indexierung-Seite, Hintergrund-Voraussetzungen nur als Fehlermeldung
+// beim Versuch) - eine Landing-Page, auf der sofort sichtbar ist, ob der Server die
+// Voraussetzungen erfuellt UND wie das Addon tatsaechlich genutzt wird.
+$statusBadgeClass = [
+    'ok' => 'label-success',
+    'warning' => 'label-warning',
+    'error' => 'label-danger',
+];
+$statusLabel = [
+    'ok' => 'OK',
+    'warning' => 'Hinweis',
+    'error' => 'Fehler',
+];
+$systemCheckHtml = '<div class="klxmchat-statistics-shell" style="margin-bottom: 20px;">';
+$systemCheckPanel = new rex_fragment();
+$systemCheckPanel->setVar('title', 'Systemcheck');
+$systemCheckBody = '<table class="table table-striped klxmchat-stat-table">'
+    . '<thead><tr><th style="width:180px;">Prüfung</th><th style="width:90px;">Status</th><th>Details</th></tr></thead><tbody>';
+foreach (SystemCheckService::runChecks() as $check) {
+    $systemCheckBody .= '<tr>'
+        . '<td>' . rex_escape($check['label']) . '</td>'
+        . '<td><span class="label ' . $statusBadgeClass[$check['status']] . '">' . $statusLabel[$check['status']] . '</span></td>'
+        . '<td>' . rex_escape($check['message']) . '</td>'
+        . '</tr>';
+}
+$systemCheckBody .= '</tbody></table>';
+$systemCheckPanel->setVar('body', $systemCheckBody, false);
+$systemCheckHtml .= $systemCheckPanel->parse('core/page/section.php');
+$systemCheckHtml .= '</div>';
+echo $systemCheckHtml;
 
 $resetToken = rex_csrf_token::factory('ai_chat_stats_reset');
 if (rex_request('reset_stats', 'string', '') !== '') {
@@ -23,6 +57,25 @@ $periodOptions = [
     90 => '90 Tage',
 ];
 
+// '' = alle Profile, '0' = explizit "kein Profil" (globaler Fallback ohne aufgeloestes
+// Profil, siehe ChatQueryService::process()), sonst eine echte Profil-ID. Zeilen von vor
+// der Einfuehrung dieser Spalte haben ebenfalls profile_id NULL und landen damit unter "0".
+$profileFilterRaw = rex_request('profile', 'string', '');
+$allProfiles = (new ProfileRepository())->getAll();
+$profileNamesById = [];
+foreach ($allProfiles as $profileEntry) {
+    $profileNamesById[$profileEntry->id] = $profileEntry->name;
+}
+
+$profileClause = '';
+$profileParam = null;
+if ($profileFilterRaw === '0') {
+    $profileClause = ' AND profile_id IS NULL';
+} elseif ($profileFilterRaw !== '') {
+    $profileClause = ' AND profile_id = :profile_id';
+    $profileParam = (int) $profileFilterRaw;
+}
+
 $scopeLabels = [
     'frontend' => 'Frontend',
     'developer' => 'Developer',
@@ -41,7 +94,7 @@ $buildDateClause = static function (int $days): string {
     return $days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . $days . ' DAY)' : '';
 };
 
-$buildScopeQuery = static function (rex_sql $sql, string $scope, int $days, string $mode = '', bool $onlyNoResult = false): array {
+$buildScopeQuery = static function (rex_sql $sql, string $scope, int $days, string $mode = '', bool $onlyNoResult = false) use ($profileClause, $profileParam): array {
     $statusClause = $onlyNoResult
         ? "AND status IN ('search_no_result', 'chat_no_answer')"
         : "AND status NOT IN ('request_started')";
@@ -57,11 +110,13 @@ $buildScopeQuery = static function (rex_sql $sql, string $scope, int $days, stri
            AND COALESCE(normalized_query, \'\') <> \'\'
            ' . $statusClause . '
            ' . $modeClause . '
+           ' . $profileClause . '
          GROUP BY normalized_query
          ORDER BY total DESC',
         array_filter([
             'scope' => $scope,
             'mode' => $mode !== '' ? $mode : null,
+            'profile_id' => $profileParam,
         ], static fn ($value) => $value !== null)
     );
 };
@@ -87,11 +142,29 @@ foreach ($scopeLabels as $scopeKey => $scopeName) {
          FROM ' . rex::getTable('ai_chat_stats') . '
          WHERE scope = :scope
            AND status <> :started
-           ' . ($days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : ''),
-        ['scope' => $scopeKey, 'started' => 'request_started']
+           ' . ($days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : '') . '
+           ' . $profileClause,
+        array_filter([
+            'scope' => $scopeKey,
+            'started' => 'request_started',
+            'profile_id' => $profileParam,
+        ], static fn ($value) => $value !== null)
     );
     $scopeSummary[$scopeKey] = (int) ($summaryRows[0]['total'] ?? 0);
 }
+
+// Immer ALLE Profile, unabhaengig vom oben gewaehlten Profil-Filter (der schraenkt nur die
+// Detail-Tabellen weiter unten ein) - diese Uebersicht soll auf einen Blick zeigen, wie sich
+// die Nutzung ueberhaupt auf die Profile verteilt.
+$profileSummaryRows = $sql->getArray(
+    'SELECT profile_id, COUNT(*) AS total
+     FROM ' . rex::getTable('ai_chat_stats') . '
+     WHERE status <> :started
+       ' . ($days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : '') . '
+     GROUP BY profile_id
+     ORDER BY total DESC',
+    ['started' => 'request_started']
+);
 
 $buildOverviewChartOptions = static function (array $scopeSummary, string $title): array {
     $labels = [];
@@ -120,8 +193,17 @@ $buildOverviewChartOptions = static function (array $scopeSummary, string $title
 $currentStatsPage = rex_url::backendPage('ai_chat/statistics');
 $periodHtml = '<div class="pull-right" style="margin-bottom: 12px;">'
     . '<form id="klxmchat-stats-period-form" method="get" action="' . rex_escape($currentStatsPage) . '" class="form-inline" style="margin: 0;">'
+    . '<label for="profile" style="margin: 0 8px 0 0;">Profil</label>'
+    . '<select id="profile" name="profile" class="form-control input-sm" onchange="this.form.submit()" style="margin-right: 16px;">'
+    . '<option value=""' . ('' === $profileFilterRaw ? ' selected' : '') . '>Alle Profile</option>'
+    . '<option value="0"' . ('0' === $profileFilterRaw ? ' selected' : '') . '>Kein Profil (global)</option>';
+foreach ($allProfiles as $profileEntry) {
+    $selected = $profileFilterRaw === (string) $profileEntry->id ? ' selected' : '';
+    $periodHtml .= '<option value="' . $profileEntry->id . '"' . $selected . '>' . rex_escape($profileEntry->name) . '</option>';
+}
+$periodHtml .= '</select>'
     . '<label for="days" style="margin-right: 8px;">Zeitraum</label>'
-    . '<select id="days" name="days" class="form-control input-sm">';
+    . '<select id="days" name="days" class="form-control input-sm" onchange="this.form.submit()">';
 foreach ($periodOptions as $value => $label) {
     $selected = $days === (int) $value ? ' selected' : '';
     $periodHtml .= '<option value="' . (int) $value . '"' . $selected . '>' . rex_escape($label) . '</option>';
@@ -157,6 +239,21 @@ if (rex_addon::get('echarts')->isAvailable() && class_exists(ChartRenderer::clas
     $body .= '<div class="row" style="margin-bottom: 20px;">'
         . '<div class="col-md-12">' . ChartRenderer::render($buildOverviewChartOptions($scopeSummary, $days > 0 ? 'Gesamt pro Scope (' . $days . ' Tage)' : 'Gesamt pro Scope (alle Daten)'), 260) . '</div>'
         . '</div>';
+}
+
+if (count($profileSummaryRows) > 1 || (count($profileSummaryRows) === 1 && null !== $profileSummaryRows[0]['profile_id'])) {
+    $body .= '<div style="margin-bottom: 20px;">'
+        . '<div class="klxmchat-stat-list-label">Anfragen je Profil' . ($days > 0 ? ' (' . $days . ' Tage)' : ' (alle Daten)') . '</div>'
+        . '<table class="table table-striped table-condensed klxmchat-stat-table">'
+        . '<thead><tr><th>Profil</th><th>Anzahl</th></tr></thead><tbody>';
+    foreach ($profileSummaryRows as $row) {
+        $rowProfileId = null !== $row['profile_id'] ? (int) $row['profile_id'] : null;
+        $profileName = null === $rowProfileId
+            ? 'Kein Profil (global)'
+            : ($profileNamesById[$rowProfileId] ?? 'Gelöschtes Profil #' . $rowProfileId);
+        $body .= '<tr><td>' . rex_escape($profileName) . '</td><td>' . (int) $row['total'] . '</td></tr>';
+    }
+    $body .= '</tbody></table></div>';
 }
 
 $body .= '<div class="row" style="margin-top: 20px;">';

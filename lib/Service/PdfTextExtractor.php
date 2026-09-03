@@ -95,23 +95,6 @@ class PdfTextExtractor
             return null;
         }
 
-        $isWindows = str_starts_with(PHP_OS, 'WIN');
-        $lookupCommand = $isWindows ? 'where pdftotext' : 'command -v pdftotext 2>/dev/null';
-        $viaPath = trim((string) shell_exec($lookupCommand));
-        if ('' !== $viaPath) {
-            return strtok($viaPath, "\r\n");
-        }
-
-        if ($isWindows) {
-            return null;
-        }
-
-        foreach (['/usr/bin/', '/usr/local/bin/', '/opt/homebrew/bin/', '/bin/'] as $dir) {
-            if (is_executable($dir . 'pdftotext')) {
-                return $dir . 'pdftotext';
-            }
-        }
-
-        return null;
+        return SystemCheckService::resolveBinary('pdftotext');
     }
 }

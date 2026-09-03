@@ -5,6 +5,7 @@ namespace FriendsOfRedaxo\AiChat\Api;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
 use FriendsOfRedaxo\AiChat\Service\IndexerService;
 use FriendsOfRedaxo\AiChat\Service\IndexRunStore;
+use FriendsOfRedaxo\AiChat\Service\SystemCheckService;
 use rex;
 use rex_addon;
 use rex_api_exception;
@@ -87,7 +88,7 @@ class ChatIndex extends rex_api_function
             }
 
             if ($action === 'background_available') {
-                $this->sendJsonClean(['success' => true] + self::backgroundRunnerDiagnostics());
+                $this->sendJsonClean(['success' => true] + SystemCheckService::backgroundRunnerDiagnostics());
             }
 
             if ($action === 'start_background') {
@@ -266,7 +267,7 @@ class ChatIndex extends rex_api_function
         $pidFile = rex_path::addonData('ai_chat', 'reindex_background.pid');
 
         $isWindows = str_starts_with(PHP_OS, 'WIN');
-        $curlPath = self::resolveBinary('curl');
+        $curlPath = SystemCheckService::resolveBinary('curl');
 
         if ($isWindows) {
             // Windows-Zweig bewusst einfach gehalten (nur der öffentliche
@@ -278,7 +279,7 @@ class ChatIndex extends rex_api_function
             // curl-Versuchen unzuverlässig.
             $downloader = $curlPath !== null
                 ? escapeshellarg($curlPath) . ' -s -X POST ' . escapeshellarg($workerUrl)
-                : escapeshellarg((string) self::resolveBinary('wget')) . ' -q -O NUL ' . escapeshellarg($workerUrl);
+                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q -O NUL ' . escapeshellarg($workerUrl);
             // Unter Windows gibt es kein shell_exec('... &')-Backgrounding wie unter
             // Unix - "start /B" startet abgekoppelt, cmd /C führt das eigentliche
             // Kommando aus (gleiches Prinzip wie ffmpeg's Api\Converter::handleStart()).
@@ -291,7 +292,7 @@ class ChatIndex extends rex_api_function
         } else {
             $downloader = $curlPath !== null
                 ? self::buildCurlSelfCallCommand($curlPath, $server, $workerUrl)
-                : escapeshellarg((string) self::resolveBinary('wget')) . ' -q -O /dev/null ' . escapeshellarg($workerUrl);
+                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q -O /dev/null ' . escapeshellarg($workerUrl);
             shell_exec('(' . $downloader . ') > ' . escapeshellarg($logFile) . ' 2>&1 & echo $! > ' . escapeshellarg($pidFile));
         }
 
@@ -385,83 +386,6 @@ class ChatIndex extends rex_api_function
 
     private static function backgroundRunnerAvailable(): bool
     {
-        return (bool) self::backgroundRunnerDiagnostics()['available'];
-    }
-
-    /**
-     * Liefert nicht nur ja/nein, sondern auch WARUM - ohne Shell-Zugriff auf
-     * den echten Server ist das sonst von außen kaum zu diagnostizieren, wenn
-     * die Hintergrundausführung unerwartet nicht greift (z.B. shell_exec()
-     * grundsätzlich per disable_functions gesperrt, oder nur curl/wget fehlen).
-     *
-     * @return array{available: bool, reason: string}
-     */
-    private static function backgroundRunnerDiagnostics(): array
-    {
-        $isWindows = str_starts_with(PHP_OS, 'WIN');
-        // Unix startet den Hintergrundprozess über shell_exec('... &'), Windows
-        // (siehe handleStartBackground()) über popen()/pclose() mit "start /B" -
-        // beide Wege brauchen ihre jeweilige Funktion tatsächlich freigeschaltet.
-        $requiredFunctions = $isWindows ? ['popen', 'pclose'] : ['shell_exec'];
-        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
-
-        foreach ($requiredFunctions as $function) {
-            if (!function_exists($function)) {
-                return ['available' => false, 'reason' => $function . '() ist auf diesem Server nicht kompiliert/verfügbar.'];
-            }
-            if (in_array($function, $disabled, true)) {
-                return ['available' => false, 'reason' => $function . '() ist per php.ini disable_functions gesperrt.'];
-            }
-        }
-        // resolveBinary() selbst braucht shell_exec(), auch im Windows-Zweig (für "where").
-        if (!function_exists('shell_exec') || in_array('shell_exec', $disabled, true)) {
-            return ['available' => false, 'reason' => 'shell_exec() ist auf diesem Server nicht verfügbar/gesperrt.'];
-        }
-
-        if (self::resolveBinary('curl') !== null || self::resolveBinary('wget') !== null) {
-            return ['available' => true, 'reason' => ''];
-        }
-
-        return ['available' => false, 'reason' => 'Weder curl noch wget auf dem Server gefunden (auch nicht unter den üblichen Standardpfaden).'];
-    }
-
-    /**
-     * Liefert einen tatsächlich ausführbaren, absoluten Pfad statt eines
-     * bloßen Bool - PHP-FPM-Pools laufen oft mit einer geleerten Umgebung
-     * (kein $PATH), dann findet `command -v` ein tatsächlich installiertes
-     * Programm gar nicht erst UND ein bloßer Programmname im shell_exec()-
-     * Aufruf würde später ebenso fehlschlagen. Deshalb zusätzlich die
-     * üblichen Installationspfade direkt per is_executable() prüfen und den
-     * gefundenen absoluten Pfad zurückgeben, damit auch der eigentliche
-     * curl/wget-Aufruf in handleStartBackground() PATH-unabhängig ist.
-     */
-    private static function resolveBinary(string $binary): ?string
-    {
-        $isWindows = str_starts_with(PHP_OS, 'WIN');
-        // "command -v" ist ein Bash-Builtin und existiert unter Windows' cmd.exe
-        // nicht - dortiges Äquivalent ist "where".
-        $lookupCommand = $isWindows ? 'where ' . escapeshellarg($binary) : 'command -v ' . escapeshellarg($binary) . ' 2>/dev/null';
-        $viaPath = trim((string) shell_exec($lookupCommand));
-        if ($viaPath !== '') {
-            // "where" kann bei mehreren Treffern mehrzeilig antworten - der erste reicht.
-            // strtok() findet auf dem bereits getrimmten, nicht-leeren $viaPath beim ersten
-            // Aufruf garantiert ein Token (es gibt keine \r\n mehr, an denen es scheitern könnte).
-            return strtok($viaPath, "\r\n");
-        }
-
-        if ($isWindows) {
-            // curl.exe liegt seit Windows 10 1803 i.d.R. in System32 und damit im
-            // PATH - anders als unter Unix gibt es keinen sinnvollen, festen Satz
-            // weiterer Fallback-Pfade, die sich lohnen würde zu raten.
-            return null;
-        }
-
-        foreach (['/usr/bin/', '/usr/local/bin/', '/opt/homebrew/bin/', '/bin/'] as $dir) {
-            if (is_executable($dir . $binary)) {
-                return $dir . $binary;
-            }
-        }
-
-        return null;
+        return (bool) SystemCheckService::backgroundRunnerDiagnostics()['available'];
     }
 }

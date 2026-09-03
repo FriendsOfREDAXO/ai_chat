@@ -444,7 +444,7 @@ class ChatQueryService
         }
 
         if ($this->isStatsLoggingEnabled()) {
-            $this->recordUsageStat($mode, $scope, $message, 'request_started', 0);
+            $this->recordUsageStat($mode, $scope, $message, 'request_started', 0, $profile?->id);
         }
 
         $showSources = $this->isShowSourcesEnabled();
@@ -464,7 +464,7 @@ class ChatQueryService
             $hits = is_array($result['hits'] ?? null) ? count($result['hits']) : 0;
             $status = $hits > 0 ? 'search_hit' : 'search_no_result';
             if ($this->isStatsLoggingEnabled()) {
-                $this->recordUsageStat('search', $scope, $message, $status, $hits);
+                $this->recordUsageStat('search', $scope, $message, $status, $hits, $profile?->id);
             }
 
             // KI-Hilfe bei treffer-loser Suche uebernimmt bereits ai-search.js
@@ -609,7 +609,7 @@ class ChatQueryService
 
         if ($this->isStatsLoggingEnabled()) {
             $status = trim((string) $answer) === '' ? 'chat_no_answer' : 'chat_answer';
-            $this->recordUsageStat('chat', $scope, $message, $status, 0);
+            $this->recordUsageStat('chat', $scope, $message, $status, 0, $profile?->id);
         }
 
         $answer = $this->normalizeAnswerMarkdown($answer);
@@ -2162,7 +2162,7 @@ class ChatQueryService
         return (bool) rex_addon::get('ai_chat')->getConfig('stats_logging_enabled', true);
     }
 
-    private function recordUsageStat(string $mode, string $scope, string $query, string $status, int $hitCount = 0): void
+    private function recordUsageStat(string $mode, string $scope, string $query, string $status, int $hitCount = 0, ?int $profileId = null): void
     {
         $normalized = trim($this->normalizeStatQuery($query));
         if ($normalized === '') {
@@ -2185,6 +2185,7 @@ class ChatQueryService
         $sql->setValue('query', $normalized);
         $sql->setValue('normalized_query', $normalized);
         $sql->setValue('hit_count', max(0, (int) $hitCount));
+        $sql->setValue('profile_id', $profileId);
         $sql->setValue('created_at', date('Y-m-d H:i:s'));
         $sql->insert();
     }

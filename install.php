@@ -60,9 +60,15 @@ rex_sql_table::get(rex::getTable('ai_chat_stats'))
     ->ensureColumn(new rex_sql_column('query', 'text'))
     ->ensureColumn(new rex_sql_column('normalized_query', 'varchar(255)'))
     ->ensureColumn(new rex_sql_column('hit_count', 'int', false, '0'))
+    // Nullable statt Fremdschluessel: eine Anfrage ohne aufgeloestes Profil (z.B. ohne
+    // aktive Profile, reiner globaler Fallback, siehe boot.php) bleibt NULL statt 0 -
+    // "kein Profil" ist ein legitimer, dauerhafter Zustand, kein Migrations-Uebergang.
+    // Zeilen aus der Zeit vor diesem Feld bleiben ebenfalls NULL ("unbekannt").
+    ->ensureColumn(new rex_sql_column('profile_id', 'int', true))
     ->ensureColumn(new rex_sql_column('created_at', 'datetime'))
     ->ensureIndex(new rex_sql_index('mode_scope_status', ['mode', 'scope', 'status']))
     ->ensureIndex(new rex_sql_index('normalized_query_created', ['normalized_query', 'created_at']))
+    ->ensureIndex(new rex_sql_index('profile_id', ['profile_id']))
     ->ensure();
 
 // Profile/Scope-Editor: mehrere Chat-"Profile" mit eigenem Wissensstand,

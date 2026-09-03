@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Neu (Systemcheck, zusammengeführt mit den Statistiken)
+- Die Statistik-Seite (jetzt Landing-Page von AI Chat) zeigt oben einen
+  Systemcheck: PHP-/REDAXO-Version, PDF-Textextraktion (pdftotext vs.
+  smalot/pdfparser-Fallback), Voraussetzungen für die Hintergrund-Indexierung,
+  natives Vektor-Retrieval, KI-Provider-Konfiguration - vorher verstreut
+  (Vektor-Status nur auf der Indexierung-Seite) oder nur als Fehlermeldung im
+  Versuch sichtbar. `SystemCheckService` bündelt das an einer Stelle;
+  `resolveBinary()`/`backgroundRunnerDiagnostics()` (vorher privat in
+  `Api\ChatIndex`) und `PdfTextExtractor`s eigene Binary-Suche nutzen jetzt
+  dieselbe Stelle statt eigener Kopien.
+- Die Nutzungsstatistik kennt jetzt Profile: neuer `profile_id`-Spalte an
+  `rex_ai_chat_stats`, ein Profil-Filter neben dem Zeitraum-Filter, und eine
+  "Anfragen je Profil"-Übersicht. Zeilen von vor diesem Feld (und Anfragen
+  ganz ohne aufgelöstes Profil) laufen unter "Kein Profil (global)".
+
 ## [1.0.1] - 2026-09-03
 
 ### Verbessert (Such-Widget: KI-Antwortbox)
