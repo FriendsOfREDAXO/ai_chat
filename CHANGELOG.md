@@ -24,6 +24,15 @@
   obwohl `curl`/`wget` bei jedem echten Lauf bereits ein Log mitschrieben, das nirgends
   angezeigt wurde. Das Log des letzten echten Hintergrundlaufs sowie der Status eines
   gemerkten PID-Prozesses werden jetzt ebenfalls mit angezeigt.
+- Mit diesem Werkzeug direkt einen zweiten, eigenständigen Fall gefunden und mitgefixt:
+  auf manchen gemanagten Hosting-/Plesk-Setups blockt eine WAF/ModSecurity-Regel
+  (OWASP-Core-Rule-Set "Scripting User Agent") den Selbstaufruf anhand von curls/wgets
+  eigenem Standard-User-Agent-String - sichtbar als sofortiges HTTP 403 direkt vom
+  Webserver, nicht als Verbindungs- oder Zeitproblem. Alle Selbstaufrufe (echter
+  Hintergrundlauf UND das neue Diagnose-Werkzeug) senden jetzt einen gängigen
+  Browser-User-Agent statt des leicht als Skript erkennbaren Standardwerts - der Aufruf
+  bleibt dabei ein rein interner Selbstaufruf derselben Seite, es wird keine echte
+  Schutzmaßnahme gegen externe Bots umgangen.
 
 ### Behoben (Statistiken: Profil-/Zeitraum-Filter landete auf der Struktur-Seite)
 - Das Profil-/Zeitraum-Filterformular auf der Statistiken-Seite ist ein GET-Formular,

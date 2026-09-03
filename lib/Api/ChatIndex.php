@@ -290,8 +290,8 @@ class ChatIndex extends rex_api_function
             // `cmd /C "..."`-Wrappers) würde bei mehreren verketteten
             // curl-Versuchen unzuverlässig.
             $downloader = $curlPath !== null
-                ? escapeshellarg($curlPath) . ' -s -X POST ' . escapeshellarg($workerUrl)
-                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q -O NUL ' . escapeshellarg($workerUrl);
+                ? escapeshellarg($curlPath) . ' -s -A ' . escapeshellarg(self::SELF_CALL_USER_AGENT) . ' -X POST ' . escapeshellarg($workerUrl)
+                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q --user-agent=' . escapeshellarg(self::SELF_CALL_USER_AGENT) . ' -O NUL ' . escapeshellarg($workerUrl);
             // Unter Windows gibt es kein shell_exec('... &')-Backgrounding wie unter
             // Unix - "start /B" startet abgekoppelt, cmd /C führt das eigentliche
             // Kommando aus (gleiches Prinzip wie ffmpeg's Api\Converter::handleStart()).
@@ -304,7 +304,7 @@ class ChatIndex extends rex_api_function
         } else {
             $downloader = $curlPath !== null
                 ? self::buildCurlSelfCallCommand($curlPath, $server, $workerUrl)
-                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q -O /dev/null ' . escapeshellarg($workerUrl);
+                : escapeshellarg((string) SystemCheckService::resolveBinary('wget')) . ' -q --user-agent=' . escapeshellarg(self::SELF_CALL_USER_AGENT) . ' -O /dev/null ' . escapeshellarg($workerUrl);
             shell_exec('(' . $downloader . ') > ' . escapeshellarg($logFile) . ' 2>&1 & echo $! > ' . escapeshellarg($pidFile));
         }
 
@@ -327,17 +327,31 @@ class ChatIndex extends rex_api_function
      * Zertifikatsprüfung wird für die Loopback-Versuche bewusst übersprungen -
      * rein interner Aufruf, kein Browser-Vertrauenskontext nötig.
      */
+    /**
+     * Viele gemanagte Hosting-/Plesk-Setups blocken Requests mit curls/wgets eigenem
+     * Standard-User-Agent per WAF/ModSecurity (OWASP-Core-Rule-Set "Scripting User
+     * Agent" - curl/x.y.z, Wget/x.y.z, python-requests/... gelten dort pauschal als
+     * Bot/Scraper-Signatur), unabhaengig davon, ob curl/wget grundsaetzlich
+     * funktionieren UND der Server ganz normal erreichbar ist - sichtbar als HTTP 403
+     * direkt vom Webserver, nicht als Verbindungsfehler. Ein gaengiger, echter
+     * Browser-User-Agent umgeht das zuverlaessig, ohne dass hier irgendein
+     * Sicherheitsmechanismus umgangen wuerde, der tatsaechlich externe Bots abwehren
+     * soll - der Aufruf bleibt ein legitimer Selbstaufruf derselben Seite.
+     */
+    private const SELF_CALL_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
     private static function buildCurlSelfCallCommand(string $curlPath, string $server, string $workerUrl): string
     {
         $scheme = parse_url($server, PHP_URL_SCHEME) ?: 'https';
         $host = parse_url($server, PHP_URL_HOST) ?: 'localhost';
         $port = parse_url($server, PHP_URL_PORT) ?: ('https' === $scheme ? 443 : 80);
         $hostPort = $host . ':' . $port;
+        $userAgent = ' -A ' . escapeshellarg(self::SELF_CALL_USER_AGENT);
 
-        $publicAttempt = escapeshellarg($curlPath) . ' -s --max-time 20 -X POST ' . escapeshellarg($workerUrl);
-        $loopbackHttps = escapeshellarg($curlPath) . ' -sk --max-time 20 --connect-to '
+        $publicAttempt = escapeshellarg($curlPath) . ' -s --max-time 20' . $userAgent . ' -X POST ' . escapeshellarg($workerUrl);
+        $loopbackHttps = escapeshellarg($curlPath) . ' -sk --max-time 20' . $userAgent . ' --connect-to '
             . escapeshellarg($hostPort . ':127.0.0.1:443') . ' -X POST ' . escapeshellarg($workerUrl);
-        $loopbackHttp = escapeshellarg($curlPath) . ' -s --max-time 20 --connect-to '
+        $loopbackHttp = escapeshellarg($curlPath) . ' -s --max-time 20' . $userAgent . ' --connect-to '
             . escapeshellarg($hostPort . ':127.0.0.1:80') . ' -X POST ' . escapeshellarg($workerUrl);
 
         return '(' . $publicAttempt . ' || ' . $loopbackHttps . ' || ' . $loopbackHttp . ')';
@@ -469,12 +483,17 @@ class ChatIndex extends rex_api_function
         // HTTP-Status nachtraeglich wieder sauber trennen koennen, ohne curls
         // "-D -"/--dump-header extra parsen zu muessen.
         $statusMarker = '\n__HTTP_STATUS__%{http_code}';
+        // Dieselbe User-Agent-Kennung wie der echte Selbstaufruf (siehe
+        // SELF_CALL_USER_AGENT) - ein Test mit curls eigenem Standard-UA waere sonst
+        // nicht aussagekraeftig, falls genau DAS (WAF/ModSecurity-Blockade auf
+        // Scripting-User-Agents) die Ursache ist.
+        $userAgent = ' -A ' . escapeshellarg(self::SELF_CALL_USER_AGENT);
 
         $variants = [
-            'Öffentliche URL' => escapeshellarg($curlPath) . ' -s --max-time 15 -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
-            'Loopback 443 (HTTPS)' => escapeshellarg($curlPath) . ' -sk --max-time 15 --connect-to '
+            'Öffentliche URL' => escapeshellarg($curlPath) . ' -s --max-time 15' . $userAgent . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
+            'Loopback 443 (HTTPS)' => escapeshellarg($curlPath) . ' -sk --max-time 15' . $userAgent . ' --connect-to '
                 . escapeshellarg($hostPort . ':127.0.0.1:443') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
-            'Loopback 80 (HTTP)' => escapeshellarg($curlPath) . ' -s --max-time 15 --connect-to '
+            'Loopback 80 (HTTP)' => escapeshellarg($curlPath) . ' -s --max-time 15' . $userAgent . ' --connect-to '
                 . escapeshellarg($hostPort . ':127.0.0.1:80') . ' -w ' . escapeshellarg($statusMarker) . ' -X POST ' . escapeshellarg($pingUrl),
         ];
 
