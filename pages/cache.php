@@ -136,6 +136,7 @@ if ($func === 'edit' && is_array($editData)) {
         $content .= '<option value="' . rex_escape($scopeOption) . '"' . $selected . '>' . rex_escape($label) . '</option>';
     }
     $content .= '</select>';
+    $content .= '<p class="help-block">Frontend = Website-Chat/-Suche (Besucher). Developer = interner Backend-Chat für angemeldete Redakteure/Admins (siehe Einstellungen → Zugriff).</p>';
     $content .= '</div>';
     $content .= '<p class="text-muted">Angelegt: ' . rex_escape((string) ($editData['created_at'] ?? '')) . '</p>';
     $content .= '<p>';

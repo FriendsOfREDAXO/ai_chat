@@ -233,9 +233,12 @@ class ChatQueryService
         }
         /** @var array<string, mixed>|null $personalization */
         $personalization = is_array($input['personalization'] ?? null) ? $input['personalization'] : null;
-        $configuredPersonalizationMode = null !== $profile
-            ? $profile->personalizationMode
-            : trim((string) rex_addon::get('ai_chat')->getConfig('personalization_mode', 'off'));
+        // $profile->personalizationMode ist NULL, wenn das Profil hierfuer die globale
+        // Einstellung uebernehmen soll (siehe ChatProfile/pages/profiles.php) - genau wie bei
+        // addressingModeOverride oben faellt das dann auf die globale Konfiguration zurueck,
+        // statt eine eigene Festlegung zu erzwingen.
+        $configuredPersonalizationMode = (null !== $profile ? $profile->personalizationMode : null)
+            ?? trim((string) rex_addon::get('ai_chat')->getConfig('personalization_mode', 'off'));
         if ($configuredPersonalizationMode === '') {
             $configuredPersonalizationMode = 'off';
         }
@@ -547,6 +550,7 @@ class ChatQueryService
             $context = $this->findSimilarContent($userEmbedding, $ragResults, $scope, $currentUrl, $retrievalMessage, $profile);
             $context = $this->ensureForcalContextForIntent($context, $retrievalMessage, $scope, $ragResults);
             $context = $this->ensureProviderContextByKeyword($context, $retrievalMessage, $scope, $ragResults);
+            $context = $this->ensureKeywordMatchedContext($context, $retrievalMessage, $scope, $profile, $ragResults);
 
             if ($triggerContent === '' && !$this->hasSufficientAnswerContext($context, $retrievalMessage, $scope)) {
                 $answer = $this->buildInsufficientContextAnswer($scope);
@@ -605,6 +609,7 @@ class ChatQueryService
             $context = $this->findSimilarContent($userEmbedding, $ragResults, $scope, $currentUrl, $retrievalMessage, $profile);
             $context = $this->ensureForcalContextForIntent($context, $retrievalMessage, $scope, $ragResults);
             $context = $this->ensureProviderContextByKeyword($context, $retrievalMessage, $scope, $ragResults);
+            $context = $this->ensureKeywordMatchedContext($context, $retrievalMessage, $scope, $profile, $ragResults);
             $answer = $this->appendSourcesFromContext($answer, $context, $retrievalMessage, $scope, $showSources);
         }
 
@@ -881,43 +886,18 @@ class ChatQueryService
     {
         $candidateLimit = $this->getRagCandidateLimit($limit, $currentUrl !== null && $currentUrl !== '');
 
-        $whereSql = '';
-        $params = [];
-        $frontendProviderTypes = [];
-
-        if ($scope === 'frontend') {
-            // getEnabledFrontendProviderSourceTypes() liest nur die globale Shared-Pool-
-            // Freigabe - getProfileExclusiveSourceTypes() ergaenzt Quellen, die ein Profil
-            // exklusiv fuer sich selbst gewaehlt hat (PDFs/YForm), unabhaengig davon (siehe
-            // dortiger Kommentar; identisches Muster wie in search()).
-            $frontendProviderTypes = array_values(array_unique(array_merge(
-                $this->getEnabledFrontendProviderSourceTypes(),
-                $this->getProfileExclusiveSourceTypes($profile),
-            )));
-            $frontendTypes = array_values(array_unique(array_merge(['article', 'sitemap_url'], $frontendProviderTypes)));
-            $whereSql = 'source_type IN (' . implode(', ', array_fill(0, count($frontendTypes), '?')) . ')';
-            $params = array_merge($params, $frontendTypes);
-        } elseif ($scope === 'developer') {
-            $whereSql = "source_type IN ('addon_docs', 'github_docs')";
-        } else {
+        [$whereSql, $params, $ok] = $this->buildScopeVisibilityWhere($scope, $profile);
+        if (!$ok) {
             rex_logger::logError(E_USER_WARNING, 'AiChat API: Unknown scope "' . $scope . '". Returning empty result.', __FILE__, __LINE__);
             return [];
         }
 
-        // Profil-Scope: Shared Pool (profile_id IS NULL) ist die bestehende globale
-        // Indexierung und bleibt fuer jedes Profil mit use_shared_scope=1 sichtbar.
-        // Ein Profil ohne Shared Scope sieht ausschliesslich seine eigenen,
-        // exklusiv markierten Chunks. Kein Profil aufgeloest = unveraendertes
-        // Verhalten ueber den kompletten Shared Pool (Stand vor dem Profil-Feature).
-        if (null !== $profile) {
-            if ($profile->useSharedScope) {
-                $whereSql .= ' AND (profile_id = ? OR profile_id IS NULL)';
-                $params[] = $profile->id;
-            } else {
-                $whereSql .= ' AND profile_id = ?';
-                $params[] = $profile->id;
-            }
-        }
+        // Fuer den "aktuelle Seite"-Fokus unten weiterhin benoetigt (Provider-Inhalte sollen
+        // auch bei aktivem Seiten-Fokus global sichtbar bleiben, nicht nur von der aktuellen URL).
+        $frontendProviderTypes = $scope === 'frontend' ? array_values(array_unique(array_merge(
+            $this->getEnabledFrontendProviderSourceTypes(),
+            $this->getProfileExclusiveSourceTypes($profile),
+        ))) : [];
 
         if ($currentUrl) {
             $path = parse_url($currentUrl, PHP_URL_PATH);
@@ -990,6 +970,159 @@ class ChatQueryService
         }
 
         return $this->trimLowSignalResults($uniqueResults, $limit);
+    }
+
+    /**
+     * Baut das Scope-/Profil-Sichtbarkeits-WHERE, das findSimilarContent() UND
+     * ensureKeywordMatchedContext() identisch brauchen (letztere darf keinesfalls andere
+     * Zeilen sehen als die eigentliche Vektorsuche - sonst koennte per Keyword-Fallback
+     * exklusiver Inhalt eines FREMDEN Profils in die Antwort gelangen). Der aktuelle-Seite-
+     * Fokus (url LIKE) ist bewusst NICHT Teil davon, siehe Aufrufer.
+     *
+     * @return array{0: string, 1: list<mixed>, 2: bool} [whereSql, params, "scope war bekannt"]
+     */
+    private function buildScopeVisibilityWhere(string $scope, ?ChatProfile $profile): array
+    {
+        $whereSql = '';
+        $params = [];
+
+        if ($scope === 'frontend') {
+            // getEnabledFrontendProviderSourceTypes() liest nur die globale Shared-Pool-
+            // Freigabe - getProfileExclusiveSourceTypes() ergaenzt Quellen, die ein Profil
+            // exklusiv fuer sich selbst gewaehlt hat (PDFs/YForm), unabhaengig davon (siehe
+            // dortiger Kommentar; identisches Muster wie in search()).
+            $frontendProviderTypes = array_values(array_unique(array_merge(
+                $this->getEnabledFrontendProviderSourceTypes(),
+                $this->getProfileExclusiveSourceTypes($profile),
+            )));
+            $frontendTypes = array_values(array_unique(array_merge(['article', 'sitemap_url'], $frontendProviderTypes)));
+            $whereSql = 'source_type IN (' . implode(', ', array_fill(0, count($frontendTypes), '?')) . ')';
+            $params = array_merge($params, $frontendTypes);
+        } elseif ($scope === 'developer') {
+            $whereSql = "source_type IN ('addon_docs', 'github_docs')";
+        } else {
+            return ['', [], false];
+        }
+
+        // Profil-Scope: Shared Pool (profile_id IS NULL) ist die bestehende globale
+        // Indexierung und bleibt fuer jedes Profil mit use_shared_scope=1 sichtbar.
+        // Ein Profil ohne Shared Scope sieht ausschliesslich seine eigenen,
+        // exklusiv markierten Chunks. Kein Profil aufgeloest = unveraendertes
+        // Verhalten ueber den kompletten Shared Pool (Stand vor dem Profil-Feature).
+        if (null !== $profile) {
+            if ($profile->useSharedScope) {
+                $whereSql .= ' AND (profile_id = ? OR profile_id IS NULL)';
+                $params[] = $profile->id;
+            } else {
+                $whereSql .= ' AND profile_id = ?';
+                $params[] = $profile->id;
+            }
+        }
+
+        return [$whereSql, $params, true];
+    }
+
+    /**
+     * Sicherheitsnetz fuer Anfragen, bei denen die Vektorsuche an einem einzelnen, generischen
+     * Substantiv vorbeitrifft (z.B. "Referenzen", "Team", "Leistungen" - ein Wort, das selbst
+     * kaum Fliesstext-Aehnlichkeit zu einer EINZELNEN Unterseite hat, aber oft wortwoertlich im
+     * URL-Pfad einer Kategorie steht, z.B. "/agentur/referenzen/..."). Ohne dieses Netz kann die
+     * Vektorsuche fuer so eine Anfrage eine thematisch zufaellige, aber embedding-technisch
+     * "naheliegende" Seite in die Top-Kandidaten heben (siehe Nutzer-Report: "Referenzen"-Anfrage
+     * fand einen unabhaengigen "Weihnachtsferien"-Blogbeitrag statt echter Referenz-Unterseiten).
+     *
+     * Greift NUR, wenn KEIN bereits gefundener Kandidat den Suchbegriff selbst enthaelt - sonst
+     * hat die Vektorsuche vermutlich schon etwas thematisch Passendes gefunden, ein zusaetzlicher
+     * Volltext-Treffer wuerde dann eher verwaessern als helfen. Nutzt bewusst dieselbe
+     * Sichtbarkeits-WHERE wie findSimilarContent() (buildScopeVisibilityWhere()), damit ein
+     * exklusiver Inhalt eines fremden Profils hierueber nicht sichtbar werden kann.
+     *
+     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}> $context
+     * @return array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}>
+     */
+    private function ensureKeywordMatchedContext(array $context, string $message, string $scope, ?ChatProfile $profile, int $maxContext): array
+    {
+        if ($scope !== 'frontend') {
+            return $context;
+        }
+
+        $terms = $this->extractSearchTerms($message);
+        if ($terms === []) {
+            return $context;
+        }
+
+        foreach ($context as $item) {
+            $text = mb_strtolower($item['title'] . ' ' . $item['content'] . ' ' . $item['url']);
+            foreach ($terms as $term) {
+                if ('' !== $term && str_contains($text, mb_strtolower($term))) {
+                    return $context;
+                }
+            }
+        }
+
+        [$whereSql, $baseParams, $ok] = $this->buildScopeVisibilityWhere($scope, $profile);
+        if (!$ok) {
+            return $context;
+        }
+
+        $clauses = [];
+        $params = $baseParams;
+        foreach ($terms as $term) {
+            $like = '%' . $term . '%';
+            $clauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray(
+            'SELECT source_type, source_id, title, content, url
+             FROM ' . rex::getTable('ai_chat_index') . '
+             WHERE ' . $whereSql . ' AND (' . implode(' OR ', $clauses) . ')
+             ORDER BY updatedate DESC, id DESC
+             LIMIT 20',
+            $params,
+        );
+
+        $seen = [];
+        foreach ($context as $item) {
+            $seen[$item['source_type'] . '|' . $item['source_id']] = true;
+        }
+
+        $merged = $context;
+        foreach ($rows as $row) {
+            $sourceType = (string) ($row['source_type'] ?? '');
+            $sourceId = (string) ($row['source_id'] ?? '');
+            if ('' === $sourceType || '' === $sourceId) {
+                continue;
+            }
+
+            $key = $sourceType . '|' . $sourceId;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            // similarity < findProviderKeywordMatches()s 1.0: ein reiner Substring-Treffer ohne
+            // jede semantische Bestaetigung ist weniger verlaesslich als ein direkter
+            // Provider-Tabellen-Treffer, soll aber die Mindestschwellen in
+            // hasSufficientAnswerContext()/collectDisplaySources() zuverlaessig ueberschreiten.
+            $merged[] = [
+                'content' => (string) ($row['content'] ?? ''),
+                'url' => (string) ($row['url'] ?? ''),
+                'title' => (string) ($row['title'] ?? 'Inhalt'),
+                'similarity' => 0.6,
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+            ];
+
+            if (count($merged) >= $maxContext) {
+                break;
+            }
+        }
+
+        return $merged;
     }
 
     private function resolveRetrievalStrategy(): RetrievalStrategyInterface
@@ -2013,8 +2146,18 @@ class ChatQueryService
 
         // $selected ist an dieser Stelle nie leer: der Block oben haengt bei nicht-leerem
         // $sorted (garantiert, siehe oben) beim ersten Schleifendurchlauf immer ein Element an.
-
+        //
+        // $selected kann mehrere Eintraege fuer DIESELBE Seite enthalten: (a) mehrere
+        // Embedding-Chunks desselben Artikels koennen unabhaengig voneinander unter den
+        // Top-Treffern landen, oder (b) dieselbe Seite wurde ueber zwei Indexierungs-Quellen
+        // gleichzeitig erfasst (z.B. "Struktur" UND "Sitemap" beide aktiv, siehe Einstellungen
+        // -> Indexierung) und landet dadurch mit LEICHT UNTERSCHIEDLICHER URL (z.B. einmal
+        // yrewrite-Pfad, einmal Sitemap-URL) als zwei separate Zeilen im Index. Ohne die
+        // Normalisierung/Dedupe unten erschien dieselbe Seite dann als 2-3 fast identisch
+        // aussehende "Quellen"-Links hintereinander (siehe Nutzer-Report: dreimal derselbe
+        // Linktext "KLXM macht Weihnachtsferien").
         $sources = [];
+        $seenTitles = [];
         foreach ($selected as $item) {
             $url = trim($item['url']);
             $title = trim($item['title']);
@@ -2030,10 +2173,48 @@ class ChatQueryService
                 continue;
             }
 
-            $sources[$url] = $title;
+            // URL normalisieren (Query-String/Fragment/trailing Slash weg, lowercase Host) - fängt
+            // Duplikate ab, die sich nur in ?utm=..., #anchor oder einem trailing "/" unterscheiden.
+            $normalizedUrl = $this->normalizeUrlForDeduplication($url);
+
+            // Zusätzlich per (normalisiertem) Titel entdoppeln: zwei Zeilen mit erkennbar
+            // demselben Seitentitel aber technisch unterschiedlicher URL (Fall b oben) sind für
+            // den Besucher trotzdem "derselbe Link" - lieber den ähnlichsten (zuerst gesehenen,
+            // da $selected bereits nach Similarity sortiert ist) statt beide zu zeigen.
+            $normalizedTitle = mb_strtolower(trim($title));
+            if (isset($seenTitles[$normalizedTitle]) || isset($sources[$normalizedUrl])) {
+                continue;
+            }
+            $seenTitles[$normalizedTitle] = true;
+
+            $sources[$normalizedUrl] = ['url' => $url, 'title' => $title];
         }
 
-        return $sources;
+        return array_combine(
+            array_map(static fn(array $s): string => $s['url'], $sources),
+            array_map(static fn(array $s): string => $s['title'], $sources),
+        );
+    }
+
+    /**
+     * Normalisiert eine URL für den Duplikat-Vergleich in collectDisplaySources() - NICHT für
+     * die Anzeige/den Klick selbst (dafür bleibt die Original-URL erhalten). Entfernt
+     * Query-String, Fragment und einen trailing "/", vereinheitlicht Schema/Host auf
+     * Kleinschreibung - fängt damit z.B. "https://x.de/seite/" vs. "https://X.de/seite" als
+     * dieselbe Seite ab, ohne eine echte URL-Normalisierungs-Bibliothek zu benötigen.
+     */
+    private function normalizeUrlForDeduplication(string $url): string
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
+            return mb_strtolower(trim($url));
+        }
+
+        $scheme = mb_strtolower((string) ($parts['scheme'] ?? ''));
+        $host = mb_strtolower((string) ($parts['host'] ?? ''));
+        $path = rtrim((string) ($parts['path'] ?? ''), '/');
+
+        return $scheme . '://' . $host . $path;
     }
 
     /**

@@ -85,6 +85,7 @@ $addBoolSelectField($form, 'search_ai_summary_enabled', $addon->i18n('config_sea
 
 $field = $form->addCheckboxField('backend_enabled');
 $field->addOption($addon->i18n('config_backend_enabled'), 1);
+$field->setNotice($addon->i18n('config_backend_enabled_notice'));
 
 $form->addRawField('<p class="help-block">' . sprintf($addon->i18n('config_visibility_profiles_hint'), rex_url::backendPage('ai_chat/profiles')) . '</p>');
 

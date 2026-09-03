@@ -1,5 +1,6 @@
 <?php
 
+use FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry;
 use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
@@ -222,7 +223,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addSelectField('target_mode');
     $field->setLabel($tooltipLabel('Anzeigebereich (Domain/Sprache)', 'config_profile_target_mode_notice'));
-    $field->setNotice('Nur relevant im Frontend. "Individuell" ist für spätere Erweiterungen reserviert (siehe TODO.md).');
+    $field->setNotice('Nur relevant im Frontend.');
     $field->setAttribute('id', 'ai-chat-profile-target-mode');
     $select = $field->getSelect();
     $select->addOption('Alle', 'all');
@@ -294,14 +295,16 @@ if ('add' === $func || 'edit' === $func) {
     $select = $field->getSelect();
     $select->addOption('Zusätzlich nutzen', '1');
     $select->addOption('Nicht nutzen (isolierter Wissensstand)', '0');
-    $field->setNotice('Der gemeinsame Pool ist die normale, global konfigurierte Indexierung (Artikel, Sitemaps, Addon-/GitHub-Docs, ...). "Nicht nutzen": Dieses Profil sieht ausschließlich seine eigenen, unten gewählten Quellen - ein vollständig isolierter Wissensstand.');
-    if ('add' === $func && '' === (string) $field->getValue()) {
+    $field->setNotice('Der gemeinsame Pool ist alles, was unter Einstellungen → Indexierung global aktiviert/konfiguriert ist (Struktur/Artikel, globale Sitemap-URLs, Addon-/GitHub-Docs, globale PDFs sowie global aktivierte Content-Provider wie YForm/forcal). "Nicht nutzen": Dieses Profil sieht ausschließlich seine eigenen, unten gewählten Quellen - ein vollständig isolierter Wissensstand.');
+    $currentUseSharedScope = (string) $field->getValue();
+    if ('add' === $func && '' === $currentUseSharedScope) {
         $field->setValue('1');
+        $currentUseSharedScope = '1';
     }
 
     $field = $form->addSelectField('extra_source');
     $field->setLabel('Eigene Sitemap/Struktur-Quelle');
-    $field->setNotice('Eine dritte, optionale Inhaltsquelle für dieses Profil – zusätzlich zum „Gemeinsamer Wissens-Pool" oben und den YForm-/PDF-Auswahlen unten, aber unabhängig davon. „Keine" bedeutet: keine solche zusätzliche Quelle, das Profil nutzt dann ausschließlich das, was sonst hier eingestellt ist (Shared Pool, falls aktiviert, plus die weiter unten gewählten YForm-Tabellen/PDFs). Für eine ganz auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs durchsuchen) also hier „Keine" wählen UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen.');
+    $field->setNotice('Eine optionale VIERTE Inhaltsquelle, zusätzlich zu „Gemeinsamer Wissens-Pool" oben und den YForm-/PDF-Auswahlen unten. „Keine" = einfach weglassen, ändert nichts an den anderen drei. Beispiel für eine auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs): hier „Keine" UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen, dann unten nur PDFs auswählen.');
     $field->setAttribute('id', 'ai-chat-profile-extra-source');
     $select = $field->getSelect();
     $select->addOption('Keine zusätzliche Quelle', 'none');
@@ -377,11 +380,21 @@ if ('add' === $func || 'edit' === $func) {
     $field->setSelect($mountpointCategorySelect);
     $form->addRawField('</div>');
 
+    // Globaler YForm-Provider deckt IMMER ALLE Mappings ab (siehe YformContentProvider::
+    // collectTasks() -> YformProfiles::getAll(), keine Teilauswahl moeglich) - waehlt ein
+    // Profil mit aktivem Shared Pool zusaetzlich eine hier bereits global geteilte Tabelle
+    // als "eigene" Quelle, wird exakt dieselbe Tabelle doppelt indexiert (einmal geteilt,
+    // einmal profil-exklusiv) und taucht in der Suche/im Chat doppelt als Quelle auf.
+    $globalYformProviderEnabled = in_array('yform', array_map(
+        static fn ($provider) => $provider->getKey(),
+        (new ContentProviderRegistry())->getEnabledProviders($addon),
+    ), true);
+
     $yformProfiles = YformProfiles::getAll($addon);
     if ([] !== $yformProfiles) {
         $field = $form->addSelectField('yform_profile_ids');
         $field->setLabel('Eigene YForm-Quellen');
-        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).');
+        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).' . ($globalYformProviderEnabled ? ' Achtung: YForm ist bereits global aktiviert (Einstellungen → Indexierung) - dort erfasste Tabellen sind damit schon Teil des Shared Pools, eine zusätzliche Auswahl hier würde sie doppelt indexieren.' : ''));
         $field->setAttribute('class', 'selectpicker');
         $field->setAttribute('data-actions-box', 'true');
         $select = $field->getSelect();
@@ -389,6 +402,12 @@ if ('add' === $func || 'edit' === $func) {
         $select->setSize(min(count($yformProfiles), 6));
         foreach ($yformProfiles as $yformProfile) {
             $select->addOption((string) ($yformProfile['label'] ?? $yformProfile['id']), (string) $yformProfile['id']);
+        }
+        $currentYformProfileIds = array_filter((array) $field->getValue());
+        if ($globalYformProviderEnabled && '1' === $currentUseSharedScope && [] !== $currentYformProfileIds) {
+            $form->addRawField(rex_view::warning(
+                'YForm ist global aktiviert UND dieses Profil hat eigene YForm-Quellen gewählt, bei aktivem Shared Pool - die gewählten Tabellen werden dadurch doppelt indexiert (geteilt + profil-exklusiv). Entweder den Shared Pool oben deaktivieren, oder hier nur Tabellen wählen, die NICHT bereits über den globalen YForm-Provider laufen.'
+            ));
         }
     } else {
         $form->addRawField('<p class="help-block">Keine YForm-Tabellen-Mappings konfiguriert – siehe AI Chat → YForm-Tabellen, um welche anzulegen.</p>');
@@ -399,10 +418,10 @@ if ('add' === $func || 'edit' === $func) {
             $form,
             'pdf_media_ids',
             'Eigene PDF-Dokumente',
-            'Zusätzlich zum Shared Pool (falls aktiviert) exklusiv für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
+            'Zusätzlich zum Shared Pool (falls aktiviert) für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert. Achtung: ist dieselbe Datei bereits global unter Einstellungen → Indexierung ausgewählt, wird sie bei aktivem Shared Pool doppelt indexiert.',
             'pdf_category_ids',
             'PDFs aus Medienpool-Kategorien',
-            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.',
+            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert. Achtung: ist dieselbe Kategorie bereits global ausgewählt, wird sie bei aktivem Shared Pool doppelt indexiert.',
         );
     }
 
@@ -419,7 +438,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addTextField('ui_language');
     $field->setLabel('Oberflächen-Sprache');
-    $field->setNotice('Sprachcode für die Widget-Oberfläche (Buttons, Platzhalter), z.B. "de" oder "en" - unabhängig von der Sprache der KI-Antwort. Steuert, welche Datei aus assets/i18n/ geladen wird; ohne passende Datei (z.B. "fr") fällt die Oberfläche automatisch auf Deutsch zurück, nur die KI-Antwortsprache bleibt vom Prompt bestimmt.');
+    $field->setNotice('Sprachcode für die Widget-Oberfläche (Buttons, Platzhalter wie "Nachricht schreiben..."), z.B. "de" oder "en" - unabhängig von der Sprache der KI-Antwort (siehe "Antwortsprache der KI" unten). Für nicht unterstützte Sprachcodes fällt die Oberfläche automatisch auf Deutsch zurück.');
     if ('add' === $func && '' === (string) $field->getValue()) {
         $field->setValue('de');
     }
@@ -434,30 +453,46 @@ if ('add' === $func || 'edit' === $func) {
     $field->setNotice('Leer = Standard-Begrüßung (Frontend) bzw. dynamische Namens-Begrüßung (Backend).');
     $field->setAttribute('rows', '2');
 
+    $addressingModeLabels = [
+        'auto' => 'Automatisch (Personalisierung)',
+        'formal' => 'Immer Sie',
+        'informal' => 'Immer Du',
+        'neutral' => 'Neutral',
+    ];
+    $currentGlobalAddressingMode = trim((string) $addon->getConfig('frontend_addressing_mode', 'auto'));
     $field = $form->addSelectField('addressing_mode');
     $field->setLabel('Anrede');
     $select = $field->getSelect();
-    $select->addOption('Automatisch (Personalisierung)', 'auto');
-    $select->addOption('Immer Sie', 'formal');
-    $select->addOption('Immer Du', 'informal');
-    $select->addOption('Neutral', 'neutral');
-    if ('add' === $func && '' === (string) $field->getValue()) {
-        $field->setValue('auto');
+    $select->addOption('Globale Einstellung übernehmen', '');
+    foreach ($addressingModeLabels as $value => $label) {
+        $select->addOption($label, $value);
     }
+    $field->setNotice(sprintf(
+        'Wie die KI den Besucher anspricht. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        $addressingModeLabels[$currentGlobalAddressingMode] ?? $currentGlobalAddressingMode
+    ));
 
+    $personalizationModeLabels = [
+        'off' => 'Aus',
+        'simple' => 'Einfach (Du/Sie erfragen)',
+        'name' => 'Mit Namen',
+    ];
+    $currentGlobalPersonalizationMode = trim((string) $addon->getConfig('personalization_mode', 'off'));
     $field = $form->addSelectField('personalization_mode');
     $field->setLabel('Personalisierung');
     $select = $field->getSelect();
-    $select->addOption('Aus', 'off');
-    $select->addOption('Einfach (Du/Sie erfragen)', 'simple');
-    $select->addOption('Mit Namen', 'name');
-    if ('add' === $func && '' === (string) $field->getValue()) {
-        $field->setValue('off');
+    $select->addOption('Globale Einstellung übernehmen', '');
+    foreach ($personalizationModeLabels as $value => $label) {
+        $select->addOption($label, $value);
     }
+    $field->setNotice(sprintf(
+        'Ob/wie die KI den Besucher zu Beginn nach Anrede bzw. Namen fragt, um beides in spätere Antworten einzubauen. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Einstellungen → Verhalten → Chat).',
+        $personalizationModeLabels[$currentGlobalPersonalizationMode] ?? $currentGlobalPersonalizationMode
+    ));
 
     $field = $form->addTextField('chat_reset_countdown');
     $field->setLabel('Reset-Countdown (Sekunden)');
-    $field->setNotice('0 = deaktiviert.');
+    $field->setNotice('Betrifft den "Verlauf löschen"-Button im Chat-Fenster: statt einer sofortigen Ja/Nein-Sicherheitsabfrage zeigt der Button beim Klick diese Anzahl Sekunden lang einen Countdown an, bevor der Verlauf automatisch gelöscht wird. 0 = stattdessen die normale Sicherheitsabfrage anzeigen.');
     if ('add' === $func && '' === (string) $field->getValue()) {
         $field->setValue('0');
     }
@@ -465,6 +500,7 @@ if ('add' === $func || 'edit' === $func) {
     // Select statt Checkbox - siehe Kommentar bei "status" oben.
     $field = $form->addSelectField('chat_copy_history');
     $field->setLabel('Verlauf kopieren/downloaden');
+    $field->setNotice('Blendet einen Button im Chat-Fenster ein, mit dem der Besucher den gesamten bisherigen Gesprächsverlauf als Text kopieren oder herunterladen kann.');
     $select = $field->getSelect();
     $select->addOption('Erlauben', '1');
     $select->addOption('Nicht erlauben', '0');

@@ -15,14 +15,20 @@ if ($func == 'delete') {
 if ($func == 'add' || $func == 'edit') {
     $form = rex_form::factory(rex::getTable('ai_chat_triggers'), 'Trigger', 'id=' . $id);
     $form->addParam('id', $id);
-    
+
+    $form->addRawField(rex_view::info(
+        'Trigger gelten immer <strong>global</strong>, unabhängig vom Profil und egal ob Chat, Suche oder '
+        . 'Backend-Chat (Developer) - anders als z.B. die Profile unter AI Chat → Profile, die nur fürs '
+        . 'Frontend gelten und je nach Domain/Sprache unterschiedlich sein können.'
+    ));
+
     $field = $form->addTextField('keyword');
     $field->setLabel('Keyword');
-    $field->setNotice('Das Wort oder die Phrase, auf die reagiert werden soll (case-insensitive).');
+    $field->setNotice('Das Wort oder die Phrase, auf die reagiert werden soll (case-insensitive). Sobald die Anfrage des Besuchers dieses Wort enthält, wird die Zusatz-Antwort unten an die KI-Antwort angehängt.');
 
     $field = $form->addTextAreaField('content');
     $field->setLabel('Zusatz-Antwort');
-    $field->setNotice('Dieser Text wird an die KI-Antwort angehängt. Markdown ist erlaubt.');
+    $field->setNotice('Dieser Text wird unverändert (nicht durch die KI umformuliert) an die KI-Antwort angehängt - z.B. für Öffnungszeiten oder Kontaktdaten, die exakt so und nicht paraphrasiert erscheinen sollen. Markdown ist erlaubt (z.B. Tabellen, Überschriften, **fett**).');
 
     if ($func == 'add') {
         $form->addHiddenField('created_at', date('Y-m-d H:i:s'));

@@ -139,8 +139,13 @@ $profileTable
     // ein Profil kann also z.B. eine deutsche Oberflaeche mit englischen KI-Antworten haben.
     ->ensureColumn(new rex_sql_column('answer_language', 'varchar(50)', true))
     ->ensureColumn(new rex_sql_column('greeting', 'text', true))
-    ->ensureColumn(new rex_sql_column('addressing_mode', 'varchar(20)', false, 'auto')) // auto|formal|informal|neutral
-    ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', false, 'off')) // off|simple|name
+    // NULL/'' = globale Einstellung (Einstellungen -> Verhalten -> Chat) uebernehmen, genau wie
+    // custom_prompt/greeting oben - sonst auto|formal|informal|neutral. Kein NOT-NULL-Default
+    // mehr (war vorher 'auto'): der war fuer JEDES Profil gesetzt, wodurch die globale
+    // Einstellung nie zum Zug kam, obwohl das Formular/die Doku genau das versprach.
+    ->ensureColumn(new rex_sql_column('addressing_mode', 'varchar(20)', true))
+    // NULL/'' = globale Einstellung uebernehmen, sonst off|simple|name - gleicher Grund wie oben.
+    ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('chat_reset_countdown', 'int(10)', false, '0'))
     ->ensureColumn(new rex_sql_column('chat_copy_history', 'tinyint(1)', false, '0'))
     // Alle theme_*-Spalten leer = globale Darstellung-Einstellung greift (siehe
@@ -207,8 +212,9 @@ if (0 === (int) $defaultProfileSql->getValue('total')) {
     $seedSql->setValue('use_shared_scope', 1);
     $seedSql->setValue('extra_source', 'none');
     $seedSql->setValue('ui_language', 'de');
-    $seedSql->setValue('addressing_mode', 'auto');
-    $seedSql->setValue('personalization_mode', 'off');
+    // addressing_mode/personalization_mode bewusst NICHT gesetzt (bleiben NULL = "globale
+    // Einstellung uebernehmen") - das Default-Profil soll sich wie die globale Konfiguration
+    // verhalten, nicht wie eine eigene, losgeloeste Festlegung.
     $seedSql->setValue('chat_reset_countdown', 0);
     $seedSql->setValue('chat_copy_history', 0);
     $seedSql->setDateTimeValue('createdate', time());

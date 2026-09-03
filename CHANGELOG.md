@@ -2,6 +2,22 @@
 
 ## [1.1.0] - 2026-09-03
 
+### Behoben (Doppelte/falsch aussehende Quellen-Links)
+- Dieselbe Seite konnte als 2-3 fast identisch aussehende "Quellen"-Links hintereinander
+  erscheinen - z.B. weil eine Seite sowohl über "Struktur" als auch über "Sitemap"
+  indexiert wurde (falls beide Indexierungs-Quellen aktiv sind) und dadurch mit leicht
+  unterschiedlicher URL zweimal im Index landet, oder weil mehrere Chunks derselben Seite
+  unabhängig voneinander unter den Top-Treffern lagen. Links werden jetzt zusätzlich per
+  normalisierter URL (ohne Query-String/Fragment/trailing Slash) UND per Titel entdoppelt.
+
+### Neu (Stichwort-Sicherheitsnetz gegen thematisch zufällige Treffer)
+- Bei kurzen, generischen Anfragen mit nur einem aussagekräftigen Wort (z.B. "Referenzen",
+  "Team", "Leistungen") konnte die reine Vektorsuche eine embedding-technisch "naheliegende",
+  aber thematisch zufällige Seite in die Top-Treffer heben, obwohl das Wort selbst z.B. nur
+  im URL-Pfad einer ganz anderen, tatsächlich passenden Kategorie vorkommt. Ein neuer
+  Stichwort-Fallback prüft jetzt zusätzlich Titel/Inhalt/URL auf einen direkten Treffer des
+  Suchworts und ergänzt den Kontext damit, wenn die Vektorsuche allein nichts Passendes fand.
+
 ### Behoben (Trigger-Zusatzinhalt: Markdown wurde nicht gerendert, KI widersprach dem Trigger)
 - Ein per Trigger angehängter Zusatzinhalt (z. B. eine Öffnungszeiten-Tabelle) landete als
   unformatierter Markdown-Rohtext in der Antwort (Überschriften/Tabellen-Syntax wie `##`

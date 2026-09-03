@@ -233,7 +233,7 @@ if ($profiles === []) {
         $profileRowsHtml .= '<div class="panel-body">';
 
         $profileRowsHtml .= '<input type="hidden" name="profiles[' . rex_escape((string) $profileId) . '][_key]" value="' . rex_escape((string) $profileId) . '">';
-        $profileRowsHtml .= '<div class="row"><div class="col-md-6"><label>Profil-ID</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][id]" value="' . rex_escape((string) ($profile['id'] ?? $profileId)) . '" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][label]" value="' . rex_escape((string) ($profile['label'] ?? '')) . '" placeholder="News"></div></div>';
+        $profileRowsHtml .= '<div class="row"><div class="col-md-6"><label>Mapping-ID</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][id]" value="' . rex_escape((string) ($profile['id'] ?? $profileId)) . '" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profiles[' . rex_escape((string) $profileId) . '][label]" value="' . rex_escape((string) ($profile['label'] ?? '')) . '" placeholder="News"></div></div>';
 
         $profileRowsHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Tabelle</label><select class="form-control js-table-select" name="profiles[' . rex_escape((string) $profileId) . '][table]" data-profile-key="' . rex_escape((string) $profileId) . '"><option value="">— Tabelle wählen —</option>';
         foreach ($availableTables as $tableName => $label) {
@@ -312,7 +312,7 @@ $templateHtml = '<section class="panel panel-default klxm-yform-profile" data-pr
 $templateHtml .= '<div class="panel-heading clearfix"><strong>Neues Mapping</strong><div class="pull-right"><button type="button" class="btn btn-danger btn-xs" data-remove-profile="1"><i class="rex-icon fa-trash"></i> Entfernen</button></div></div>';
 $templateHtml .= '<div class="panel-body">';
 $templateHtml .= '<input type="hidden" name="profiles[' . $templateProfileKey . '][_key]" value="">';
-$templateHtml .= '<div class="row"><div class="col-md-6"><label>Profil-ID</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][id]" value="" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][label]" value="" placeholder="News"></div></div>';
+$templateHtml .= '<div class="row"><div class="col-md-6"><label>Mapping-ID</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][id]" value="" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profiles[' . $templateProfileKey . '][label]" value="" placeholder="News"></div></div>';
 $templateHtml .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Tabelle</label><select class="form-control js-table-select" name="profiles[' . $templateProfileKey . '][table]" data-profile-key="' . $templateProfileKey . '"><option value="">— Tabelle wählen —</option>';
 foreach ($availableTables as $tableName => $label) {
     $templateHtml .= '<option value="' . rex_escape($tableName) . '">' . rex_escape($label) . '</option>';
@@ -329,7 +329,7 @@ $templateHtml .= '</div></section>';
 
 $body = '<div id="ai-yform-mapping-root" data-columns-map="' . rex_escape(json_encode($columnsMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}') . '">';
 $body .= $message;
-$body .= '<p class="help-block">Hier pflegst du die expliziten YForm-Mappings. Nur die hier angelegten Profile werden indexiert. Für News kannst du z.B. eine Bedingung <code>news_date vor jetzt</code> setzen, damit keine zukünftigen Einträge in die Suche kommen. URL-Modus: <code>URL-Profil</code> nutzt den Namespace via <code>rex_getUrl(..., [... =&gt; id])</code>, <code>Template</code> unterstützt <code>{id}</code>, <code>{slug}</code>, <code>{title}</code>, <code>{table}</code>, <code>{profile}</code>.</p>';
+$body .= '<p class="help-block">Hier pflegst du die expliziten YForm-Mappings. Nur die hier angelegten Mappings werden indexiert. Für News kannst du z.B. eine Bedingung <code>news_date vor jetzt</code> setzen, damit keine zukünftigen Einträge in die Suche kommen. URL-Modus: <code>URL-Profil</code> nutzt den Namespace via <code>rex_getUrl(..., [... =&gt; id])</code>, <code>Template</code> unterstützt <code>{id}</code>, <code>{slug}</code>, <code>{title}</code>, <code>{table}</code>, <code>{profile}</code>.</p>';
 $body .= '<form method="post" action="' . rex_escape(rex_url::currentBackendPage()) . '">';
 $body .= $csrf->getHiddenField();
 $body .= '<input type="hidden" name="func" value="save">';
