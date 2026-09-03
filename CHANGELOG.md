@@ -2,6 +2,15 @@
 
 ## [1.1.0] - 2026-09-03
 
+### Behoben (Backend-Chat: Scope-Wechsel setzte das Gespräch nicht zurück)
+- Nach dem Umschalten des Backend-Chat-Fensters (z.B. von "Developer" auf ein Profil wie
+  "Standard") beantwortete die KI weiterhin erkennbar im Kontext/Ton des vorherigen Scopes -
+  Ursache: der mitgeschickte Konversationsverlauf enthielt weiterhin die letzten Nachrichten
+  UNABHÄNGIG vom gerade gewählten Scope, obwohl Scope/Profil-ID für die nächste Anfrage
+  serverseitig längst korrekt gewechselt waren. Ein Scope-Wechsel setzt das sichtbare
+  Gespräch jetzt zurück (wie der "Verlauf löschen"-Button) - ein Wechsel ist ein Wechsel zu
+  einem anderen Assistenten/Wissens-Scope, kein Fortsetzen desselben Gesprächs.
+
 ### Behoben (Doppelte/falsch aussehende Quellen-Links, generische Anfragen ohne echte Treffer)
 - Dieselbe Seite konnte als 2-4 fast identisch aussehende "Quellen"-Links hintereinander
   erscheinen - z.B. weil eine Seite sowohl über "Struktur" als auch über "Sitemap"

@@ -1214,11 +1214,22 @@ class AiChat extends HTMLElement {
         const toggleBtn = this.shadowRoot.querySelector('.chat-toggle');
         toggleBtn.addEventListener('click', () => this.toggleChat());
 
-        // Gewählten Scope (Frontend/Developer) sofort persistieren, damit er nach einem
+        // Gewählten Scope (Frontend/Developer/Profil) sofort persistieren, damit er nach einem
         // Seitenwechsel im Backend erhalten bleibt statt auf "developer" zurückzufallen.
         const scopeSelector = this.shadowRoot.querySelector('.scope-selector');
         if (scopeSelector) {
             scopeSelector.addEventListener('change', () => {
+                // getConversationHistory() schickt die letzten Nachrichten unabhaengig vom
+                // gewaehlten Scope als Konversationsverlauf mit - ohne Reset haette ein
+                // Themenwechsel (z.B. Developer -> Profil "Standard") die KI weiterhin im
+                // Kontext/Ton des vorherigen Scopes antworten lassen, obwohl Scope/Profil-ID
+                // fuer die naechste Anfrage serverseitig laengst korrekt gewechselt sind (siehe
+                // Nutzer-Report: Antworten "klangen" nach dem Wechsel weiterhin nach Developer).
+                // Ein Scope-Wechsel ist ein Wechsel zu einem anderen Assistenten/Wissens-Scope,
+                // kein Fortsetzen desselben Gespraechs - der sichtbare Reset macht das auch fuer
+                // den Nutzer eindeutig, statt einen scheinbar fortlaufenden aber innerlich
+                // gespaltenen Chat zu zeigen.
+                this.resetChat();
                 this.updateScopeAccent();
                 this.updateMaxLength();
                 this.saveState();
