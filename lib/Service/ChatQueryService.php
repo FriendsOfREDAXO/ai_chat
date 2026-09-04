@@ -654,6 +654,7 @@ class ChatQueryService
         }
 
         $answer = $this->removeUnwantedGreetingPrefix($answer, $scope);
+        $answer = $this->removeLeakedContextLabel($answer);
 
         if ($this->isStatsLoggingEnabled()) {
             $status = trim((string) $answer) === '' ? 'chat_no_answer' : 'chat_answer';
@@ -3570,6 +3571,23 @@ class ChatQueryService
         }
 
         return $startText;
+    }
+
+    /**
+     * Sicherheitsnetz gegen das "[Bereich: Name — Beschreibung]"-Praefix aus
+     * PromptBuilder::formatSourceLabelBracket() (siehe auch GeminiService/CloudflareService/
+     * OpenAiCompatibleService): das ist eine reine Einordnungshilfe FUER das Modell in den
+     * Kontext-Abschnitten, kein Teil der eigentlichen Antwort. Die Systemprompt-Anweisung
+     * verbietet das Wiederholen inzwischen ausdruecklich, haelt aber nicht jedes Modell
+     * zuverlaessig davon ab (v.a. wenn ein Profil seine Sitemap-/Struktur-Gruppen benennt und
+     * das Bracket dadurch vor JEDEM Kontext-Abschnitt auftaucht) - wird deshalb zusaetzlich
+     * defensiv am Anfang der Antwort entfernt, unabhaengig vom Scope.
+     */
+    private function removeLeakedContextLabel(string $answer): string
+    {
+        $cleaned = preg_replace('/^\s*\[Bereich:[^\]]*\]\s*[:\-–—]?\s*/iu', '', $answer, 1);
+
+        return is_string($cleaned) ? $cleaned : $answer;
     }
 
     private function removeUnwantedGreetingPrefix(string $answer, string $scope): string

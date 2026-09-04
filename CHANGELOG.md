@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Behoben
+- **Chat-Antworten begannen teils mit dem sichtbaren Präfix "[Bereich: Name —
+  Beschreibung]".** Diese Markierung ist nur eine interne Einordnungshilfe für
+  die KI (aus welchem benannten Sitemap-/Struktur-Bereich ein Kontext-Abschnitt
+  stammt) und soll nie in der Antwort selbst auftauchen - seit Profile eigene
+  Bereiche benennen/beschreiben können, steht sie vor praktisch jedem
+  Kontext-Abschnitt und wurde von manchen Modellen wörtlich übernommen. Der
+  System-Prompt weist jetzt ausdrücklich darauf hin, sie nicht zu wiederholen,
+  zusätzlich wird ein versehentlich übernommenes Präfix am Anfang der Antwort
+  serverseitig entfernt.
+
 ## [2.0.0-beta1] - 2026-09-04
 
 Der große Umbau: reine, eigenständige Profile statt eines globalen
