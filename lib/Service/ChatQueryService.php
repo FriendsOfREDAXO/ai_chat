@@ -1992,7 +1992,10 @@ class ChatQueryService
                 continue;
             }
 
-            $text = strtolower($item['title'] . ' ' . $item['content'] . ' ' . $item['url']);
+            // content/url roh verwenden wuerde auf einer Ein-Domain-Site jeden Treffer allein
+            // durch den eigenen Host trivial "relevant" erscheinen lassen (siehe
+            // stripIndexMetadataPrefix()/stripUrlHost()).
+            $text = strtolower($item['title'] . ' ' . $this->stripIndexMetadataPrefix($item['content']) . ' ' . $this->stripUrlHost($item['url']));
             $matches = 0;
             foreach ($messageTokens as $token) {
                 if ($token === '') {
@@ -3009,6 +3012,38 @@ class ChatQueryService
     private function stripIndexMetadataPrefix(string $content): string
     {
         return preg_replace('/^(?:Seitentitel:.*?\.\s+)?URL:\s*\S+\s*\n/u', '', $content, 1) ?? $content;
+    }
+
+    /**
+     * Entfernt Schema+Host aus einer URL, behaelt nur Pfad/Query/Fragment. Auf einer
+     * Ein-Domain-Site enthaelt JEDE indexierte URL denselben Host (z.B. "klxm.de") - als
+     * Rohtext fuer einen Wortabgleich (siehe collectDisplaySources()) macht das jeden
+     * Treffer trivial "relevant", sobald die Anfrage den eigenen Domain-/Firmennamen
+     * enthaelt, unabhaengig vom tatsaechlichen Seiteninhalt (realer Fall: eine Frage nach
+     * Kontakt/Anfahrt bekam u.a. zwei themenfremde Links, weil "klxm" durch den Host in
+     * jeder einzelnen URL steckte). Der Pfad bleibt bewusst erhalten - ein Treffer wie
+     * "/agentur/referenzen/" auf ein gesuchtes Wort "referenzen" ist weiterhin ein
+     * sinnvolles Signal.
+     */
+    private function stripUrlHost(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        $query = parse_url($url, PHP_URL_QUERY);
+        $fragment = parse_url($url, PHP_URL_FRAGMENT);
+
+        if (null === $path && null === $query && null === $fragment) {
+            return $url;
+        }
+
+        $result = (string) $path;
+        if (null !== $query && '' !== $query) {
+            $result .= '?' . $query;
+        }
+        if (null !== $fragment && '' !== $fragment) {
+            $result .= '#' . $fragment;
+        }
+
+        return $result;
     }
 
     /**

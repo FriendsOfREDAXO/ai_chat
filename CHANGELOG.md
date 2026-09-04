@@ -41,6 +41,12 @@ bestehenden Erweiterungspunkte selbst nachbauen.
   Suchbegriffen raus - weniger thematisch zufällige Treffer.
 
 ### Behoben
+- Chat-Antworten hängten teils themenfremde Quellen-Links an, sobald die Frage
+  den eigenen Domain-/Firmennamen enthielt (z.B. "wann kann ich die KLXM
+  erreichen" zog neben dem Kontakt-Link auch zwei unabhängige Blogartikel an,
+  einfach weil "klxm" in jeder einzelnen URL steckt). Die Quellen-Relevanzprüfung
+  zählt den Domainnamen jetzt nicht mehr mit, der URL-Pfad bleibt aber weiterhin
+  ein Signal.
 - Boilerplate-Widgets ("Ähnliche Beiträge"/"Links:") landeten im Suchindex
   und wurden von der KI wörtlich nachgeplappert.
 - Suchergebnis-Snippets markierten den Domainnamen doppelt in der
