@@ -51,12 +51,6 @@ class ChatIndex extends rex_api_function
             $action = rex_request('action', 'string');
             $service = new IndexerService();
 
-            if ($action === 'update_sources') {
-                $result = $service->updateGithubSources();
-                $success = $result['status'] === 'success' || ($result['message'] ?? '') === 'No repos configured';
-                $this->sendJsonClean(['success' => $success, 'details' => $result]);
-            }
-
             if ($action === 'clear') {
                 $service->clearIndex();
                 $this->sendJsonClean(['success' => true, 'message' => 'Index cleared']);

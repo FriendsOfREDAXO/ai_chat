@@ -76,7 +76,7 @@ class AiPlatformService implements AiServiceInterface
             throw new \Exception('ai_platform: Kein Text-Profil ausgewählt.');
         }
 
-        $systemPrompt = PromptBuilder::buildSystemPrompt($scope, $personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
+        $systemPrompt = PromptBuilder::buildSystemPrompt($personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
         $userPrompt = PromptBuilder::buildUserPrompt($prompt, $context);
 
         return AiPlatformCoreService::getInstance()->generateText($userPrompt, $systemPrompt, $this->textProfileId);
@@ -105,7 +105,7 @@ class AiPlatformService implements AiServiceInterface
             throw new \Exception('ai_platform: Kein Text-Profil ausgewählt.');
         }
 
-        $systemPrompt = PromptBuilder::buildSystemPrompt($scope, $personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
+        $systemPrompt = PromptBuilder::buildSystemPrompt($personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
         $userPrompt = PromptBuilder::buildUserPrompt($prompt, $context);
 
         $core = AiPlatformCoreService::getInstance();

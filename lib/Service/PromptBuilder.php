@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace FriendsOfRedaxo\AiChat\Service;
 
-use rex;
 use rex_addon;
 
 /**
@@ -20,19 +19,9 @@ class PromptBuilder
     /**
      * @param array<string, mixed>|null $personalization
      */
-    public static function buildSystemPrompt(string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): string
+    public static function buildSystemPrompt(?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): string
     {
         $systemPrompt = 'Wichtiger Zeit-Kontext: ' . SystemToolService::getDateTimeContext() . "\n\n";
-
-        if ('developer' === $scope) {
-            $systemPrompt .= 'Du bist ein erfahrener REDAXO CMS Entwickler und Experte. Nutze die folgende Dokumentation und Code-Beispiele, um Fragen zur Entwicklung, API und Addons zu beantworten. Sei technisch präzise.';
-            $systemPrompt .= "\n\nAktuelles System-Kontext:\n"
-                . '- REDAXO Version: ' . rex::getVersion() . "\n"
-                . '- Installierte Addons: ' . SystemToolService::getAddonListContext() . "\n";
-            $systemPrompt .= "\n\n" . self::markdownFormattingInstruction();
-
-            return $systemPrompt;
-        }
 
         $addon = rex_addon::get('ai_chat');
         $customPrompt = $systemPromptOverride ?? (string) $addon->getConfig('frontend_prompt');
@@ -40,7 +29,10 @@ class PromptBuilder
             ? $customPrompt
             : 'Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.';
 
-        $addressingMode = $addressingModeOverride ?? trim((string) $addon->getConfig('frontend_addressing_mode', 'auto'));
+        // Jedes Profil traegt addressingMode als echten, eigenstaendigen Wert (kein globaler
+        // Fallback mehr seit der Hauptprofil-Entflechtung) - 'auto' bleibt der Default nur fuer
+        // den seltenen Fall, dass gar kein Profil aufgeloest werden konnte.
+        $addressingMode = $addressingModeOverride ?? 'auto';
         if ('formal' === $addressingMode) {
             $systemPrompt .= "\n- Sprich den Nutzer durchgehend förmlich mit 'Sie' an.";
         } elseif ('informal' === $addressingMode) {

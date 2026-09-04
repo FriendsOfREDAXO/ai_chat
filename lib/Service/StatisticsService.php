@@ -28,7 +28,6 @@ class StatisticsService
     {
         return [
             'frontend' => 'Frontend',
-            'developer' => 'Developer',
         ];
     }
 
@@ -40,9 +39,6 @@ class StatisticsService
         return [
             'frontend' => [
                 'search' => 'Suchbegriffe',
-                'chat' => 'Fragen / Chat',
-            ],
-            'developer' => [
                 'chat' => 'Fragen / Chat',
             ],
         ];

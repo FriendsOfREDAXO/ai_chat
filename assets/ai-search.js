@@ -153,7 +153,7 @@
     this.trigger = null;
   }
 
-  SearchUi.prototype.setAnswerLoading = function (isLoading, label) {
+  SearchUi.prototype.setAnswerLoading = function (isLoading, label, variant) {
     this.isChatLoading = !!isLoading;
 
     if (!this.answerHost) {
@@ -166,12 +166,16 @@
 
     this.answerHost.innerHTML = '';
 
+    var isSummary = variant === 'summary';
+
     var box = document.createElement('div');
-    box.className = 'ai-search-answer ai-search-answer-loading';
+    box.className = isSummary ? 'ai-search-answer ai-search-answer-summary ai-search-answer-loading' : 'ai-search-answer ai-search-answer-loading';
 
     var title = document.createElement('div');
     title.className = 'ai-search-answer-title';
-    title.textContent = this.t('search_panel_title', 'Antwort');
+    title.textContent = isSummary
+      ? this.t('search_summary_title', 'Überblick über die Bereiche')
+      : this.t('search_panel_title', 'Antwort');
 
     var loading = document.createElement('div');
     loading.className = 'ai-search-answer-loading-row';
@@ -602,11 +606,15 @@
   };
 
   // Asynchroner Folgeaufruf zu 'summary_available' aus der mode=search-Antwort - siehe
-  // Kommentar am Aufruf in search(). Bewusst OHNE sichtbaren Ladezustand: die Trefferliste
-  // steht bereits vollstaendig, das ist nur eine optionale Ergaenzung obendrauf, kein Ersatz
-  // fuer eine erwartete Antwort wie bei fetchChatAnswer().
+  // Kommentar am Aufruf in search(). Die Trefferliste steht bereits vollstaendig, das ist nur
+  // eine optionale Ergaenzung obendrauf, kein Ersatz fuer eine erwartete Antwort wie bei
+  // fetchChatAnswer() - deshalb ein dezenter eigener Ladezustand ('summary'-Variante) statt
+  // z.B. die Trefferliste selbst zu blockieren. Ohne jede Anzeige wirkte der KI-Aufruf (kann
+  // je nach Provider/Backend mehrere Sekunden dauern) wie ein stillschweigend nicht
+  // funktionierendes Feature statt wie eine laufende Anfrage.
   SearchUi.prototype.fetchSearchSummary = function (query, hits, nonce) {
     var self = this;
+    self.setAnswerLoading(true, self.t('search_summary_loading', 'Wird zusammengefasst…'), 'summary');
     var payload = {
       mode: 'search_summary',
       message: query,
@@ -636,11 +644,15 @@
           return;
         }
         var summary = data && typeof data.summary === 'string' ? data.summary.trim() : '';
-        if (summary !== '') {
-          self.renderAnswer(summary, 'summary');
-        }
+        // renderAnswer('') raeumt bei leerer Zusammenstellung den zuvor gezeigten
+        // Ladezustand wieder ab, statt ihn stehen zu lassen (best effort, siehe unten -
+        // keine Fehleranzeige, die Trefferliste bleibt in jedem Fall die Hauptantwort).
+        self.renderAnswer(summary, 'summary');
       })
       .catch(function () {
+        if (nonce === self.requestNonce) {
+          self.renderAnswer('');
+        }
         // Best effort - Trefferliste steht bereits, keine Fehleranzeige noetig.
       });
   };

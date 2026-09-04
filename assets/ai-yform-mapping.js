@@ -41,10 +41,6 @@
         return wrapper.firstElementChild;
     }
 
-    function getProfileKey(profileEl) {
-        return profileEl ? String(profileEl.getAttribute('data-profile-key') || '') : '';
-    }
-
     function fillColumnSelect(select, tableName) {
         if (!select) {
             return;
@@ -153,63 +149,10 @@
             bindRepeater(repeaterEl);
         });
 
-        profileEl.addEventListener('click', function (event) {
-            var removeButton = event.target.closest('[data-remove-profile]');
-            if (removeButton && profileEl.contains(removeButton)) {
-                event.preventDefault();
-                profileEl.remove();
-            }
-        });
-
         refreshProfile(profileEl);
-    }
-
-    function addProfile() {
-        var root = getRoot();
-        var template = document.getElementById('klxm-profile-template');
-        var list = document.getElementById('klxm-profiles-list');
-        if (!root || !template || !list) {
-            return;
-        }
-
-        var profileKey = uid('profile');
-        var profileEl = createElementFromTemplate(template, {
-            '__PROFILE_KEY__': profileKey,
-            '__ROW__': uid('row')
-        });
-
-        if (!profileEl) {
-            return;
-        }
-
-        list.appendChild(profileEl);
-        bindProfile(profileEl);
-        refreshProfile(profileEl);
-
-        var profileIdInput = profileEl.querySelector('input[name="profiles[' + profileKey + '][id]"]');
-        if (profileIdInput) {
-            profileIdInput.focus();
-        }
     }
 
     function handleDelegatedClick(event) {
-        var addProfileButton = event.target.closest('[data-add-profile]');
-        if (addProfileButton) {
-            event.preventDefault();
-            addProfile();
-            return;
-        }
-
-        var removeProfileButton = event.target.closest('[data-remove-profile]');
-        if (removeProfileButton) {
-            var profileEl = removeProfileButton.closest('[data-profile-card]');
-            if (profileEl) {
-                event.preventDefault();
-                profileEl.remove();
-            }
-            return;
-        }
-
         var addRepeaterButton = event.target.closest('[data-add-repeater-row]');
         if (addRepeaterButton) {
             var repeaterEl = addRepeaterButton.closest('.klxm-repeater');

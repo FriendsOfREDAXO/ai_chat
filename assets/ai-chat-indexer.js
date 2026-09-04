@@ -277,8 +277,6 @@
 
     function taskLabel(task) {
         if (task.type === 'article')     return 'Artikel&thinsp;ID&nbsp;' + task.id + ' (Sprache&nbsp;' + task.clang + ')';
-        if (task.type === 'file')        return 'Addon-Dok: ' + task.addon + '/' + task.relPath;
-        if (task.type === 'github_file') return 'GitHub: ' + task.repo + '/' + task.relPath;
         if (task.type === 'url') {
             const value = task.url ? String(task.url) : 'Sitemap URL';
             return 'Sitemap: ' + value;
@@ -295,8 +293,6 @@
     function taskTypeLabel(task) {
         if (task.type === 'article') return 'Artikel';
         if (task.type === 'url') return 'Sitemap URLs';
-        if (task.type === 'file') return 'Addon Doku';
-        if (task.type === 'github_file') return 'GitHub Doku';
         if (task.type === 'provider_item') {
             const source = getSourceTypeLabel(task.source_type || '');
             return 'Provider: ' + source;
@@ -399,10 +395,6 @@
                 case 'ai-chat-clear-cache-btn':
                     event.preventDefault();
                     handleClearCache();
-                    break;
-                case 'ai-chat-github-sync-btn':
-                    event.preventDefault();
-                    handleGithubSync();
                     break;
                 case 'ai-chat-optimize-rag-btn':
                     event.preventDefault();
@@ -535,29 +527,6 @@
         }
     }
 
-    async function handleGithubSync() {
-        ensureConfigLoaded();
-        const btn = el('ai-chat-github-sync-btn');
-        const result = el('github-sync-result');
-        if (!btn) return;
-        
-        btn.disabled = true;
-        result.innerHTML = '<i class="rex-icon fa-spinner fa-spin"></i> Lade ZIPs herunter...';
-        
-        try {
-            const data = await apiFetch(getApiBase() + '&action=update_sources');
-            if (data.success) {
-                result.innerHTML = '<span class="text-success"><i class="rex-icon fa-check"></i> ' + (data.details.messages.join(", ") || "GitHub Quellen aktualisiert") + '</span>';
-            } else {
-                throw new Error(data.error || "GitHub Update fehlgeschlagen");
-            }
-        } catch (e) {
-            result.innerHTML = '<span class="text-danger"><i class="rex-icon fa-exclamation-triangle"></i> ' + e.message + '</span>';
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
     function handleCancel() {
         cancelled = true;
         if (currentAbortCtrl) currentAbortCtrl.abort();
@@ -633,20 +602,13 @@
         startHeartbeat();
 
         try {
-            if ((config.indexSource || 'structure') !== 'sitemap') {
-                // Step 1 – Update GitHub sources (up to 5 min for large repos)
-                setStatus('GitHub-Quellen werden aktualisiert (ZIP-Download)…', '');
-                const sourcesData = await apiFetch(getApiBase() + '&action=update_sources', { timeout: 300000 });
-                if (!sourcesData.success) throw new Error(sourcesData.error || 'Fehler beim Quellen-Update');
-            }
-
-            // Step 2 – Clear index
+            // Step 1 – Clear index
             setStatus('Index wird geleert…', '');
             const clearData = await apiFetch(getApiBase() + '&action=clear');
             if (!clearData.success) throw new Error(clearData.error || 'Fehler beim Leeren');
             updateIndexCountBadge(0);
 
-            // Step 3 – Collect tasks
+            // Step 2 – Collect tasks
             setStatus('Aufgaben werden gesammelt…', '');
             const collectData = await apiFetch(getApiBase() + '&action=collect');
             if (!collectData.success) throw new Error(collectData.error || 'Fehler beim Sammeln');

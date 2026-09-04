@@ -62,6 +62,8 @@ if ('add' === $func || 'edit' === $func) {
     };
 
     $colorField($form, 'primary_color', 'Akzentfarbe', 'ai-chat-theme-primary', '#007bff');
+    $followupColorField = $colorField($form, 'followup_color', 'Folgefragen (Farbe)', 'ai-chat-theme-followup', '');
+    $followupColorField->setNotice('Farbe der Folgefragen-Chips nach einer Antwort. Leer = folgt der Akzentfarbe (bisheriges Verhalten).');
     $colorField($form, 'header_bg_color', 'Kopfzeile Hintergrund', 'ai-chat-theme-header-bg', '#f8f9fa');
     $colorField($form, 'chat_bg_color', 'Chat-Hintergrund', 'ai-chat-theme-chat-bg', '#ffffff');
     $colorField($form, 'text_color', 'Textfarbe (Kopfzeile)', 'ai-chat-theme-text', '#333333');

@@ -81,32 +81,18 @@ class ChatQueryService
      */
     private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile): ?array
     {
-        $addon = rex_addon::get('ai_chat');
-
         // Wer ueberhaupt sichtbar sein darf (Domain/Sprache/Rolle) entscheidet seit dem
         // Profil-Feature ausschliesslich ChatProfile::$viewerRoles/$targetMode - der
         // frueher hier zusaetzlich gepruefte globale "frontend_visibility"-Testmodus-
         // Schalter wurde dadurch vollstaendig abgeloest und ist aus den Einstellungen
         // entfernt (siehe pages/settings.access.php); ihn hier weiter auszuwerten wuerde
         // nur einen toten, nicht mehr einstellbaren Config-Wert reaktivieren.
-        $globalFeatureEnabled = $mode === 'search'
-            ? (bool) $addon->getConfig('frontend_search_enabled', true)
-            : (bool) $addon->getConfig('frontend_enabled');
-
-        // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, ist der globale
-        // Schalter komplett wirkungslos - exakt dieselbe Regel wie boot.php's
-        // $showChat/$showSearch (dort auch ausfuehrlicher kommentiert) und
-        // pages/settings.access.php (dort dann deaktiviert). Nur DIESES aufgeloeste Profil
-        // (chat_enabled/search_enabled, Standard: aktiv) entscheidet dann - kein Fallback
-        // mehr auf den globalen Wert, auch nicht bei leerem Tri-State. Ohne aktive Profile
-        // bleibt der globale Schalter die alleinige Instanz (Profile sind optional).
-        $hasFrontendProfiles = [] !== array_filter(
-            (new ProfileRepository())->getEnabled(),
-            static fn (ChatProfile $p): bool => $p->context !== 'backend',
-        );
-        $featureEnabled = $hasFrontendProfiles
-            ? (null !== $profile && ($mode === 'search' ? ($profile->searchEnabled ?? true) : ($profile->chatEnabled ?? true)))
-            : $globalFeatureEnabled;
+        //
+        // Seit der Hauptprofil-Entflechtung existiert kein globaler frontend_enabled/
+        // frontend_search_enabled-Schalter mehr (jedes Profil traegt sein eigenes
+        // chatEnabled/searchEnabled, Standard: aktiv) - ohne aufgeloestes Profil ist der
+        // Zugriff daher schlicht verweigert, kein globaler Fallback mehr noetig.
+        $featureEnabled = null !== $profile && ('search' === $mode ? $profile->searchEnabled : $profile->chatEnabled);
 
         if ($featureEnabled) {
             return null;
@@ -139,25 +125,26 @@ class ChatQueryService
     }
 
     /**
+     * Waermt den Cache fuer JEDES aktivierte Profil mit eigenem Vorcaching auf (siehe
+     * ChatProfile::$faqPrecacheEnabled/$faqPrecacheQuestions) - FAQ-Vorcaching ist seit der
+     * Hauptprofil-Entflechtung profilgebunden, da unterschiedliche Profile auf dieselbe
+     * Frage unterschiedliche Antworten liefern koennen (eigener Prompt/eigenes Wissen).
+     *
      * @return array{prepared: int, processed: int, skipped: int, errors: int, error_details: list<string>}
      */
     public function warmupFaqCache(int $maxItems = 0): array
     {
-        if (!$this->isFaqPrecacheEnabled()) {
-            throw new \RuntimeException('FAQ-Vorcaching ist deaktiviert. Bitte zuerst in den Einstellungen aktivieren.');
-        }
+        $profilesWithPrecache = array_values(array_filter(
+            (new ProfileRepository())->getEnabled(),
+            static fn (ChatProfile $profile): bool => $profile->faqPrecacheEnabled && [] !== $profile->faqPrecacheQuestions,
+        ));
 
-        $questions = $this->getFaqPrecacheQuestions();
-        if ($questions === []) {
-            throw new \RuntimeException('Es sind keine Vorcache-Fragen konfiguriert. Bitte in den Einstellungen Fragen hinterlegen.');
-        }
-
-        if ($maxItems > 0) {
-            $questions = array_slice($questions, 0, $maxItems);
+        if ([] === $profilesWithPrecache) {
+            throw new \RuntimeException('Kein Profil hat FAQ-Vorcaching mit Fragen aktiviert. Bitte in einem Profil aktivieren (AI Chat → Profile).');
         }
 
         $stats = [
-            'prepared' => count($questions),
+            'prepared' => 0,
             'processed' => 0,
             'skipped' => 0,
             'errors' => 0,
@@ -166,39 +153,52 @@ class ChatQueryService
             'skipped_questions' => [],
         ];
 
-        foreach ($questions as $question) {
-            if ($this->hasExactCachedQuestion($question, 'frontend')) {
-                $stats['skipped']++;
-                $stats['skipped_questions'][] = $question;
-                continue;
+        foreach ($profilesWithPrecache as $profile) {
+            $questions = $profile->faqPrecacheQuestions;
+            if ($maxItems > 0) {
+                $questions = array_slice($questions, 0, max(0, $maxItems - $stats['prepared']));
             }
+            $stats['prepared'] += count($questions);
 
-            try {
-                $result = $this->process([
-                    'message' => $question,
-                    'scope' => 'frontend',
-                    'mode' => 'chat',
-                    'include_followups' => false,
-                    'current_url' => null,
-                ], false);
-
-                $answerText = trim((string) ($result['answer_text'] ?? ''));
-                if ($answerText === '') {
+            foreach ($questions as $question) {
+                if ($this->hasExactCachedQuestion($question, 'frontend', $profile->id)) {
                     $stats['skipped']++;
                     $stats['skipped_questions'][] = $question;
                     continue;
                 }
 
-                $stats['processed']++;
-                $stats['processed_questions'][] = $question;
-            } catch (\Throwable $e) {
-                $stats['errors']++;
-                if (count($stats['error_details']) < 10) {
-                    $stats['error_details'][] = $e->getMessage();
+                try {
+                    $result = $this->process([
+                        'message' => $question,
+                        'scope' => 'frontend',
+                        'mode' => 'chat',
+                        'include_followups' => false,
+                        'current_url' => null,
+                        'profile_id' => $profile->id,
+                    ], false);
+
+                    $answerText = trim((string) ($result['answer_text'] ?? ''));
+                    if ($answerText === '') {
+                        $stats['skipped']++;
+                        $stats['skipped_questions'][] = $question;
+                        continue;
+                    }
+
+                    $stats['processed']++;
+                    $stats['processed_questions'][] = $question;
+                } catch (\Throwable $e) {
+                    $stats['errors']++;
+                    if (count($stats['error_details']) < 10) {
+                        $stats['error_details'][] = $e->getMessage();
+                    }
+                    $stats['skipped_questions'][] = $question;
+                    $stats['skipped']++;
+                    rex_logger::logException($e);
                 }
-                $stats['skipped_questions'][] = $question;
-                $stats['skipped']++;
-                rex_logger::logException($e);
+
+                if ($maxItems > 0 && $stats['processed'] + $stats['skipped'] >= $maxItems) {
+                    break 2;
+                }
             }
         }
 
@@ -265,26 +265,14 @@ class ChatQueryService
         $addressingModeOverride = $profile?->addressingMode;
         $answerLanguageOverride = $profile?->answerLanguage;
 
-        // Developer-Anfragen laufen über den Frontend-Controller, können aber trotzdem
-        // eine gültige Backend-Session des angemeldeten REDAXO-Benutzers mitbringen.
-        if ($scope === 'developer' && null === self::getAuthenticatedBackendUser()) {
-            throw new \RuntimeException('Developer chat ist nur für angemeldete Backend-Benutzer verfügbar.');
-        }
         /** @var array<string, mixed>|null $personalization */
         $personalization = is_array($input['personalization'] ?? null) ? $input['personalization'] : null;
-        // $profile->personalizationMode ist NULL, wenn das Profil hierfuer die globale
-        // Einstellung uebernehmen soll (siehe ChatProfile/pages/profiles.php) - genau wie bei
-        // addressingModeOverride oben faellt das dann auf die globale Konfiguration zurueck,
-        // statt eine eigene Festlegung zu erzwingen.
-        $configuredPersonalizationMode = (null !== $profile ? $profile->personalizationMode : null)
-            ?? trim((string) rex_addon::get('ai_chat')->getConfig('personalization_mode', 'off'));
-        if ($configuredPersonalizationMode === '') {
-            $configuredPersonalizationMode = 'off';
-        }
+        // Jedes Profil traegt personalizationMode als echten, eigenstaendigen Wert (kein
+        // globaler Fallback mehr seit der Hauptprofil-Entflechtung) - ohne aufgeloestes
+        // Profil bleibt "off" der sichere Default.
+        $configuredPersonalizationMode = null !== $profile ? $profile->personalizationMode : 'off';
 
-        if ($requestedScope === 'developer') {
-            $personalization = $this->getDeveloperPersonalization();
-        } elseif ($requestedScope === 'search' || $configuredPersonalizationMode === 'off') {
+        if ($requestedScope === 'search' || $configuredPersonalizationMode === 'off') {
             $personalization = null;
         } elseif (is_array($personalization)) {
             $mode = (string) ($personalization['mode'] ?? 'formal');
@@ -349,7 +337,7 @@ class ChatQueryService
 
         $this->checkRateLimit();
 
-        $messageLengthGuard = $this->evaluateMessageLengthGuard($message, $scope);
+        $messageLengthGuard = $this->evaluateMessageLengthGuard($message);
         if ($messageLengthGuard['blocked']) {
             $warningText = $messageLengthGuard['message'];
 
@@ -432,9 +420,7 @@ class ChatQueryService
         // Aufrufs, den ai-search.js bei treffer-loser Suche selbst absetzt, siehe
         // fetchChatAnswer()/nonsense_query weiter unten in search()). Nur mode=chat, nicht
         // mode=search: Suche selbst ruft ohnehin keine KI auf (reines SQL-LIKE-Matching),
-        // Kauderwelsch liefert dort einfach 0 Treffer, kein Grund zu blockieren. Der
-        // Developer-Chat (scope=developer) ist bewusst ausgenommen - kurze technische
-        // Fragmente sind dort normal, kein Angriff/Grund fuer eine Rueckfrage.
+        // Kauderwelsch liefert dort einfach 0 Treffer, kein Grund zu blockieren.
         if ($scope === 'frontend' && $mode === 'chat' && $this->looksLikeNonsenseQuery($message)) {
             $clarification = 'Entschuldigung, das konnte ich nicht recht verstehen. Können Sie Ihre Frage etwas genauer formulieren?';
 
@@ -521,7 +507,7 @@ class ChatQueryService
                 break;
             }
         }
-        $faqPrecacheEnabled = !$hasPreviousUserMessage && $this->isFaqPrecacheEnabled();
+        $faqPrecacheEnabled = !$hasPreviousUserMessage && null !== $profile && $profile->faqPrecacheEnabled;
 
         if ($mode === 'search') {
             $result = $this->search($message, $input, $scope, $profile, $aiService);
@@ -569,7 +555,7 @@ class ChatQueryService
             $answerForFollowups = (string) ($input['answer'] ?? '');
             $followUpQuestions = [];
 
-            if ($scope === 'frontend' && ((null !== $profile ? $profile->suggestFollowupQuestions : null) ?? (bool) rex_addon::get('ai_chat')->getConfig('suggest_followup_questions'))) {
+            if ($scope === 'frontend' && (null !== $profile && $profile->suggestFollowupQuestions)) {
                 try {
                     $followUpQuestions = $this->generateFollowUpQuestions($aiService, $message, $answerForFollowups, $scope, $answerLanguageOverride);
                 } catch (\Exception $e) {
@@ -590,16 +576,13 @@ class ChatQueryService
         // behauptet die KI mangels eigenem Wissen faelschlich, ihr fehle die Information,
         // obwohl direkt im Anschluss der (unveraendert woertlich angehaengte, siehe unten)
         // Trigger-Inhalt mit genau dieser Information folgt.
-        $triggerContent = $this->checkTriggers($message);
+        $triggerContent = $this->checkTriggers($message, $profile);
 
         $answer = '';
         $fromCache = false;
-        // Wird gesetzt, sobald [[ACTION:...]]-Tokens bereits live während des Streamings
-        // ausgeführt wurden, damit sie beim finalen Answer nicht erneut ausgeführt werden.
-        $streamedToolResults = null;
 
         if ($faqPrecacheEnabled) {
-            $cachedAnswer = $this->findCachedAnswer($userEmbedding, $scope, $message);
+            $cachedAnswer = $this->findCachedAnswer($userEmbedding, $scope, $profile->id, $message);
             if ($cachedAnswer) {
                 $answer = $cachedAnswer;
                 $fromCache = true;
@@ -613,8 +596,8 @@ class ChatQueryService
             $context = $this->ensureProviderContextByKeyword($context, $retrievalMessage, $scope, $ragResults);
             $context = $this->ensureKeywordMatchedContext($context, $retrievalMessage, $scope, $profile, $ragResults);
 
-            if ($triggerContent === '' && !$this->hasSufficientAnswerContext($context, $retrievalMessage, $scope)) {
-                $answer = $this->buildInsufficientContextAnswer($scope);
+            if ($triggerContent === '' && !$this->hasSufficientAnswerContext($context, $retrievalMessage)) {
+                $answer = $this->buildInsufficientContextAnswer();
                 $answer = $this->normalizeAnswerMarkdown($answer);
                 $answerHtml = $this->parseMarkdown($answer);
 
@@ -640,19 +623,7 @@ class ChatQueryService
             }
 
             if ($onChunk !== null && method_exists($aiService, 'generateAnswerStream')) {
-                $streamOnChunk = $onChunk;
-                $toolFilter = null;
-                if ($scope === 'developer') {
-                    $toolFilter = $this->wrapOnChunkForSystemTools($onChunk);
-                    $streamOnChunk = $toolFilter['chunk'];
-                }
-
-                $answer = $aiService->generateAnswerStream($modelPrompt, $context, $scope, $personalization, $systemPromptOverride, $addressingModeOverride, $streamOnChunk, $answerLanguageOverride);
-
-                if ($toolFilter !== null) {
-                    $toolFilter['flush']();
-                    $streamedToolResults = ($toolFilter['getResults'])();
-                }
+                $answer = $aiService->generateAnswerStream($modelPrompt, $context, $scope, $personalization, $systemPromptOverride, $addressingModeOverride, $onChunk, $answerLanguageOverride);
             } else {
                 $answer = $aiService->generateAnswer($modelPrompt, $context, $scope, $personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
             }
@@ -660,7 +631,7 @@ class ChatQueryService
             $answer = $this->appendSourcesFromContext($answer, $context, $retrievalMessage, $scope, $showSources);
 
             if ($faqPrecacheEnabled) {
-                $this->cacheAnswer($message, $userEmbedding, $answer, $scope);
+                $this->cacheAnswer($message, $userEmbedding, $answer, $scope, $profile->id);
             }
         } elseif ($showSources) {
             // Cached answers can contain stale source blocks from older context.
@@ -682,12 +653,6 @@ class ChatQueryService
             $answer .= "\n\n" . $triggerContent;
         }
 
-        if ($scope === 'developer') {
-            $answer = $streamedToolResults !== null
-                ? $this->replaceActionsWithPrecomputedResults($answer, $streamedToolResults)
-                : $this->processSystemTools($answer);
-        }
-
         $answer = $this->removeUnwantedGreetingPrefix($answer, $scope);
 
         if ($this->isStatsLoggingEnabled()) {
@@ -699,7 +664,7 @@ class ChatQueryService
         $answerHtml = $this->parseMarkdown($answer);
 
         $followUpQuestions = [];
-        if ($scope === 'frontend' && $includeFollowUpQuestions && ((null !== $profile ? $profile->suggestFollowupQuestions : null) ?? (bool) rex_addon::get('ai_chat')->getConfig('suggest_followup_questions'))) {
+        if ($scope === 'frontend' && $includeFollowUpQuestions && (null !== $profile && $profile->suggestFollowupQuestions)) {
             try {
                 $followUpQuestions = $this->generateFollowUpQuestions($aiService, $message, $answer, $scope, $answerLanguageOverride);
             } catch (\Exception $e) {
@@ -819,115 +784,13 @@ class ChatQueryService
         return [];
     }
 
-    private function processSystemTools(string $answer): string
-    {
-        $pattern = '/\[\[ACTION:(.*?)\]\]/';
-
-        return (string) preg_replace_callback($pattern, function ($matches) {
-            $command = $matches[1];
-            try {
-                return SystemToolService::execute($command);
-            } catch (\Exception $e) {
-                return 'Fehler beim Ausführen von ' . $command . ': ' . $e->getMessage();
-            }
-        }, $answer);
-    }
-
-    /**
-     * Puffert einzelne Stream-Chunks, damit ein [[ACTION:...]]-Token nie roh (teilweise
-     * über mehrere Chunks verteilt) beim Client landet. Vollständige Tokens werden sofort
-     * ausgeführt und durch ihr Ergebnis ersetzt, alles andere wird unverändert durchgereicht.
-     * Die Ergebnisse werden zusätzlich gesammelt (getResults), damit der finale, komplette
-     * Answer-Text die Tokens nachträglich ersetzen kann, ohne die Aktionen erneut auszuführen.
-     *
-     * @return array{chunk: \Closure(string): void, flush: \Closure(): void, getResults: \Closure(): list<string>}
-     */
-    private function wrapOnChunkForSystemTools(callable $onChunk): array
-    {
-        $buffer = '';
-        $results = [];
-
-        $chunkHandler = function (string $chunk) use ($onChunk, &$buffer, &$results): void {
-            $buffer .= $chunk;
-
-            while (true) {
-                $openPos = strpos($buffer, '[[');
-                if ($openPos === false) {
-                    if ($buffer !== '') {
-                        $onChunk($buffer);
-                        $buffer = '';
-                    }
-                    return;
-                }
-
-                if ($openPos > 0) {
-                    $onChunk(substr($buffer, 0, $openPos));
-                    $buffer = substr($buffer, $openPos);
-                }
-
-                $closePos = strpos($buffer, ']]');
-                if ($closePos === false) {
-                    // Token noch nicht vollständig angekommen, auf weitere Chunks warten.
-                    return;
-                }
-
-                $token = substr($buffer, 2, $closePos - 2);
-                $buffer = substr($buffer, $closePos + 2);
-
-                if (str_starts_with($token, 'ACTION:')) {
-                    $command = substr($token, strlen('ACTION:'));
-                    try {
-                        $result = SystemToolService::execute($command);
-                    } catch (\Exception $e) {
-                        $result = 'Fehler beim Ausführen von ' . $command . ': ' . $e->getMessage();
-                    }
-                    $results[] = $result;
-                    $onChunk($result);
-                } else {
-                    $onChunk('[[' . $token . ']]');
-                }
-            }
-        };
-
-        $flushHandler = function () use ($onChunk, &$buffer): void {
-            if ($buffer !== '') {
-                $onChunk($buffer);
-                $buffer = '';
-            }
-        };
-
-        return [
-            'chunk' => $chunkHandler,
-            'flush' => $flushHandler,
-            'getResults' => function () use (&$results) {
-                return $results;
-            },
-        ];
-    }
-
-    /**
-     * Ersetzt [[ACTION:...]]-Tokens im finalen Answer-Text durch bereits während des Streamings
-     * berechnete Ergebnisse (in Auftrittsreihenfolge), statt die Aktionen erneut auszuführen.
-     *
-     * @param list<string> $results
-     */
-    private function replaceActionsWithPrecomputedResults(string $answer, array $results): string
-    {
-        $index = 0;
-
-        return (string) preg_replace_callback('/\[\[ACTION:(.*?)\]\]/', static function () use (&$index, $results): string {
-            $result = $results[$index] ?? '';
-            $index++;
-
-            return $result;
-        }, $answer);
-    }
-
-
-    private function checkTriggers(string $message): string
+    private function checkTriggers(string $message, ?ChatProfile $profile): string
     {
         $sql = rex_sql::factory();
-        $triggers = $sql->getArray('SELECT keyword, content FROM ' . rex::getTable('ai_chat_triggers'));
+        $triggers = $sql->getArray(
+            'SELECT keyword, content FROM ' . rex::getTable('ai_chat_triggers') . ' WHERE profile_id IS NULL OR profile_id = ?',
+            [$profile?->id ?? 0], // @phpstan-ignore nullsafe.neverNull (Methode ist ueber ihre Signatur hinaus mit $profile=null aufrufbar, PHPStans Call-Site-Inferenz fuer diese private Methode ist hier widerspruechlich - siehe Zeilen 584/633 fuer denselben Fall ohne diese Inferenz)
+        );
 
         $append = '';
         foreach ($triggers as $trigger) {
@@ -1076,25 +939,20 @@ class ChatQueryService
             $frontendTypes = array_values(array_unique(array_merge(['article', 'sitemap_url'], $frontendProviderTypes)));
             $whereSql = 'source_type IN (' . implode(', ', array_fill(0, count($frontendTypes), '?')) . ')';
             $params = array_merge($params, $frontendTypes);
-        } elseif ($scope === 'developer') {
-            $whereSql = "source_type IN ('addon_docs', 'github_docs')";
         } else {
             return ['', [], false];
         }
 
-        // Profil-Scope: Shared Pool (profile_id IS NULL) ist die bestehende globale
-        // Indexierung und bleibt fuer jedes Profil mit use_shared_scope=1 sichtbar.
-        // Ein Profil ohne Shared Scope sieht ausschliesslich seine eigenen,
-        // exklusiv markierten Chunks. Kein Profil aufgeloest = unveraendertes
-        // Verhalten ueber den kompletten Shared Pool (Stand vor dem Profil-Feature).
+        // Profil-Scope seit Phase 6 (kein globaler Shared Pool mehr): ein Profil sieht
+        // ausschliesslich seine eigenen Chunks, gezielt erweitert um die Profile aus
+        // $includeProfileIds (siehe pages/profiles.php, "Wissen teilen mit Profil(en)").
+        // profile_id IS NULL bleibt sichtbar - das sind KEINE Shared-Pool-Zeilen mehr,
+        // sondern ausschliesslich Zeilen von profil-unabhaengigen Drittanbieter-Providern
+        // (z.B. forcal, siehe ContentProviderRegistry), die es weiterhin geben kann.
         if (null !== $profile) {
-            if ($profile->useSharedScope) {
-                $whereSql .= ' AND (profile_id = ? OR profile_id IS NULL)';
-                $params[] = $profile->id;
-            } else {
-                $whereSql .= ' AND profile_id = ?';
-                $params[] = $profile->id;
-            }
+            $visibleProfileIds = array_values(array_unique(array_merge([$profile->id], $profile->includeProfileIds)));
+            $whereSql .= ' AND (profile_id IN (' . implode(', ', array_fill(0, count($visibleProfileIds), '?')) . ') OR profile_id IS NULL)';
+            $params = array_merge($params, $visibleProfileIds);
         }
 
         return [$whereSql, $params, true];
@@ -1353,14 +1211,8 @@ class ChatQueryService
     /**
      * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}> $context
      */
-    private function hasSufficientAnswerContext(array $context, string $message, string $scope): bool
+    private function hasSufficientAnswerContext(array $context, string $message): bool
     {
-        // Developer chat can always answer from the model's own knowledge and
-        // system tools, even with an empty/not-yet-indexed addon/github docs index.
-        if ($scope === 'developer') {
-            return true;
-        }
-
         if ($context === []) {
             return false;
         }
@@ -1406,12 +1258,8 @@ class ChatQueryService
         return false;
     }
 
-    private function buildInsufficientContextAnswer(string $scope): string
+    private function buildInsufficientContextAnswer(): string
     {
-        if ($scope === 'developer') {
-            return 'Dazu habe ich in den aktuell indizierten Entwickler- und Addon-Inhalten keine verlässlichen Informationen. Bitte präzisiere die Frage oder erweitere zuerst den Index.';
-        }
-
         return 'Dazu habe ich in den aktuell indizierten Inhalten keine verlässlichen Informationen. Ich möchte hier nichts erfinden. Bitte formuliere die Frage genauer oder ergänze die Information im Index.';
     }
 
@@ -1820,15 +1668,15 @@ class ChatQueryService
     /**
      * @param float[] $userEmbedding
      */
-    private function findCachedAnswer(array $userEmbedding, string $scope, ?string $currentQuestion = null): ?string
+    private function findCachedAnswer(array $userEmbedding, string $scope, int $profileId, ?string $currentQuestion = null): ?string
     {
         $normalizedCurrentQuestion = $this->normalizeQuestionForCache((string) ($currentQuestion ?? ''));
         $sql = rex_sql::factory();
 
         if ($currentQuestion !== null && $currentQuestion !== '') {
             $exactMatch = $sql->getArray(
-                'SELECT answer FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = ? AND question = ? ORDER BY id DESC LIMIT 1',
-                [$scope, $currentQuestion],
+                'SELECT answer FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = ? AND profile_id = ? AND question = ? ORDER BY id DESC LIMIT 1',
+                [$scope, $profileId, $currentQuestion],
             );
             if ($exactMatch !== []) {
                 return (string) ($exactMatch[0]['answer'] ?? '');
@@ -1838,8 +1686,8 @@ class ChatQueryService
         $candidateLimit = $this->getCacheCandidateLimit();
         $queryMagnitude = $this->vectorMagnitude($userEmbedding);
         $sql->setQuery(
-            'SELECT question, answer, embedding, embedding_norm FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = ? ORDER BY created_at DESC, id DESC LIMIT ' . $candidateLimit,
-            [$scope],
+            'SELECT question, answer, embedding, embedding_norm FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = ? AND profile_id = ? ORDER BY created_at DESC, id DESC LIMIT ' . $candidateLimit,
+            [$scope, $profileId],
         );
 
         foreach ($sql as $row) {
@@ -1873,14 +1721,14 @@ class ChatQueryService
     /**
      * @param float[] $embedding
      */
-    private function cacheAnswer(string $question, array $embedding, string $answer, string $scope): void
+    private function cacheAnswer(string $question, array $embedding, string $answer, string $scope, int $profileId): void
     {
         $normalizedQuestion = $this->normalizeQuestionForCache($question);
         if ($normalizedQuestion !== '') {
             $sql = rex_sql::factory();
             $existing = $sql->getArray(
-                'SELECT question FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = :scope ORDER BY created_at DESC, id DESC LIMIT ' . $this->getCacheCandidateLimit(),
-                ['scope' => $scope],
+                'SELECT question FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = :scope AND profile_id = :profile_id ORDER BY created_at DESC, id DESC LIMIT ' . $this->getCacheCandidateLimit(),
+                ['scope' => $scope, 'profile_id' => $profileId],
             );
 
             foreach ($existing as $row) {
@@ -1902,6 +1750,7 @@ class ChatQueryService
         $sql->setValue('embedding_norm', $this->vectorMagnitude($embedding));
         $sql->setValue('answer', $answer);
         $sql->setValue('scope', $scope);
+        $sql->setValue('profile_id', $profileId);
         $sql->setValue('created_at', date('Y-m-d H:i:s'));
         $sql->insert();
     }
@@ -2062,61 +1911,14 @@ class ChatQueryService
         return is_string($strippedFallback) ? rtrim($strippedFallback) : rtrim($answer);
     }
 
-    private function isFaqPrecacheEnabled(): bool
-    {
-        $raw = rex_addon::get('ai_chat')->getConfig('faq_precache_enabled', null);
-
-        if (is_int($raw)) {
-            return $raw === 1;
-        }
-
-        if (is_string($raw)) {
-            $normalized = trim($raw);
-
-            return $normalized === '1' || $normalized === '|1|';
-        }
-
-        return $raw === true;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function getFaqPrecacheQuestions(): array
-    {
-        $raw = rex_addon::get('ai_chat')->getConfig('faq_precache_questions', '');
-        if (!is_string($raw) || trim($raw) === '') {
-            return [];
-        }
-
-        $lines = preg_split('/\r\n|\r|\n/', $raw);
-        if (!is_array($lines)) {
-            return [];
-        }
-
-        $questions = [];
-        foreach ($lines as $line) {
-            $question = trim((string) $line);
-            if ($question === '' || str_starts_with($question, '#')) {
-                continue;
-            }
-
-            $questions[] = $question;
-        }
-
-        /** @var list<string> $unique */
-        $unique = array_values(array_unique($questions));
-
-        return $unique;
-    }
-
-    private function hasExactCachedQuestion(string $question, string $scope): bool
+    private function hasExactCachedQuestion(string $question, string $scope, int $profileId): bool
     {
         $sql = rex_sql::factory();
         $rows = $sql->getArray(
-            'SELECT id FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = :scope AND question = :question LIMIT 1',
+            'SELECT id FROM ' . rex::getTable('ai_chat_cache') . ' WHERE scope = :scope AND profile_id = :profile_id AND question = :question LIMIT 1',
             [
                 'scope' => $scope,
+                'profile_id' => $profileId,
                 'question' => $question,
             ],
         );
@@ -2380,6 +2182,23 @@ class ChatQueryService
             'kann', 'kannst', 'können', 'könnte', 'soll', 'sollst', 'sollen', 'sollte', 'muss', 'musst', 'müssen', 'will', 'willst', 'wollen',
             'in', 'an', 'auf', 'bei', 'nach', 'von', 'vom', 'zu', 'zum', 'zur', 'für', 'aus', 'bis', 'als', 'wie', 'wenn', 'weil', 'ob',
             'nicht', 'kein', 'keine', 'auch', 'nur', 'noch', 'schon', 'sehr', 'so', 'aber', 'doch', 'also',
+            // Fragewoerter - "was" faellt zwar schon durch den Laengenfilter (<=3 Zeichen), die
+            // laengeren Geschwister (wer/wen/wem/wieso/weshalb/wozu/wodurch) aber nicht.
+            'wer', 'wen', 'wem', 'wessen', 'wann', 'warum', 'wo', 'wohin', 'woher', 'wozu', 'wodurch', 'wieso', 'weshalb',
+            'welche', 'welcher', 'welches', 'welchem', 'welchen',
+            // Haeufige "Leichtverben" (machen/tun/geben/gehen/kommen/stehen/sagen/finden) - fuer
+            // sich genommen kaum je das eigentlich gesuchte Stichwort, aber lang genug, um den
+            // Laengenfilter zu ueberleben, und ohne diese Liste tauchten sie unveraendert als
+            // Suchbegriff auf (realer Fall: "was macht KLXM?" durchsuchte woertlich nach "macht",
+            // nicht nur nach "klxm").
+            'macht', 'mache', 'machst', 'machen', 'machte', 'machten', 'gemacht',
+            'tut', 'tue', 'tust', 'tun', 'tat', 'taten', 'getan',
+            'gibt', 'gebe', 'gibst', 'geben', 'gab', 'gaben', 'gegeben',
+            'geht', 'gehe', 'gehst', 'gehen', 'ging', 'gingen', 'gegangen',
+            'kommt', 'komme', 'kommst', 'kommen', 'kam', 'kamen', 'gekommen',
+            'steht', 'stehe', 'stehst', 'stehen', 'stand', 'standen', 'gestanden',
+            'sagt', 'sage', 'sagst', 'sagen', 'sagte', 'sagten', 'gesagt',
+            'findet', 'finde', 'findest', 'finden', 'fand', 'fanden', 'gefunden',
         ];
     }
 
@@ -2408,22 +2227,10 @@ class ChatQueryService
 
     private function isShowSourcesEnabled(?ChatProfile $profile): bool
     {
-        if (null !== $profile && null !== $profile->showSources) {
-            return $profile->showSources;
-        }
-
-        $raw = rex_addon::get('ai_chat')->getConfig('show_sources', null);
-        if (is_int($raw)) {
-            return $raw === 1;
-        }
-
-        if (is_string($raw)) {
-            $normalized = trim($raw);
-
-            return $normalized === '1' || $normalized === '|1|';
-        }
-
-        return $raw === true;
+        // Jedes Profil traegt showSources als echten, eigenstaendigen Wert (kein globaler
+        // Fallback mehr seit der Hauptprofil-Entflechtung) - ohne aufgeloestes Profil bleibt
+        // "an" der sichere Default.
+        return null === $profile || $profile->showSources;
     }
 
     private function validateOrigin(): void
@@ -2629,8 +2436,6 @@ class ChatQueryService
                 $this->getEnabledFrontendProviderSourceTypes(),
                 $this->getProfileExclusiveSourceTypes($profile),
             )));
-        } elseif ($scope === 'developer') {
-            $allowedSourceTypes = ['addon_docs', 'github_docs'];
         }
 
         if ($allowedSourceTypes === []) {
@@ -2689,19 +2494,12 @@ class ChatQueryService
         $textWhere = implode(' OR ', $textClauses);
 
         // Selbes Profil-Scope-Prinzip wie findSimilarContent() (siehe dortiger
-        // Kommentar): ohne das wuerde ein Profil mit use_shared_scope=0
-        // (isolierter Wissensstand) trotzdem Treffer aus dem Shared Pool UND aus
-        // fremden Profilen sehen, sobald der source_type passt - die Live-Suche
-        // kannte bisher gar keine Profil-Grenze.
+        // Kommentar) - ohne das wuerde die Live-Suche gar keine Profil-Grenze kennen.
         $profileWhere = '';
         if (null !== $profile) {
-            if ($profile->useSharedScope) {
-                $profileWhere = ' AND (profile_id = ? OR profile_id IS NULL)';
-                $params[] = $profile->id;
-            } else {
-                $profileWhere = ' AND profile_id = ?';
-                $params[] = $profile->id;
-            }
+            $visibleProfileIds = array_values(array_unique(array_merge([$profile->id], $profile->includeProfileIds)));
+            $profileWhere = ' AND (profile_id IN (' . implode(', ', array_fill(0, count($visibleProfileIds), '?')) . ') OR profile_id IS NULL)';
+            $params = array_merge($params, $visibleProfileIds);
         }
 
         $rows = $sql->getArray(
@@ -3200,10 +2998,25 @@ class ChatQueryService
     }
 
     /**
+     * IndexerService::processSitemapUrl() speichert Titel/URL als vorangestellte
+     * Metadaten-Zeile direkt im "content"-Feld ("Seitentitel: ... URL: ...\n"), damit
+     * das Embedding den Seitenkontext kennt. Fuer die Such-Snippet-Anzeige ist das nur
+     * Rauschen: Titel und URL werden dort ohnehin schon separat angezeigt (Ueberschrift/
+     * Link), und ohne diesen Abzug wuerde z.B. ein Treffer fuer den eigenen Domainnamen
+     * quer durch fast jede Seite im URL-Anteil markiert (siehe Bugreport: "klxm" in
+     * "klxm.de" auf jedem einzelnen Treffer hervorgehoben).
+     */
+    private function stripIndexMetadataPrefix(string $content): string
+    {
+        return preg_replace('/^(?:Seitentitel:.*?\.\s+)?URL:\s*\S+\s*\n/u', '', $content, 1) ?? $content;
+    }
+
+    /**
      * @param list<string> $terms
      */
     private function createSnippet(string $content, string $needle, array $terms = []): string
     {
+        $content = $this->stripIndexMetadataPrefix($content);
         $plain = trim(preg_replace('/\s+/', ' ', strip_tags($content)) ?? '');
         if ($plain === '') {
             return '';
@@ -3814,17 +3627,13 @@ class ChatQueryService
     }
 
     /**
-     * Begrenzt die Nachrichtenlänge konfigurierbar getrennt nach Frontend- und Backend-/Developer-Chat
-     * (Backend darf großzügiger sein, da dort z.B. Code/Logs eingefügt werden). 0 = keine Begrenzung.
+     * Begrenzt die Nachrichtenlänge konfigurierbar. 0 = keine Begrenzung.
      *
      * @return array{blocked: bool, message: string}
      */
-    private function evaluateMessageLengthGuard(string $message, string $scope): array
+    private function evaluateMessageLengthGuard(string $message): array
     {
-        $isBackendScope = $scope === 'developer';
-        $configKey = $isBackendScope ? 'max_message_length_backend' : 'max_message_length_frontend';
-        $defaultLimit = $isBackendScope ? 20000 : 2000;
-        $limit = (int) rex_addon::get('ai_chat')->getConfig($configKey, $defaultLimit);
+        $limit = (int) rex_addon::get('ai_chat')->getConfig('max_message_length_frontend', 2000);
 
         if ($limit <= 0) {
             return ['blocked' => false, 'message' => ''];
@@ -4313,35 +4122,6 @@ class ChatQueryService
         $unique = array_values(array_unique($domains));
 
         return $unique;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function getDeveloperPersonalization(): array
-    {
-        $personalization = [
-            'mode' => 'informal',
-        ];
-
-        $backendUser = self::getAuthenticatedBackendUser();
-        if (!$backendUser) {
-            return $personalization;
-        }
-
-        $userName = trim((string) $backendUser->getName());
-        if ($userName !== '') {
-            $personalization['name'] = $userName;
-
-            return $personalization;
-        }
-
-        $login = trim((string) $backendUser->getLogin());
-        if ($login !== '') {
-            $personalization['name'] = $login;
-        }
-
-        return $personalization;
     }
 
     private function containsLikelyCreditCardNumber(string $text): bool

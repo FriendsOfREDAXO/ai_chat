@@ -209,60 +209,42 @@ class OpenAiCompatibleService implements AiServiceInterface
 
         $systemPrompt = "Wichtiger Zeit-Kontext: " . SystemToolService::getDateTimeContext() . "\n\n";
 
-        if ($scope === 'developer') {
-            $systemPrompt .= "Du bist ein erfahrener REDAXO CMS Entwickler und Experte. Nutze die folgende Dokumentation und Code-Beispiele um Fragen zur Entwicklung, API und Addons zu beantworten. Sei technisch präzise.";
-            
-            // Add system context for developer
-            $systemPrompt .= "\n\nAktuelles System-Kontext:\n" .
-                             "- REDAXO Version: " . \rex::getVersion() . "\n" .
-                             "- Installierte Addons: " . SystemToolService::getAddonListContext() . "\n";
-
-            // Add system tools to developer prompt
-            $systemPrompt .= "\n\nHinweis: Du hast Zugriff auf bestimmte System-Aktionen. Wenn du eine Aktion ausführen möchtest, schreibe am Ende deiner Antwort oder an der passenden Stelle einen Befehl im Format: `[[ACTION:ACTION_NAME]]`. " .
-                             "Mögliche Aktionen: \n" .
-                             "- [[ACTION:CLEAR_CACHE]] (Löscht den REDAXO Cache)\n" .
-                             "- [[ACTION:SYSTEM_INFO]] (Gibt REDAXO-Version, PHP-Version und Speicher aus)\n" .
-                             "- [[ACTION:LIST_ADDONS]] (Listet alle installierten Addons auf)\n" .
-                             "- [[ACTION:GET_LOGS]] (Zeigt die letzten Einträge aus dem System-Log)\n" .
-                             "- [[ACTION:REINDEX_CHAT]] (Startet die Neu-Indizierung des Chats)\n";
+        // Profil-eigener Prompt geht vor der globalen Einstellung.
+        $addon = rex_addon::get('ai_chat');
+        $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
+        if (!empty($customPrompt)) {
+            $systemPrompt = $customPrompt;
         } else {
-             // Frontend scope. Profil-eigener Prompt geht vor der globalen Einstellung.
-            $addon = rex_addon::get('ai_chat');
-            $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
-            if (!empty($customPrompt)) {
-                $systemPrompt = $customPrompt;
-            } else {
-                $systemPrompt = "Du bist ein hilfreicher Assistent für diese Website. Nutze den bereitgestellten Kontext um die Frage des Nutzers zu beantworten.";
-            }
+            $systemPrompt = "Du bist ein hilfreicher Assistent für diese Website. Nutze den bereitgestellten Kontext um die Frage des Nutzers zu beantworten.";
+        }
 
-            $addressingMode = $addressingModeOverride ?? trim((string) $addon->getConfig('frontend_addressing_mode', 'auto'));
-            if ($addressingMode === 'formal') {
-                $systemPrompt .= "\n- Sprich den Nutzer durchgehend förmlich mit 'Sie' an.";
-            } elseif ($addressingMode === 'informal') {
-                $systemPrompt .= "\n- Sprich den Nutzer durchgehend mit 'Du' an.";
-            } elseif ($addressingMode === 'neutral') {
-                $systemPrompt .= "\n- Verwende eine neutrale Sprache ohne direkte Anrede mit 'Du' oder 'Sie'.";
-            }
+        $addressingMode = $addressingModeOverride ?? 'auto';
+        if ($addressingMode === 'formal') {
+            $systemPrompt .= "\n- Sprich den Nutzer durchgehend förmlich mit 'Sie' an.";
+        } elseif ($addressingMode === 'informal') {
+            $systemPrompt .= "\n- Sprich den Nutzer durchgehend mit 'Du' an.";
+        } elseif ($addressingMode === 'neutral') {
+            $systemPrompt .= "\n- Verwende eine neutrale Sprache ohne direkte Anrede mit 'Du' oder 'Sie'.";
+        }
 
-            if ($addressingMode === 'auto' && $personalization) {
-                if (($personalization['mode'] ?? 'formal') === 'informal') {
-                    $systemPrompt .= "\n- Sprich den Nutzer mit 'Du' an (Duzen).";
-                    if (!empty($personalization['name'])) {
-                        $systemPrompt .= "\n- Der Name des Nutzers ist: " . $personalization['name'];
-                    }
-                } else {
-                    $systemPrompt .= "\n- Sprich den Nutzer förmlich mit 'Sie' an (Siezen).";
+        if ($addressingMode === 'auto' && $personalization) {
+            if (($personalization['mode'] ?? 'formal') === 'informal') {
+                $systemPrompt .= "\n- Sprich den Nutzer mit 'Du' an (Duzen).";
+                if (!empty($personalization['name'])) {
+                    $systemPrompt .= "\n- Der Name des Nutzers ist: " . $personalization['name'];
                 }
+            } else {
+                $systemPrompt .= "\n- Sprich den Nutzer förmlich mit 'Sie' an (Siezen).";
             }
+        }
 
-            $systemPrompt .= "\n- Stelle keine Rückfrage zur Anrede (Du/Sie), frage nicht nach dem Namen und frage nicht 'Wer bist du?', außer der Nutzer fragt ausdrücklich danach.";
-            $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
-            $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt.";
+        $systemPrompt .= "\n- Stelle keine Rückfrage zur Anrede (Du/Sie), frage nicht nach dem Namen und frage nicht 'Wer bist du?', außer der Nutzer fragt ausdrücklich danach.";
+        $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
+        $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt.";
 
-            $additionalContext = $addon->getConfig('frontend_additional_context');
-            if (!empty($additionalContext)) {
-                $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
-            }
+        $additionalContext = $addon->getConfig('frontend_additional_context');
+        if (!empty($additionalContext)) {
+            $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
         }
 
         $instruction = "\n\nANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();

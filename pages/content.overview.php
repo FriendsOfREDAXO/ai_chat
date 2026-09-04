@@ -50,8 +50,6 @@ $sourceTypeLabels = [
     'sitemap_url' => 'Seiten',
     'article' => 'Artikel',
     'forcal_entry' => 'forcal Termine',
-    'addon_docs' => 'AddOn Dokumentation',
-    'github_docs' => 'GitHub Dokumentation',
 ];
 
 foreach ($providerSourceTypeLabels as $sourceType => $label) {
@@ -87,7 +85,6 @@ if ($rawConfiguredLabels !== '') {
 // Config for JS – injected via data attribute (no inline JS)
 $jsConfig = json_encode([
     'apiBase'           => 'index.php?rex-api-call=ai_chat_index',
-    'indexSource'       => (string) $addon->getConfig('index_source', 'structure'),
     'confirmClear'      => $addon->i18n('index_clear_confirm'),
     'confirmClearCache' => $addon->i18n('index_clear_cache_confirm'),
     'confirmWarmCache'  => $addon->i18n('index_warm_cache_confirm'),
@@ -155,6 +152,22 @@ foreach ($sql as $row) {
     $total += $count;
 }
 
+// Chunking-Einblick: Durchschnittliche Chunk-Länge und Chunks je Quelle (ein "Quelle" =
+// ein Artikel/eine URL/ein PDF vor dem Chunking, identifiziert über source_type+source_id) -
+// zeigt an, ob die aktuelle chunk_size zur tatsächlichen Inhaltsmenge passt. Reine
+// Empfehlung statt automatischer Anwendung (anders als beim RAG-Kandidatenfenster oben):
+// chunk_size/chunk_overlap wirken erst auf NEU indexierte Inhalte, ein stilles Umschalten
+// der Einstellung würde bereits indexierte Chunks in einer inkonsistenten, alten Größe
+// zurücklassen, bis eine vollständige Neu-Indexierung läuft.
+$chunkInsightSql = rex_sql::factory();
+$chunkInsightSql->setQuery(
+    'SELECT COUNT(DISTINCT CONCAT(source_type, \':\', source_id)) AS total_sources, AVG(CHAR_LENGTH(content)) AS avg_chunk_length FROM ' . rex::getTable('ai_chat_index'),
+);
+$totalSources = (int) $chunkInsightSql->getValue('total_sources');
+$avgChunkLength = (float) ($chunkInsightSql->getValue('avg_chunk_length') ?? 0.0);
+$avgChunksPerSource = $totalSources > 0 ? $total / $totalSources : 0.0;
+$currentChunkSize = (int) $addon->getConfig('chunk_size', 1000);
+
 $content .= rex_view::info($addon->i18n('index_provider_hint'));
 
 // Zentrale Statusanzeige: EIN Element, das den aktuellen Lauf-Zustand eindeutig
@@ -180,6 +193,42 @@ if ($total > $ragCandidateLimit && !\FriendsOfRedaxo\AiChat\Db\VectorCapability:
         . '<p>' . sprintf($addon->i18n('index_rag_limit_warning'), $total, $ragCandidateLimit) . '</p>'
         . '<button type="button" id="ai-chat-optimize-rag-btn" class="btn btn-warning btn-sm"><i class="rex-icon fa-magic"></i> ' . $addon->i18n('index_rag_limit_optimize_button') . '</button>'
         . ' <span id="ai-chat-optimize-rag-result" style="margin-left: 10px;"></span>'
+        . '</div>';
+}
+
+// Chunking-Einblick nur zeigen, wenn genug Daten fuer eine sinnvolle Aussage vorhanden sind -
+// bei sehr kleinem Index (wenige Quellen) schwankt der Durchschnitt zu stark, um daraus eine
+// Empfehlung abzuleiten.
+if ($totalSources >= 5) {
+    $chunkAdvice = '';
+    $chunkAdviceClass = 'alert-info';
+    if ($avgChunksPerSource > 8.0) {
+        $suggestedChunkSize = (int) round($currentChunkSize * 1.5 / 100) * 100;
+        $chunkAdvice = sprintf(
+            'Inhalte werden im Schnitt in %.1f Chunks pro Quelle zerlegt (aktuell %d Zeichen je Chunk) - das ist recht feinteilig und kann Zusammenhänge über Chunk-Grenzen hinweg zerreißen. Eine größere Chunk-Größe (z.B. %d Zeichen statt %d) fasst mehr zusammenhängenden Kontext pro Chunk. Gilt nur für künftig indexierte Inhalte - danach einmal vollständig neu indexieren.',
+            $avgChunksPerSource,
+            (int) round($avgChunkLength),
+            $suggestedChunkSize,
+            $currentChunkSize,
+        );
+        $chunkAdviceClass = 'alert-warning';
+    } elseif ($avgChunksPerSource <= 1.3 && $avgChunkLength < $currentChunkSize * 0.5) {
+        $chunkAdvice = sprintf(
+            'Inhalte passen im Schnitt bequem in einen einzelnen Chunk (Ø %d von %d möglichen Zeichen) - die aktuelle Chunk-Größe passt gut zur vorhandenen Datenmenge, keine Änderung nötig.',
+            (int) round($avgChunkLength),
+            $currentChunkSize,
+        );
+    } else {
+        $chunkAdvice = sprintf(
+            'Ø %.1f Chunks pro Quelle bei %d Zeichen Chunk-Größe - unauffällig, keine Änderung nötig.',
+            $avgChunksPerSource,
+            $currentChunkSize,
+        );
+    }
+
+    $content .= '<div class="alert ' . $chunkAdviceClass . '">'
+        . '<strong><i class="rex-icon fa-info-circle"></i> Chunking-Einblick:</strong> ' . rex_escape($chunkAdvice)
+        . ' <a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Chunking &amp; Cache öffnen</a>'
         . '</div>';
 }
 
@@ -233,17 +282,6 @@ if ($allProviders !== []) {
 
 if ('' !== $statsColumns) {
     $content .= '<div class="ai-chat-settings-box"><div class="ai-chat-index-stats-grid">' . $statsColumns . '</div></div>';
-}
-
-// GitHub Update Button anzeigen falls Repos konfiguriert
-$githubRepos = (string) $addon->getConfig('github_repos', '');
-if (!empty(trim($githubRepos))) {
-    $content .= '<div class="ai-chat-index-github-box">';
-    $content .= '<h4>' . $addon->i18n('index_github_title') . '</h4>';
-    $content .= '<p>' . $addon->i18n('index_github_notice') . '</p>';
-    $content .= '<button type="button" id="ai-chat-github-sync-btn" class="btn btn-info"><i class="rex-icon fa-github"></i> ' . $addon->i18n('index_github_button') . '</button>';
-    $content .= ' <span id="github-sync-result" style="margin-left: 10px;"></span>';
-    $content .= '</div>';
 }
 
 // Progress area (hidden until indexing starts)

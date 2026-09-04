@@ -142,15 +142,7 @@ if ($isConfigUnset($field->getValue())) {
     $field->setValue(150);
 }
 
-$addBoolSelectField($form, 'faq_precache_enabled', $addon->i18n('config_faq_precache_enabled'), $addon->i18n('config_faq_precache_enabled_notice'), false);
-
-$field = $form->addTextAreaField('faq_precache_questions');
-$field->setLabel($addon->i18n('config_faq_precache_questions'));
-$field->setNotice($addon->i18n('config_faq_precache_questions_notice'));
-$field->setAttribute('rows', '8');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('');
-}
+$form->addRawField('<p class="help-block">FAQ-Vorcaching (welche Fragen vorab beantwortet/gecacht werden) ist seit Kurzem je Profil konfigurierbar - siehe AI Chat → Profile.</p>');
 
 $form->addRawField('</div>');
 

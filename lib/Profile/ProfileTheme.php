@@ -13,10 +13,7 @@ use rex_url;
  * dem per ChatProfile::$themeId gewaehlten, oder - falls das Profil keins gewaehlt hat -
  * dem globalen Standard-Theme (Config "default_theme_id", siehe install.php). Die
  * Widget-Position ist bewusst KEIN Theme-Bestandteil und bleibt weiterhin ein eigenes,
- * unabhaengiges Override je Profil (ChatProfile::$themePosition), exakt wie zuvor. Nur
- * fuer den Frontend-Chat gedacht - der automatisch eingebundene Backend-Chat nutzt
- * bewusst weiterhin sein eigenes, einheitliches "scope-accent"-Aussehen statt
- * Custom-Branding (siehe boot.php).
+ * unabhaengiges Override je Profil (ChatProfile::$themePosition), exakt wie zuvor.
  */
 final class ProfileTheme
 {
@@ -69,6 +66,12 @@ final class ProfileTheme
             }
         };
 
+        // Folgefragen-Chips waren bisher fest an --ai-chat-primary gekoppelt (siehe
+        // showFollowUpQuestions() in assets/ai-chat.js) und dadurch nicht unabhaengig von
+        // der Akzentfarbe themebar. Fehlt dieser Wert, greift dort weiterhin die Fallback-
+        // Kette auf --ai-chat-primary - unveraendertes Verhalten fuer jedes Theme, das
+        // dieses Feld nicht setzt.
+        $addColorVar('--ai-chat-followup', $theme?->followupColor);
         $addColorVar('--ai-chat-header-bg', $theme?->headerBgColor);
         $addColorVar('--ai-chat-bg', $theme?->chatBgColor);
         $addColorVar('--ai-chat-text', $theme?->textColor);

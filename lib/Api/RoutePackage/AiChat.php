@@ -8,7 +8,6 @@ use FriendsOfRedaxo\Api\RoutePackage;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
 use rex;
 use rex_addon;
-use rex_backend_login;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -86,7 +85,7 @@ class AiChat extends RoutePackage
             'addon' => 'ai_chat',
             'version' => $addon->getVersion(),
             'public_api_enabled' => (bool) $addon->getConfig('api_public_enabled', false),
-            'scopes' => ['frontend', 'developer'],
+            'scopes' => ['frontend'],
             'public_endpoint' => 'ai_chat/public/chat/query',
             'protected_endpoint' => 'ai_chat/chat/query',
         ]);
@@ -122,11 +121,6 @@ class AiChat extends RoutePackage
         $decoded = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($decoded)) {
             return self::jsonResponse(['error' => 'Invalid JSON body'], 400);
-        }
-
-        $requestedScope = strtolower((string) ($decoded['scope'] ?? 'frontend'));
-        if ($requestedScope === 'developer' && (!rex_backend_login::hasSession() || null === rex_backend_login::createUser())) {
-            return self::jsonResponse(['error' => 'Developer chat is only available for authenticated backend users.'], 403);
         }
 
         try {

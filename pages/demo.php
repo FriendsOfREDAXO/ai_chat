@@ -116,7 +116,7 @@ if (!str_starts_with($apiUrl, 'http')) {
       <div class="panel-heading">Optionale Chat-Features</div>
       <div class="panel-body">
         <p>
-          Die Funktionen sind bewusst optional. So kann ein Backend-Chat zum Beispiel nach einer gewissen Zeit automatisch zurücksetzen,
+          Die Funktionen sind bewusst optional. So kann der Chat zum Beispiel nach einer gewissen Zeit automatisch zurücksetzen,
           ohne den Verlauf zu verlieren, und der Dialogverlauf lässt sich bequem kopieren oder als Textdatei exportieren.
         </p>
         <pre style="margin-top: 10px;"><code>&lt;ai-chat

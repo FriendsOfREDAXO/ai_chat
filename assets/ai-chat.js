@@ -69,6 +69,19 @@ class AiChat extends HTMLElement {
             this.setAttribute('mode', 'bubble');
         }
 
+        // sessionStorage-Schluessel je Instanz + Profil statt eines einzigen globalen Keys -
+        // sonst restauriert z.B. das "Profil testen"-Widget auf pages/profiles.php beim
+        // Wechsel zu einem anderen Profil dessen ALTEN Verlauf (inkl. Begruessung/Anrede-
+        // Verhalten) aus einer vorherigen Sitzung, statt frisch mit dem aktuellen Profil zu
+        // starten - dasselbe gilt fuer mehrere gleichzeitige Widgets auf einer Seite (z.B.
+        // pages/demo.php). "profile-id" ist Teil des Schluessels, weil genau das die
+        // eigentliche Verhaltens-Identitaet ist; die id-Komponente trennt zusaetzlich
+        // mehrere Instanzen mit derselben profile-id auf derselben Seite.
+        if (!this.dataset.aiChatInstance) {
+            this.dataset.aiChatInstance = this.id || ('w' + Math.random().toString(36).slice(2));
+        }
+        this.storageKey = 'ai_chat_state_' + (this.getAttribute('profile-id') || '0') + '_' + this.dataset.aiChatInstance;
+
         this.render();
         this.setupEventListeners();
 
@@ -86,7 +99,6 @@ class AiChat extends HTMLElement {
             console.error('AiChat error in loadState:', e);
         }
 
-        this.updateScopeAccent();
         this.updateMaxLength();
 
         // Initial greeting if no messages
@@ -238,14 +250,13 @@ class AiChat extends HTMLElement {
 
     saveState() {
         const messages = this.messages.slice(-this.maxStoredMessages);
-        const scopeSelector = this.shadowRoot.querySelector('.scope-selector');
         const state = {
             isOpen: this.isOpen,
             messages,
             personalization: this.personalization,
-            scope: scopeSelector ? scopeSelector.value : (this.getAttribute('scope') || 'frontend')
+            scope: this.getAttribute('scope') || 'frontend'
         };
-        sessionStorage.setItem('ai_chat_state', JSON.stringify(state));
+        sessionStorage.setItem(this.storageKey, JSON.stringify(state));
     }
 
     getConversationHistory(currentMessage) {
@@ -271,50 +282,21 @@ class AiChat extends HTMLElement {
         return history;
     }
 
-    // Liest den aktuell gewaehlten Eintrag des Scope-Selectors und uebersetzt ihn in
-    // {scope, profileId} - der Selector-Wert kann "frontend", "developer" oder
-    // "profile:<id>" sein (siehe render(), profileOptions). "profile:<id>" bedeutet
-    // serverseitig weiterhin scope=frontend, nur eben mit einer explizit gewaehlten
-    // Profil-ID statt der statischen profile-id des Widgets.
+    // Liest Scope/Profil-ID des Widgets aus seinen statischen Attributen (siehe boot.php).
     getSelectedScopeAndProfileId() {
-        const selector = this.shadowRoot.querySelector('.scope-selector');
-        const raw = selector ? selector.value : (this.getAttribute('scope') || 'frontend');
-
-        if (raw.startsWith('profile:')) {
-            return { scope: 'frontend', profileId: raw.slice('profile:'.length) };
-        }
-        if (raw === 'developer') {
-            return { scope: 'developer', profileId: null };
-        }
-        return { scope: 'frontend', profileId: this.getAttribute('profile-id') || null };
+        return {
+            scope: this.getAttribute('scope') || 'frontend',
+            profileId: this.getAttribute('profile-id') || null
+        };
     }
 
-    // Markiert den Chat-Container mit dem aktuell aktiven Scope (Frontend/Developer), damit
-    // eine per CSS zugeordnete Akzentfarbe unmittelbar erkennen lässt, in welchem Modus man ist.
-    // Nur aktiv, wenn scope-accent="true" gesetzt ist (ausschließlich der Backend-Chat) – im
-    // Frontend-Widget sollen weiterhin nur die individuellen Branding-Einstellungen (primary-color,
-    // avatar-url, ...) gelten, unbeeinflusst vom Scope.
-    updateScopeAccent() {
-        const container = this.shadowRoot.querySelector('.chat-container');
-        if (!container) return;
-
-        if (this.getAttribute('scope-accent') !== 'true') {
-            delete container.dataset.scope;
-            return;
-        }
-
-        container.dataset.scope = this.getSelectedScopeAndProfileId().scope;
-    }
-
-    // Setzt das maxlength-Attribut der Eingabe passend zum aktuell gewählten Scope
-    // (Backend/Developer darf großzügiger sein als Frontend, siehe Settings "Verhalten & Antworten").
+    // Setzt das maxlength-Attribut der Eingabe passend zur Konfiguration (Settings
+    // "Verhalten & Antworten").
     updateMaxLength() {
         const input = this.shadowRoot.querySelector('.chat-input');
         if (!input) return;
 
-        const scope = this.getSelectedScopeAndProfileId().scope;
-        const attrName = scope === 'developer' ? 'max-length-backend' : 'max-length-frontend';
-        const maxLength = parseInt(this.getAttribute(attrName) || '0', 10);
+        const maxLength = parseInt(this.getAttribute('max-length-frontend') || '0', 10);
 
         if (maxLength > 0) {
             input.setAttribute('maxlength', String(maxLength));
@@ -391,20 +373,12 @@ class AiChat extends HTMLElement {
     }
 
     loadState() {
-        const saved = sessionStorage.getItem('ai_chat_state');
+        const saved = sessionStorage.getItem(this.storageKey);
         if (saved) {
             const state = JSON.parse(saved);
             this.isOpen = state.isOpen;
             this.messages = (state.messages || []).slice(-this.maxStoredMessages);
             this.personalization = state.personalization || this.personalization;
-
-            // Zuletzt gewählten Scope (Frontend/Developer) wiederherstellen, statt nach jedem
-            // Seitenwechsel/Neu-Rendern immer auf das statische "scope"-Attribut zurückzufallen.
-            const scopeSelector = this.shadowRoot.querySelector('.scope-selector');
-            if (scopeSelector && state.scope) {
-                scopeSelector.value = state.scope;
-            }
-            this.updateScopeAccent();
             this.updateMaxLength();
 
             // Restore UI state
@@ -824,14 +798,6 @@ class AiChat extends HTMLElement {
         return (div.textContent || div.innerText || '').trim();
     }
 
-    escapeHtmlAttr(value) {
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     // meta: optionale, sprachunabhängige Markierung (z.B. { isPersonalizationFlow: true }) -
     // ermöglicht es applyPersonalizationConfigGuard() (siehe dort), zu einer Personalisierungs-
     // Onboarding-Nachricht gehörende Nachrichten zu erkennen, OHNE den (jetzt übersetzten,
@@ -953,13 +919,19 @@ class AiChat extends HTMLElement {
         chipGroup.className = 'follow-up-chips';
         chipGroup.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px;padding-left:4px;';
 
+        // --ai-chat-followup ist eine eigene, unabhaengig vom Theme setzbare Custom
+        // Property (siehe ProfileTheme::buildInlineStyle()) - faellt ohne eigenen
+        // Theme-Wert weiterhin auf --ai-chat-primary zurueck (unveraendertes Verhalten
+        // fuer jedes Theme, das "Folgefragen (Farbe)" nicht setzt).
+        const followupColorVar = 'var(--ai-chat-followup,var(--ai-chat-primary,#007bff))';
+
         questions.forEach(q => {
             const chip = document.createElement('button');
             chip.textContent = q;
             chip.style.cssText = [
                 'background:transparent',
-                'border:1px solid var(--ai-chat-primary,#007bff)',
-                'color:var(--ai-chat-primary,#007bff)',
+                'border:1px solid ' + followupColorVar,
+                'color:' + followupColorVar,
                 'border-radius:16px',
                 'padding:4px 12px',
                 'font-size:12px',
@@ -968,12 +940,12 @@ class AiChat extends HTMLElement {
             ].join(';');
 
             chip.addEventListener('mouseenter', () => {
-                chip.style.background = 'var(--ai-chat-primary,#007bff)';
+                chip.style.background = followupColorVar;
                 chip.style.color = '#fff';
             });
             chip.addEventListener('mouseleave', () => {
                 chip.style.background = 'transparent';
-                chip.style.color = 'var(--ai-chat-primary,#007bff)';
+                chip.style.color = followupColorVar;
             });
             chip.addEventListener('click', () => {
                 chipGroup.remove();
@@ -1214,28 +1186,6 @@ class AiChat extends HTMLElement {
         const toggleBtn = this.shadowRoot.querySelector('.chat-toggle');
         toggleBtn.addEventListener('click', () => this.toggleChat());
 
-        // Gewählten Scope (Frontend/Developer/Profil) sofort persistieren, damit er nach einem
-        // Seitenwechsel im Backend erhalten bleibt statt auf "developer" zurückzufallen.
-        const scopeSelector = this.shadowRoot.querySelector('.scope-selector');
-        if (scopeSelector) {
-            scopeSelector.addEventListener('change', () => {
-                // getConversationHistory() schickt die letzten Nachrichten unabhaengig vom
-                // gewaehlten Scope als Konversationsverlauf mit - ohne Reset haette ein
-                // Themenwechsel (z.B. Developer -> Profil "Standard") die KI weiterhin im
-                // Kontext/Ton des vorherigen Scopes antworten lassen, obwohl Scope/Profil-ID
-                // fuer die naechste Anfrage serverseitig laengst korrekt gewechselt sind (siehe
-                // Nutzer-Report: Antworten "klangen" nach dem Wechsel weiterhin nach Developer).
-                // Ein Scope-Wechsel ist ein Wechsel zu einem anderen Assistenten/Wissens-Scope,
-                // kein Fortsetzen desselben Gespraechs - der sichtbare Reset macht das auch fuer
-                // den Nutzer eindeutig, statt einen scheinbar fortlaufenden aber innerlich
-                // gespaltenen Chat zu zeigen.
-                this.resetChat();
-                this.updateScopeAccent();
-                this.updateMaxLength();
-                this.saveState();
-            });
-        }
-
         const form = this.shadowRoot.querySelector('.chat-input-area');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1443,7 +1393,7 @@ class AiChat extends HTMLElement {
         this.personalization.step = 'none';
         this.personalization.userName = '';
         
-        sessionStorage.removeItem('ai_chat_state');
+        sessionStorage.removeItem(this.storageKey);
         
         const messagesContainer = this.shadowRoot.querySelector('.chat-messages');
         messagesContainer.innerHTML = '';
@@ -1675,24 +1625,6 @@ class AiChat extends HTMLElement {
                     display: flex;
                     align-items: center;
                     color: var(--ai-chat-text, #333);
-                }
-
-                /* Scope-Akzentfarbe: zeigt auf einen Blick, in welchem Modus der Chat gerade läuft.
-                   Bewusst als Bottom-Border statt Top-Border, damit sie nicht an den Resize-Greifer
-                   in der oberen linken Ecke stößt. */
-                .chat-container[data-scope="frontend"] .chat-header {
-                    border-bottom: 3px solid #2196F3;
-                }
-                .chat-container[data-scope="developer"] .chat-header {
-                    border-bottom: 3px solid #B45309;
-                }
-                .chat-container[data-scope="developer"] .scope-selector {
-                    border-color: #B45309;
-                    color: #B45309;
-                }
-                .chat-container[data-scope="frontend"] .scope-selector {
-                    border-color: #2196F3;
-                    color: #2196F3;
                 }
 
                 .header-avatar {
@@ -1966,16 +1898,6 @@ class AiChat extends HTMLElement {
                     border-color: var(--ai-chat-primary);
                 }
 
-                .scope-selector {
-                    font-size: 12px;
-                    padding: 2px 5px;
-                    border-radius: 4px;
-                    border: 1px solid var(--ai-chat-input-border, #ccc);
-                    background: var(--ai-chat-input-bg, white);
-                    color: var(--ai-chat-input-text, #333);
-                    outline: none;
-                }
-
                 .header-actions {
                     margin-left: auto;
                     display: flex;
@@ -2112,41 +2034,6 @@ class AiChat extends HTMLElement {
             </style>
         `;
 
-        const allowSwitch = this.getAttribute('allow-scope-switch') === 'true';
-        const currentScope = this.getAttribute('scope') || 'frontend';
-
-        // Der automatisch eingebundene Backend-Chat bekommt statt eines festen "Frontend"-
-        // Eintrags die Liste der aktiven Profile zur Auswahl (siehe boot.php, dort als JSON
-        // ins "profile-options"-Attribut geschrieben) - Backend-Nutzer koennen so zwischen
-        // Developer-Chat und jedem Profil wechseln, ohne die Seite zu wechseln. Das normale
-        // Frontend-Widget hat dieses Attribut nicht und verhaelt sich unveraendert
-        // (einfacher Frontend/Developer-Umschalter fuer genau sein eigenes Profil).
-        let profileOptions = [];
-        const rawProfileOptions = this.getAttribute('profile-options');
-        if (rawProfileOptions) {
-            try {
-                const parsed = JSON.parse(rawProfileOptions);
-                if (Array.isArray(parsed)) {
-                    profileOptions = parsed;
-                }
-            } catch (e) {
-                profileOptions = [];
-            }
-        }
-
-        const currentProfileId = this.getAttribute('profile-id') || '';
-        const currentSelectValue = currentScope === 'developer'
-            ? 'developer'
-            : (profileOptions.length > 0 ? 'profile:' + currentProfileId : 'frontend');
-
-        const selectorHtml = allowSwitch ? `
-            <select class="scope-selector">
-                ${profileOptions.length > 0 ? '' : `<option value="frontend" ${currentSelectValue === 'frontend' ? 'selected' : ''}>Frontend</option>`}
-                <option value="developer" ${currentSelectValue === 'developer' ? 'selected' : ''}>Developer</option>
-                ${profileOptions.map((profile) => `<option value="profile:${profile.id}" ${currentSelectValue === 'profile:' + profile.id ? 'selected' : ''}>${this.escapeHtmlAttr(String(profile.name))}</option>`).join('')}
-            </select>
-        ` : '';
-
         let toggleContent = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
         if (avatarUrl) {
             toggleContent = `<img src="${avatarUrl}" alt="Chat">`;
@@ -2173,7 +2060,6 @@ class AiChat extends HTMLElement {
                     ${headerAvatarHtml}
                     <span class="chat-title">Chat Assistant</span>
                     <div class="header-actions">
-                        ${selectorHtml}
                         ${copyHistoryHtml}
                         <button class="reset-btn" title="Neuer Chat / Verlauf löschen">
                             <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>

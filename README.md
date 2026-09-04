@@ -1,6 +1,6 @@
 # AI Chat & Search für REDAXO
 
-Ein FriendsOfREDAXO-AddOn für KI-gestützte Suche und Chat: Inhalte aus Artikeln, Addon-Dokumentation, GitHub-Repos, Sitemaps und weiteren Quellen werden indexiert, per Vektorsuche durchsucht und wahlweise per KI zu einer Antwort verarbeitet. Mehrere Profile erlauben unterschiedliche Wissensstände, Zielgruppen, Prompts und Optiken nebeneinander – von einer einzelnen globalen Konfiguration bis zu mehreren parallel laufenden, komplett unabhängigen Bereichen.
+Ein FriendsOfREDAXO-AddOn für KI-gestützte Suche und Chat: Inhalte aus Artikeln, Sitemaps, Struktur-Bereichen, YForm-Tabellen, PDFs/Medienpool-Dateien und weiteren Quellen per Extension Point werden je Profil indexiert, per Vektorsuche durchsucht und wahlweise per KI zu einer Antwort verarbeitet. Mehrere Profile erlauben unterschiedliche Wissensstände, Zielgruppen, Prompts und Optiken nebeneinander – von einem einzelnen Standard-Profil bis zu mehreren parallel laufenden, vollständig voneinander isolierten Bereichen.
 
 > Vormals `klxmchat`/„KLXM Chat & Search" – ab Version 1.0.0 als `ai_chat` neu aufgesetzt (neuer Addon-Key, neuer Namespace `FriendsOfRedaxo\AiChat`, keine automatische Migration alter Installationen).
 
@@ -12,27 +12,28 @@ Darüber hinaus bringt das Addon ein Profil-System mit, über das sich mehrere t
 
 ## Features
 
-- Frontend-Suche und Frontend-Chat für Website-Besucher, Backend-Developer-Chat für angemeldete REDAXO-User
-- Mehrere Profile mit eigenem Wissens-Scope, eigener Zielgruppe (Rolle/Domain/Sprache), eigenem Prompt, eigener Anrede/Antwortsprache und eigenem Theme
+- Frontend-Suche und Frontend-Chat für Website-Besucher
+- Mehrere, vollständig voneinander isolierte Profile mit eigenem Wissens-Scope, eigener Zielgruppe (Rolle/Domain/Sprache), eigenem Prompt, eigener Anrede/Antwortsprache und eigenem Theme
 - Google Gemini, Cloudflare Workers AI, OpenAI-kompatible Endpunkte sowie optional das FriendsOfREDAXO-Addon `ai_platform` als gemeinsame Provider-Verwaltung
 - Natives Vektor-Retrieval auf MariaDB 11.7+/11.8+, mit automatischem Fallback auf PHP-seitige Berechnung auf älteren Versionen oder MySQL
-- Indexierung lokaler Inhalte, GitHub-Repos, Addon-Dokumentation, Sitemaps (auch mehrere, benannt und gruppiert) und weiterer Content-Provider per Extension Point
+- Indexierung je Profil aus Sitemaps und Struktur-Bereichen (jeweils mehrere benannte, gleichzeitig kombinierbare Gruppen), YForm-Tabellen, PDFs/Medienpool-Dateien sowie weiteren Content-Providern per Extension Point – Wissen lässt sich bei Bedarf gezielt mit anderen Profilen teilen
 - Missbrauchsschutz: Erkennung von Prompt-Injection/Jailbreak-Versuchen, freundliche Gesprächsbeendigung bei wiederholten Angriffen, optionale Meldung an das Intrusion-Prevention-Addon `upkeep`
 - Übersetzbare Widget-Oberfläche (JSON-Sprachdateien, unabhängig von der Sprache der KI-Antworten)
-- FAQ-Vorcaching für wiederkehrende Fragen
-- Statistik zu Suchbegriffen, häufigen Fragen und Treffer-losen Anfragen, je Scope getrennt auswertbar
+- FAQ-Vorcaching für wiederkehrende Fragen, je Profil konfigurierbar
+- Statistik zu Suchbegriffen, häufigen Fragen und Treffer-losen Anfragen, je Profil filterbar
 
 ## Einzelfeatures
 
 ### Profile
 
-Ein Profil bestimmt drei Dinge gleichzeitig: **wer** den Chat/die Suche sieht, **was** er weiß und **wie** er antwortet.
+Ein Profil bestimmt drei Dinge gleichzeitig: **wer** den Chat/die Suche sieht, **was** er weiß und **wie** er antwortet. Profile sind ausschließlich ein Frontend-Konzept – einen Backend-Chat, den ein Profil steuern könnte, gibt es nicht (siehe „Sicherheit und Zugriff" weiter unten).
 
-- **Sichtbarkeit**: Kontext (Frontend, Backend-Developer-Chat oder beides), Rolle (Besucher, angemeldete Redakteure, Admins) und Zielgruppe (alle, bestimmte Domains, bestimmte Sprachen, oder beides). Passen mehrere Profile auf dieselbe Anfrage, gewinnt die höhere Priorität.
-- **Wissens-Scope**: Neben dem globalen „Shared Pool" (die normale Indexierung aus den Einstellungen) kann jedes Profil zusätzlich eigene Quellen mitbringen – ausgewählte YForm-Tabellen, eine eigene Sitemap oder ein Struktur-Mountpoint. Ein Profil kann den Shared Pool zusätzlich nutzen oder komplett isoliert nur seine eigenen Quellen sehen.
+- **Sichtbarkeit**: Rolle (Besucher, angemeldete Redakteure, Admins) und Zielgruppe (alle Domains/Sprachen, bestimmte Domains, bestimmte Sprachen, oder beides). Passen mehrere Profile auf dieselbe Anfrage, gewinnt die höhere Priorität.
+- **Wissens-Scope**: Es gibt keinen globalen Wissens-Pool mehr – jedes Profil ist vollständig isoliert und durchsucht ausschließlich die Quellen, die es selbst gewählt hat: benannte Sitemap-Gruppen, benannte Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur), YForm-Tabellen sowie PDFs/Medienpool-Dateien oder -Kategorien – beliebig miteinander kombinierbar. Der einzige Weg, Wissen zwischen zwei Profilen zu teilen, ist das explizite Feld „Wissen teilen mit Profil(en)" (`include_profile_ids`): zusätzlich zu den eigenen Quellen werden dann auch die Quellen der dort ausgewählten anderen Profile durchsucht.
 - **Prompt, Anrede, Antwortsprache**: Ein eigener System-Prompt ersetzt bei Bedarf die globale Einstellung. Anrede (Du/Sie/neutral/automatisch per Personalisierungsdialog) und Antwortsprache lassen sich je Profil festlegen – Letztere unabhängig von der Oberflächen-Sprache des Widgets, leer = weiterhin Deutsch.
 - **Theme**: statt eigener Farbfelder wählt ein Profil nur noch ein zentral unter „AI Chat → Themes" gepflegtes Theme aus einem Dropdown (siehe Einzelfeature „Zentrale Theme-Verwaltung" unten) – leer = globales Standard-Theme. Die Widget-Position (unten rechts/links) bleibt davon unabhängig und weiterhin ein eigenes Profil-Override.
-- **Folgefragen/Quellenanzeige**: „Vorgeschlagene Folgefragen anzeigen" und „Quellen/Links in Antworten anzeigen" lassen sich ebenfalls je Profil auf „An"/"Aus" erzwingen statt nur global zu gelten – z. B. um bei einem reinen FAQ-Profil Folgefragen abzuschalten, ohne das für alle anderen Profile mit zu ändern.
+- **Folgefragen/Quellenanzeige**: „Vorgeschlagene Folgefragen anzeigen" und „Quellen/Links in Antworten anzeigen" sind eigene, verpflichtende Einstellungen je Profil – kein globaler Fallback mehr, jedes Profil legt sie eigenständig fest, z. B. um bei einem reinen FAQ-Profil Folgefragen abzuschalten, ohne andere Profile zu beeinflussen.
+- **FAQ-Vorcaching**: ebenfalls eine reine Profil-Einstellung, siehe Einzelfeature „FAQ-Vorcaching" unten.
 - **Live-Vorschau**: Jede Profil-Seite zeigt ein echtes, an genau dieses Profil gebundenes Test-Widget mit dem aktuell gespeicherten Stand (Theme, Prompt, Begrüßung, …).
 
 Ein Standard-Profil (alle Domains/Sprachen, alle Rollen) wird bei der Installation automatisch angelegt, sodass Chat und Suche ohne weitere Konfiguration sofort funktionieren.
@@ -51,14 +52,14 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 
 - Vektorbasierte semantische Suche über den Index, nicht auf exakte Wörter angewiesen
 - Live-Suche mit kurzer Verzögerung beim Tippen, plus expliziter Suchen-Button für alle, die lieber gezielt auslösen
-- Facetten-Filterung nach Quellentyp (Artikel, Sitemap-Seite, Addon-/GitHub-Doku, …) sowie nach benannten Sitemap-Gruppen (siehe unten)
+- Facetten-Filterung nach Quellentyp (Artikel, Sitemap-Seite, PDF, YForm-Datensatz, …) sowie nach benannten Sitemap-/Struktur-Gruppen (siehe unten)
 - Erkennung von Fragen auch ohne Fragezeichen – bei erkannter Frage ergänzt eine KI-Antwort automatisch die Trefferliste, ohne die Trefferliste selbst zu verzögern
-- Optionale, separat nachgeladene KI-Zusammenstellung über mehrere Bereiche hinweg, wenn Treffer aus mehreren benannten Sitemap-Gruppen stammen (deaktiviert per Standard, da ein zusätzlicher KI-Aufruf pro Suche)
+- Optionale, separat nachgeladene KI-Zusammenstellung über mehrere Bereiche hinweg, wenn Treffer aus mehreren benannten Sitemap-/Struktur-Gruppen stammen (deaktiviert per Standard, da ein zusätzlicher KI-Aufruf pro Suche)
 - Datenschutz-Guard für sensible Eingaben (E-Mail, IBAN, Passwörter/PINs) sowie Schutz gegen Prompt-Injection- und Code-Injection-Versuche
 
 ### Chat
 
-- Frontend-Chat für Besucher, Backend-Developer-Chat für angemeldete Nutzer, jeweils mit eigenem System-Prompt
+- Frontend-Chat für Besucher, mit eigenem, je Profil konfigurierbarem System-Prompt
 - Automatisch als Bubble eingebunden oder wahlweise „ohne Bubble" an einem selbst platzierten Trigger-Element (Klasse/ID `aichat`) – klappt automatisch nach oben oder unten auf, je nach verfügbarem Platz
 - Personalisierung (Du/Sie erfragen, optional mit Namen) und konfigurierbare Anrede
 - Reset-Countdown mit sichtbarer Anzeige, optionales Kopieren/Herunterladen des Verlaufs
@@ -67,21 +68,21 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 
 ### Indexierung
 
-- Artikel-/Content-Indexierung für REDAXO, Addon-Dokumentation, GitHub-Repos, Sitemaps und weitere Provider per Extension Point
+- Artikel-/Content-Indexierung für REDAXO (über Struktur-Bereiche), Sitemaps, YForm-Tabellen, PDFs/Medienpool sowie weitere Provider per Extension Point – Quellen werden ausschließlich je Profil gewählt und beliebig kombiniert, kein globaler Wissens-Pool
 - Zwei Indexierungs-Methoden für Artikel: **Intern** (Standard, schnell, nutzt REDAXOs eigenen Renderer) oder **HTTP Crawler** (ruft die Artikel-URL wie ein Browser ab – sinnvoll, wenn Cache/Proxy/Ausgabelogik den finalen Frontend-Inhalt gegenüber dem internen Renderer verändern). Für den HTTP Crawler lassen sich ein CSS-Hauptselektor (Standard `body`, mehrere durch Komma möglich) sowie Ausschluss-Selektoren (z. B. `nav, footer, .cookie-banner`) konfigurieren, um wiederkehrende Navigations-/Footer-Texte draußen zu halten.
 - Inkrementelle und vollständige Neuindizierung, wahlweise als Hintergrund-Job (Button „Im Hintergrund indexieren" oder `php redaxo/bin/console ai_chat:reindex`) – läuft serverseitig weiter, auch wenn der Browser-Tab geschlossen wird
 - Chunking mit konfigurierbarer Größe (Standard 1000 Zeichen) und Überlappung (Standard 200 Zeichen), damit zusammengehörige Informationen nicht mitten durchgeschnitten werden
 - RAG-Kandidatenfenster (`rag_candidate_limit`): bestimmt, wie viele Chunks vor dem Ähnlichkeitsvergleich geladen werden. Bei nativem Vektor-Retrieval (siehe unten) unkritisch, da die Datenbank ohnehin über den gesamten gefilterten Index sortiert; ohne natives Vektor-Retrieval sollte der Wert größer als die Gesamtzahl indexierter Chunks sein, sonst bleiben manche Inhalte beim Vergleich unberücksichtigt. Ein Button „RAG-Kandidatenfenster automatisch optimieren" schlägt einen passenden Wert vor.
 - Optionale Embedding-Kontext-Hinweise und Fokus-Regeln (Format `Label|Begriff1|Begriff2`), um bestimmten Themen zusätzliches Gewicht zu geben, sowie automatische Auswertung von JSON-LD (`Person`, `Organization`, `ContactPoint`, `LocalBusiness`) als strukturierte, eindeutige Faktenquelle – hilfreich, damit der Chat Zuständigkeiten/Ansprechpartner nicht versehentlich verwechselt oder kombiniert
-- Cache-Warmup für häufig gestellte Fragen (siehe FAQ-Vorcaching)
+- Cache-Warmup für häufig gestellte Fragen (siehe FAQ-Vorcaching), je Profil mit eigener Fragenliste
 
 ### Natives Vektor-Retrieval
 
 Ab MariaDB 11.7 (Preview) bzw. 11.8 (GA/LTS) nutzt das Addon automatisch die native `VECTOR`-Spalte samt `VECTOR INDEX` und `VEC_DISTANCE_COSINE()` – die Datenbank kombiniert dabei Ähnlichkeitssuche und SQL-Filterung (Profil, Sprache, aktuelle Seite) in einer einzigen, indexgestützten Abfrage, deutlich schneller als der PHP-seitige Vergleich bei größeren Indizes. Erkennung läuft automatisch per Versions-Check (mit „Neu prüfen"-Button, falls die Datenbank nach der Installation aktualisiert wird); auf älteren MariaDB-Versionen oder MySQL bleibt die PHP-Brute-Force-Berechnung als dauerhafter, gleichwertiger Fallback erhalten – ein öffentliches Addon muss schließlich auch dort funktionieren.
 
-### Benannte Sitemap-Bereiche
+### Benannte Sitemap- und Struktur-Bereiche
 
-Zusätzliche Sitemaps lassen sich je Profil in mehrere benannte Gruppen aufteilen statt in einer einzigen Liste (z. B. „Allgemein" und „News" mit jeweils eigenen URLs). Jede Gruppe kann zusätzlich:
+Zusätzliche Sitemaps und Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur) lassen sich je Profil jeweils in mehrere benannte Gruppen aufteilen statt in einer einzigen Liste (z. B. „Allgemein" und „News" mit jeweils eigenen URLs, oder mehrere benannte Kategorie-Bereiche). Beide Quellenarten sind symmetrisch aufgebaut und gleichzeitig, beliebig kombinierbar – es gibt kein Entweder-Oder zwischen „eigener Sitemap" und „eigenem Struktur-Bereich" mehr. Jede Gruppe (egal ob Sitemap oder Struktur) kann zusätzlich:
 
 - eine kurze **Beschreibung** bekommen, die der KI als Zusatzkontext mitgeteilt wird und ihr hilft, den Bereich thematisch einzuordnen,
 - als **aktuell/zeitkritisch** markiert werden (z. B. eine News-Gruppe) – Fragen mit Signalwörtern wie „aktuell", „neu" oder „zuletzt" bevorzugen dann gezielt Treffer aus dieser Gruppe, sowohl im Ranking als auch per Hinweis an die KI.
@@ -131,11 +132,11 @@ Neben dem bestehenden Schutz gegen SQL-/Code-Injection erkennt ein zusätzlicher
 
 ### FAQ-Vorcaching
 
-Optional (Standard: deaktiviert) lassen sich vorberechnete Antworten für wiederkehrende erste Fragen einer Konversation cachen, um wiederholte KI-Aufrufe zu vermeiden. Betrifft ausschließlich die erste Nachricht eines Gesprächs, keine Folgefragen im Kontext des bisherigen Verlaufs.
+Jedes Profil kann eigenständig eine Liste wiederkehrender erster Fragen hinterlegen (Checkbox „Vorcaching aktivieren" plus Textarea „Vorcache-Fragen", eine Frage pro Zeile, auf der jeweiligen Profil-Seite), deren Antworten vorberechnet und gecacht werden, um wiederholte KI-Aufrufe zu vermeiden. Betrifft ausschließlich die erste Nachricht eines Gesprächs, keine Folgefragen im Kontext des bisherigen Verlaufs. Der Button „Vorcache aufwärmen" (unter „AI Chat → Indexierung → Übersicht") stößt den Aufwärmlauf für alle Profile mit aktiviertem Vorcaching gemeinsam an, jeweils gegen die eigene Fragenliste des jeweiligen Profils.
 
 ### Statistik
 
-Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick je Scope, Top-Suchbegriffe, häufig gestellte Fragen, No-Result-Situationen, zeitliche Filterung und ein Reset für neue Messzyklen. Die Logik liegt in einer eigenen Service-Klasse, nicht im Page-Template.
+Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick, Top-Suchbegriffe, häufig gestellte Fragen, No-Result-Situationen, zeitliche Filterung sowie Filterung nach Profil, und ein Reset für neue Messzyklen. Die Logik liegt in einer eigenen Service-Klasse, nicht im Page-Template.
 
 ## Alles andere
 
@@ -144,7 +145,7 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick j
 1. Addon installieren.
 2. Provider konfigurieren: API-Key, Base-URL, Modell und Embedding-Modell.
 3. Index initialisieren.
-4. Frontend-/Backend-Chat gemäß den Einstellungen aktivieren.
+4. Chat/Suche je Profil aktivieren (Standard: beide automatisch aktiv, siehe „Chat automatisch einbinden"/„Suche automatisch einbinden" auf der jeweiligen Profil-Seite).
 5. Optional weitere Profile anlegen, Statistikseite und Demo-/Beispielbereich prüfen.
 
 ### API-Provider
@@ -159,16 +160,19 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick j
 
 ### Wichtige Settings
 
-Die Backend-Navigation trennt bewusst drei Ebenen: **Themes** (zentrale Farb-/Avatar-Verwaltung, siehe oben), **Hauptprofil** (Fallback-Werte für Verhalten/Antworten und Erscheinungsbild/Suche, überschreibbar je Profil) und **Einstellungen** (rein instanzweite, nicht profilspezifische Konfiguration):
+Die Backend-Navigation kennt kein „Hauptprofil" mehr, auf das ein Profil bei leerem Feld zurückfallen könnte – jedes Profil trägt seine sichtbarkeits-, verhaltens- und darstellungsbezogenen Einstellungen vollständig selbst (siehe Einzelfeature „Profile" oben). „Profile" ist deshalb die erste/Startseite des Addons. Auf den verbleibenden Ebenen **Themes** (zentrale Farb-/Avatar-Verwaltung, siehe oben) und **Einstellungen** stehen nur noch echt globale, profilunabhängige Werte:
 
-- **Zugriff & Sicherheit**: Frontend/Backend aktiviert, öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter, sowie ein **Testmodus** über eine IP-Whitelist – gesetzt, ist Chat/Suche im Frontend serverseitig nur für diese IPs sichtbar (für alle anderen komplett gesperrt) und hebt für sie zusätzlich die „Sichtbar für"-Einschränkung einzelner Profile auf, praktisch um die gesamte Website unkompliziert nur für sich selbst in einen Testmodus zu versetzen.
+- **Übersicht**: keine Formularseite, sondern eine Orientierungs-/Status-Ansicht – zeigt den konfigurierten KI-Provider und ob Zugangsdaten hinterlegt sind, die Anzahl aktiver Profile sowie Links zur Profil-Verwaltung und zu jeder Detail-Einstellungsseite.
+- **Verhalten & Antworten**: die global gebliebenen Standard-Werte ohne Profil-Äquivalent – Standard-Begrüßung, Standard-Prompt, Fehlermeldung, Zusatzkontext, Quellen-Link-Titel. Der eigene Prompt bzw. die eigene Begrüßung eines Profils überschreibt diese Werte optional (leer = globaler Wert).
+- **Erscheinungsbild**: globaler Standard-Widget-Modus (Bubble/ohne Bubble) und globale Standard-Position; beides bleibt zusätzlich je Profil überschreibbar.
+- **Suche**: bündelt alle reinen Such-Einstellungen an einer Stelle – „aktuelle Seite durchsuchen"-Umschalter, KI-Zusammenstellung in der Suche, Quellentyp-Bezeichnungen, Mehrfach-Kontext-Schnipsel (vorher verteilt auf „Zugriff & Sicherheit" und „Erscheinungsbild").
+- **Zugriff & Sicherheit**: öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter, sowie ein **Testmodus** über eine IP-Whitelist – gesetzt, ist Chat/Suche im Frontend serverseitig nur für diese IPs sichtbar (für alle anderen komplett gesperrt) und hebt für sie zusätzlich die „Sichtbar für"-Einschränkung einzelner Profile auf, praktisch um die gesamte Website unkompliziert nur für sich selbst in einen Testmodus zu versetzen.
 - **KI-Provider & Parameter**: Provider-Auswahl/Zugangsdaten, Verbindungstest, Timeout/Temperature/Token-Limit sowie das (rein globale) SSE-Streaming.
-- **Indexierungs-Quellen**: welche Quellen überhaupt in den gemeinsamen Wissens-Pool aufgenommen werden.
+- **Indexierungs-Quellen**: seit der Profil-Entflechtung deutlich kleiner – nur noch die Vektor-Retrieval-Statusbox (samt „Neu prüfen"), ein Schalter für Live-Reindexierung, ein Schalter zur Respektierung der yrewrite-SEO-Einstellungen sowie die Aktivierung optionaler, profilunabhängiger Content-Provider (aktuell „forcal" für Kalendereinträge) inklusive dessen forcal-spezifischer Felder. Die eigentliche Wissensauswahl (Sitemap, Struktur, YForm, PDFs) erfolgt ausschließlich je Profil (siehe oben) – es gibt keine globale Struktur-/Sitemap-/PDF-Indexierung mehr.
 - **Systemcheck**: Server-/Voraussetzungs-Diagnose (PHP-/REDAXO-Version, PDF-Extraktion, Hintergrund-Indexierung, native Vektorsuche, KI-Provider) an einer Stelle statt verstreuter Fehlermeldungen.
-- **Chunking & Retrieval**: Chunking-Größe/Overlap, RAG-Kandidatenfenster, Antwort-Cache/FAQ-Vorcaching – gilt für alle Quellen und Profile gleichermaßen.
-- **YForm-Tabellen**: Mappings, welche YForm-Tabellen wie indexiert werden.
+- **Chunking & Cache**: Chunking-Größe/Overlap, RAG-Kandidatenfenster, Antwort-Cache – gilt für alle Quellen und Profile gleichermaßen. FAQ-Vorcaching ist keine Einstellung mehr auf dieser Seite, sondern reine Profil-Sache (siehe oben).
 
-Vieles davon lässt sich zusätzlich je Profil überschreiben (siehe Einzelfeature „Profile" oben).
+„Indexierung" hat außerdem eigene Unterseiten bekommen: **Übersicht** (Status/Reindex-Steuerung, wie bisher), **YForm-Tabellen** (Mappings, vorher unter Einstellungen), **Trigger & Antworten** (vorher eigener Menüpunkt) und **Cache-Fragen** (vorher eigener Menüpunkt) – beide inzwischen mit optionalem Profil-Bezug: ein Trigger kann auf ein einzelnes Profil eingeschränkt werden (leer = gilt weiterhin für alle Profile), und Cache-Einträge tragen ebenfalls eine `profile_id`, sodass zwei Profile auf dieselbe Frage unterschiedliche gecachte Antworten bekommen können.
 
 ### SSE-Streaming: Server-Voraussetzungen
 
@@ -224,7 +228,7 @@ Kommen die `event: chunk`-Zeilen sichtbar nacheinander mit Pausen an, funktionie
 
 ### Sicherheit und Zugriff
 
-Der Developer-Chat ist ausschließlich für angemeldete Backend-User zugänglich. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein Datenschutz-Guard verhindert, dass sensible Eingaben (E-Mail-Adressen, IBAN-/Kontonummern, Passwort-/PIN-/TAN-Kontexte) an das KI-Modell weitergegeben werden – stattdessen erscheint eine passende Warnung. Details zum weitergehenden Missbrauchsschutz (Prompt-Injection, Upkeep-Anbindung) siehe Einzelfeature oben.
+Es gibt keinen Backend-/Developer-Chat mehr – Chat und Suche laufen ausschließlich im Frontend, es wird nichts automatisch ins REDAXO-Backend eingebunden. Ob und für wen ein Profil überhaupt sichtbar ist, entscheidet dessen „Sichtbar für"-Einstellung (Besucher/Redakteure/Admins, siehe Einzelfeature „Profile" oben); ohne „Besucher" wirkt ein Profil damit wie ein Testmodus, sichtbar nur für eingeloggte Redakteure/Admins. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein Datenschutz-Guard verhindert, dass sensible Eingaben (E-Mail-Adressen, IBAN-/Kontonummern, Passwort-/PIN-/TAN-Kontexte) an das KI-Modell weitergegeben werden – stattdessen erscheint eine passende Warnung. Details zum weitergehenden Missbrauchsschutz (Prompt-Injection, Upkeep-Anbindung) siehe Einzelfeature oben.
 
 ### Server-/Docker-Anforderungen
 
@@ -261,14 +265,13 @@ Wird das Addon nicht automatisch über die REDAXO-Backend-Ausgabe eingebunden, l
   position="bottom-right"
   primary-color="#0d6efd"
   mode="bubble"
-  allow-scope-switch="false"
   personalization-mode="off"
   reset-countdown="10"
   copy-history="true">
 </ai-chat>
 ```
 
-Backend/Developer-Chat entsprechend mit `scope="developer"`.
+Das Widget kennt seit der Entfernung des Developer-Chats nur noch den Scope `frontend` (Standard- und einziger Wert – das Attribut lässt sich auch ganz weglassen). Einen Scope-Umschalter im Widget sowie das Attribut `allow-scope-switch` gibt es nicht mehr.
 
 **Variante 2: Suche allein**
 
@@ -368,8 +371,7 @@ Entspricht dem Demo-Muster: Ein Overlay zeigt Treffer, ein eigener Button starte
   position="bottom-right"
   primary-color="#1d4ed8"
   mode="bubble"
-  personalization-mode="off"
-  allow-scope-switch="false">
+  personalization-mode="off">
 </ai-chat>
 
 <script>
@@ -479,7 +481,7 @@ fetch('/index.php?rex-api-call=ai_chat_query', {
   });
 ```
 
-**Empfehlung**: Nur Chat → `ai-chat.js` plus `<ai-chat>`. Nur Suche → `ai-search.js` + `ai-search.css` + `window.AiSearch`. Beides → beide Assets laden und kombinieren. Backend/Developer-Scope → `scope="developer"` und ggf. `allow-scope-switch="true"`.
+**Empfehlung**: Nur Chat → `ai-chat.js` plus `<ai-chat>`. Nur Suche → `ai-search.js` + `ai-search.css` + `window.AiSearch`. Beides → beide Assets laden und kombinieren.
 
 ### Erweiterbarkeit
 
@@ -492,6 +494,8 @@ rex_extension::register('AI_CHAT_CONTENT_PROVIDERS', function (rex_extension_poi
     return $providers;
 });
 ```
+
+Das ist inzwischen auch der vorgesehene Weg für Fälle wie GitHub-Repo- oder Addon-Dokumentations-Indexierung, die früher fest im Core eingebaut waren (nur zur Wissensversorgung des inzwischen entfernten Developer-Chats): ein Dritt-Addon meldet dafür einfach einen eigenen `ContentProviderInterface` an, statt auf ein Core-Feature angewiesen zu sein.
 
 Weitere Extension Points: `AI_CHAT_REGISTER_PROVIDERS` (eigene KI-Provider-Implementierung unter einem eigenen Schlüssel), `AI_CHAT_PROFILE_CANDIDATES` (Profil-Auswahl vor der finalen Entscheidung filtern/umsortieren) und `AI_CHAT_WIDGET_TRANSLATIONS` (zusätzliche Sprachen/Schlüssel für die Widget-Oberfläche nachliefern, ohne den Core-Ordner anzufassen).
 
@@ -508,7 +512,7 @@ Styling und Scripts liegen als eigene Asset-Dateien vor und werden über `boot.p
 
 ## Fazit
 
-AI Chat & Search ist ein konfigurierbares FriendsOfREDAXO-AddOn für semantische Suche, Chat-Interaktion und KI-gestützte Wissensabfrage – kein reiner Chatbot, sondern ein komplettes Such- und Analyse-Tool mit Profil-System, Provider-Fallbacks, Missbrauchsschutz und anpassbarer Frontend-/Backend-Integration.
+AI Chat & Search ist ein konfigurierbares FriendsOfREDAXO-AddOn für semantische Suche, Chat-Interaktion und KI-gestützte Wissensabfrage – kein reiner Chatbot, sondern ein komplettes Such- und Analyse-Tool mit Profil-System, Provider-Fallbacks, Missbrauchsschutz und anpassbarer Frontend-Integration.
 
 ## Lizenz
 

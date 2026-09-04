@@ -7,13 +7,9 @@ ai_chat_config_search_ai_summary_enabled = KI-Zusammenstellung in der Suche
 ai_chat_config_search_ai_summary_enabled_notice = Zeigt oberhalb der Trefferliste eine kurze KI-generierte Zusammenfassung über die relevantesten Punkte je Themenbereich - nur wenn kein Themenbereich-Filter aktiv ist und die Treffer mehrere benannte "Sitemap-Gruppen" (siehe Profil-Einstellungen) abdecken. Löst einen zusätzlichen KI-Aufruf pro Suche aus (Kosten/Latenz).
 ai_chat_config_visibility_section_title = Sichtbarkeit & Zugriff
 ai_chat_config_visibility_profiles_hint = Wo/für wen Chat und Suche im Frontend erscheinen (Domains, Sprachen, Testmodus für bestimmte Rollen), wird jetzt je <a href="%s">Profil</a> festgelegt – Chat und Suche teilen sich dabei dasselbe Profil.
-ai_chat_config_frontend_profiles_control_hint = Diese beiden Schalter sind ohne Wirkung, solange mindestens ein aktives Profil existiert (aktuell: %2$s, siehe <a href="%1$s">Profile</a>) – jedes Profil bestimmt Chat/Suche dann eigenständig über die Felder „Chat/Suche automatisch einbinden" (Standard dort: aktiv). Ohne aktive Profile gelten wieder ausschließlich diese beiden globalen Schalter.
 ai_chat_config_profile_priority_notice = Bei mehreren gleichzeitig passenden Profilen (z.B. "alle Sprachen" und "nur Englisch" treffen beide auf einen englischsprachigen Besucher zu) gewinnt die höchste Priorität. Bei Gleichstand entscheidet die niedrigere ID (das älteste Profil).
 ai_chat_config_profile_target_mode_notice = Steuert, ob dieses Profil auf allen, oder nur auf bestimmten Domains/Sprachen im Frontend erscheint. Reine Anzeige-Filterung - die Indexierung selbst bleibt davon unabhängig, Inhalte anderer Domains/Sprachen können weiterhin als Quelle in Antworten auftauchen.
-ai_chat_config_profile_shared_scope_notice = "Zusätzlich nutzen": Dieses Profil sieht die normale, global konfigurierte Indexierung PLUS seine eigenen Quellen. "Nicht nutzen": Es sieht ausschließlich seine eigenen Quellen - z.B. für einen thematisch komplett getrennten Assistenten, der nichts von der übrigen Website wissen soll.
-ai_chat_config_profile_custom_prompt_notice = Der Prompt bestimmt Tonfall und Verhalten der KI-Antworten (z.B. "Du bist ein Assistent für Bewerber..."). Leer lassen, um die global konfigurierte Einstellung (Hauptprofil → Verhalten & Antworten) zu übernehmen.
-ai_chat_config_backend_enabled = Chat im Backend (Admin) anzeigen
-ai_chat_config_backend_enabled_notice = Blendet einen zusätzlichen "Developer Chat" direkt im REDAXO-Backend ein (unten rechts, wie der Website-Chat im Frontend) - unabhängig von Profilen, für Fragen zu REDAXO/Addons/Code sowie zum Durchklicken der einzelnen Profile in deren Vorschau. Sichtbar für Admins sowie Nutzer mit der Berechtigung "Backend Chat nutzen" (Benutzerverwaltung → Rollen).
+ai_chat_config_profile_custom_prompt_notice = Der Prompt bestimmt Tonfall und Verhalten der KI-Antworten (z.B. "Du bist ein Assistent für Bewerber..."). Leer lassen, um die global konfigurierte Einstellung (Einstellungen → Verhalten & Antworten) zu übernehmen.
 ai_chat_config_api_section_title = API-Zugriff
 ai_chat_config_access_limits_section_title = Sicherheits-Limits
 ai_chat_config_provider_parameters_section_title = KI-Parameter
@@ -48,8 +44,6 @@ ai_chat_config_rate_limit = Rate Limit (Anfragen/Minute)
 ai_chat_config_rate_limit_notice = Maximale Anzahl an Anfragen pro IP-Adresse pro Minute. 0 = deaktiviert.
 ai_chat_config_max_message_length_frontend = Maximale Nachrichtenlänge (Frontend)
 ai_chat_config_max_message_length_frontend_notice = Maximale Anzahl an Zeichen pro Nachricht im Frontend-Chat. Verhindert übermäßig lange Eingaben (z.B. eingefügte Textwände oder Missbrauchsversuche). 0 = keine Begrenzung.
-ai_chat_config_max_message_length_backend = Maximale Nachrichtenlänge (Backend/Developer-Chat)
-ai_chat_config_max_message_length_backend_notice = Maximale Anzahl an Zeichen pro Nachricht im Backend-/Developer-Chat. Bewusst großzügiger als im Frontend, da hier z.B. Code oder Logs eingefügt werden können. 0 = keine Begrenzung.
 ai_chat_config_frontend_prompt = System Prompt (Frontend)
 ai_chat_config_frontend_prompt_notice = Definieren Sie hier die Rolle und Anweisungen für die KI.
 ai_chat_config_frontend_additional_context = Zusätzlicher Kontext
@@ -75,7 +69,6 @@ ai_chat_config_position_bottom_left = Unten Links
 ai_chat_config_primary_color = Hauptfarbe
 ai_chat_config_avatar = Avatar (Medienpool)
 ai_chat_config_theme_section_title = Theme-Editor
-ai_chat_config_theme_section_notice = Weitere Farben und der Eckenradius des Frontend-Chats. Nur die Website-Chat-Instanz wird davon beeinflusst, der Backend-Chat bleibt unverändert. Gilt als Standard für alle Profile - ein einzelnes Profil kann in seiner eigenen "Theme"-Box (AI Chat → Profile) beliebige dieser Werte für sich überschreiben, z.B. für eigenes Branding je Domain.
 ai_chat_config_header_bg_color = Header-Hintergrundfarbe
 ai_chat_config_chat_bg_color = Chat-Hintergrundfarbe
 ai_chat_config_text_color = Textfarbe
@@ -238,8 +231,6 @@ ai_chat_config_frontend_mode_bubble = Floating Bubble (Schwebend)
 ai_chat_config_frontend_mode_inline = Inline (Fest eingebettet)
 ai_chat_config_frontend_mode_anchored = Ohne Bubble (eigener Auslöser)
 ai_chat_config_frontend_mode_notice = "Ohne Bubble": kein schwebender Chat-Button, der Chat öffnet sich stattdessen an einem selbst platzierten Element mit der Klasse "aichat" oder der ID "aichat" (z.B. ein eigener Button im Menü). Öffnet sich automatisch nach oben oder unten - je nachdem, wo auf dem Bildschirm gerade Platz ist - und bleibt an dieser Position fixiert.
-ai_chat_config_frontend_allow_scope_switch = Umschalter zum Backend-Chat im Website-Widget anzeigen
-ai_chat_config_frontend_allow_scope_switch_notice = Blendet im normalen Website-Chat-Fenster einen Umschalter auf den Backend-Chat (Developer) ein - gedacht für angemeldete Redakteure/Admins, die während sie die Website besuchen direkt zum Backend-Chat wechseln möchten, ohne erst ins Backend zu gehen. Für nicht angemeldete Website-Besucher ist der Umschalter zwar sichtbar, ein Wechsel schlägt für sie aber serverseitig fehl (Backend-Chat erfordert immer eine angemeldete Backend-Sitzung).
 ai_chat_config_section_access = Betrieb & Zugriff
 ai_chat_config_section_behavior = Antworten, Suche & Kontext
 ai_chat_config_section_appearance = Darstellung & UX
@@ -247,8 +238,7 @@ ai_chat_config_settings_intro_title = Konfiguration mit klarer Reihenfolge
 ai_chat_config_settings_intro_text = Arbeiten Sie von oben nach unten: zuerst Betrieb und Antwortverhalten, dann Provider und KI-Parameter, zum Schluss Quellen und Indexierung.
 ai_chat_config_jumpmenu_title = Direkt zu einem Bereich springen
 ai_chat_config_section_access_hint = Unabhängig von Profilen: wer/wo/wann Chat und Suche überhaupt sehen dürfen, öffentliche API und Missbrauchs-/Kosten-Schutz (Rate-Limit, Nachrichtenlängen, Spam-/Datenschutz-Filter)
-ai_chat_config_section_behavior_hint = Die Standard-"Persönlichkeit" des Chats (Hauptprofil-Fallback): Begrüßung, Prompt, Anrede/Personalisierung und Quellen-Anzeige - jedes einzelne Profil (AI Chat → Profile) kann das für sich überschreiben
-ai_chat_config_section_appearance_hint = Die Standard-Optik des Widgets (Hauptprofil-Fallback): Darstellung, Position, Farben und Such-Feineinstellungen - jedes einzelne Profil kann das für sich überschreiben
+ai_chat_config_section_behavior_hint = Die globalen Standardwerte des Chats: Begrüßung, Prompt, Anrede/Personalisierung und Quellen-Anzeige - jedes einzelne Profil (AI Chat → Profile) trägt diese Werte eigenständig und kann sie damit für sich überschreiben
 ai_chat_config_section_provider_hint = Provider auswählen, Zugangsdaten pflegen, Verbindung testen sowie Timeout/Temperature/Token-Limit der Antwortgenerierung
 ai_chat_config_section_retrieval_hint = Gilt für ALLE Quellen und Profile gleichermaßen: Chunking, Embedding-Kontext, RAG-Abruf und Antwort-Cache
 ai_chat_config_section_indexing_hint = Welche Quellen (Struktur/Sitemap/Provider/PDFs/Addon-Docs) überhaupt in den gemeinsamen Wissens-Pool aufgenommen werden
@@ -268,13 +258,16 @@ ai_chat_config_sidebar_precache_title = FAQ-Vorcaching
 ai_chat_config_sidebar_precache_text = Vorcaching ist optional. Nur wenn es aktiviert ist und Vorcache-Fragen hinterlegt sind, kann der Cache gezielt vorgewärmt werden.
 
 ai_chat_config_sidebar_tips_access_title = Empfehlungen
-ai_chat_config_sidebar_tips_access_text = Für den Einstieg reicht: Frontend-Chat aktivieren, Backend-Chat nur für eingeloggte Redakteure.||Öffentliche API nur aktivieren, wenn ein externes System wirklich direkt zugreifen muss – sonst unnötiges Sicherheitsrisiko.||IP-Testmodus ist nur für interne Tests sinnvoll, nicht als alleinige Absicherung im Livebetrieb.||Rate-Limit 10 Anfragen/Minute ist ein guter Startwert gegen Missbrauch; bei echten Lastspitzen später erhöhen.
+ai_chat_config_sidebar_tips_access_text = Für den Einstieg reicht: ein Profil mit "Sichtbar für" auf "Besucher" anlegen, die Sichtbarkeit für Redakteure/Admins als Testmodus nutzen.||Öffentliche API nur aktivieren, wenn ein externes System wirklich direkt zugreifen muss – sonst unnötiges Sicherheitsrisiko.||IP-Testmodus ist nur für interne Tests sinnvoll, nicht als alleinige Absicherung im Livebetrieb.||Rate-Limit 10 Anfragen/Minute ist ein guter Startwert gegen Missbrauch; bei echten Lastspitzen später erhöhen.
 
 ai_chat_config_sidebar_tips_behavior_title = Empfehlungen
 ai_chat_config_sidebar_tips_behavior_text = Personalisierung zunächst auf "Aus" lassen und erst aktivieren, wenn der Chat inhaltlich rund läuft.||Den System-Prompt so konkret wie möglich formulieren: Rolle, Tonfall, und was der Assistent NICHT tun soll.||Quellen anzeigen erhöht das Vertrauen der Nutzer – nur deaktivieren, wenn die Links optisch stören.||Folgefragen sind ein "Nice-to-have", kosten aber einen zusätzlichen KI-Aufruf pro Antwort.||Ein einzelnes Profil (AI Chat → Profile) kann jeden dieser Werte für sich überschreiben, ohne die globalen Standardwerte hier zu ändern.
 
 ai_chat_config_sidebar_tips_appearance_title = Empfehlungen
 ai_chat_config_sidebar_tips_appearance_text = Bubble-Modus passt für die meisten Websites, Inline eignet sich eher für dedizierte Kontakt-/FAQ-Seiten.||Primärfarbe unbedingt an das Corporate Design anpassen, sonst wirkt der Chat wie ein Fremdkörper.||Avatar ist optional, erhöht aber die Wiedererkennbarkeit im Chatverlauf.||Ein einzelnes Profil kann Darstellung/Farben für sich überschreiben, z.B. für unterschiedliches Branding je Domain.
+
+ai_chat_config_sidebar_tips_search_title = Empfehlungen
+ai_chat_config_sidebar_tips_search_text = "Aktuelle Seite durchsuchen" eignet sich für Dokumentations-/Hilfe-Bereiche, nicht für eine allgemeine Website-Suche.||KI-Zusammenstellung erst aktivieren, wenn genug unterschiedliche Bereiche (Sitemap-/Struktur-Gruppen) indexiert sind - sonst bleibt sie meist wirkungslos.||Bereichs-Bezeichnungen sind rein kosmetisch (Anzeige in den Suchfiltern), keine funktionale Einstellung.
 
 ai_chat_config_sidebar_tips_provider_title = Empfehlungen
 ai_chat_config_sidebar_tips_provider_text = Google Gemini: einfachster Einstieg mit nutzbarem kostenlosem Kontingent.||OpenAI-kompatibel (Ollama/OpenWebUI): sinnvoll, wenn Daten aus Datenschutzgründen nicht extern verarbeitet werden dürfen.||Cloudflare Workers AI: gut geeignet bei sehr hohem oder global verteiltem Traffic.||Nach jeder Änderung an Zugangsdaten immer zuerst "Verbindung testen" klicken, bevor produktiv geschaltet wird.||ai_temperature 0.3 für einen sachlichen Assistenten, 0.7 nur wenn bewusst kreativere/variantenreichere Antworten gewünscht sind.

@@ -151,7 +151,7 @@ final class MediaPoolContentProvider implements ContentProviderInterface
         $field = $form->addSelectField($categoryFieldName);
         $field->setLabel($categoryLabel);
         $field->setNotice($categoryNotice);
-        $field->setAttribute('class', 'selectpicker');
+        $field->setAttribute('class', 'form-control selectpicker');
         $field->setAttribute('data-actions-box', 'true');
         $mediaCategorySelect = new rex_media_category_select();
         $mediaCategorySelect->setMultiple();
@@ -263,8 +263,7 @@ final class MediaPoolContentProvider implements ContentProviderInterface
     }
 
     /**
-     * rex_media::getUrl() liefert je nach Pfad-Provider-Konfiguration (siehe
-     * z.B. IndexerService::indexArticle()'s HTTP-Zweig fuer denselben Fall) einen
+     * rex_media::getUrl() liefert je nach Pfad-Provider-Konfiguration einen
      * relativen statt absoluten Pfad - besonders auffaellig bei einer per Konsole
      * (php bin/console ai_chat:reindex) angestossenen Indexierung ohne HTTP-Request-
      * Kontext. Suchergebnis-Links muessen aber unabhaengig vom Indexierungsweg

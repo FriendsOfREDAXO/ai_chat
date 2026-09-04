@@ -10,37 +10,16 @@ use rex_extension_point;
 class EventListener
 {
     /**
-     * Zentraler Schalter für die Live-Reindizierung bei ART_, SLICE_, CAT_ und YFORM_-Events.
-     * Getrennt von `index_frontend` (das steuert, OB Artikel überhaupt indexiert werden),
-     * damit Admins die automatische Reindizierung bei Bedarf separat abschalten können
-     * (z.B. bei sehr vielen Änderungen / teuren Embedding-API-Calls).
+     * Zentraler Schalter für die Live-Reindizierung bei ART_, SLICE_, CAT_ und YFORM_-Events,
+     * damit Admins die automatische Reindizierung bei Bedarf abschalten können
+     * (z.B. bei sehr vielen Änderungen / teuren Embedding-API-Calls). Seit Phase 6 (kein
+     * globaler Struktur-Toggle mehr, index_frontend ohne UI) der EINZIGE Schalter hier -
+     * ob ein Artikel tatsächlich indiziert wird, entscheidet ausschließlich, ob ihn ein
+     * Profil per $profile->mountpointGroups führt (siehe IndexerService::updateArticleIndex()).
      */
     private static function isLiveReindexEnabled(rex_addon_interface $addon): bool
     {
         return (bool) $addon->getConfig('live_reindex_enabled', true);
-    }
-
-    /**
-     * REDAXO-Checkboxen speichern einen gesetzten Wert als "|1|" (Pipe-umschlossen), nicht als
-     * reines "1" - ein Vergleich wie `$value != '1'` erkennt ein aktiviertes Haekchen daher NIE
-     * und wuerde die Indexierung faelschlich ueberspringen. Unkonfiguriert (null) gilt als aktiviert.
-     */
-    private static function isFrontendIndexingEnabled(rex_addon_interface $addon): bool
-    {
-        $raw = $addon->getConfig('index_frontend');
-        if (null === $raw) {
-            return true;
-        }
-        if (is_bool($raw)) {
-            return $raw;
-        }
-        if (is_int($raw)) {
-            return 1 === $raw;
-        }
-
-        $normalized = trim((string) $raw);
-
-        return '1' === $normalized || '|1|' === $normalized || 'true' === strtolower($normalized);
     }
 
     /**
@@ -50,11 +29,6 @@ class EventListener
     {
         $addon = rex_addon::get('ai_chat');
         if (!self::isLiveReindexEnabled($addon)) {
-            return;
-        }
-
-        // Check if frontend indexing is enabled
-        if (!self::isFrontendIndexingEnabled($addon)) {
             return;
         }
 
@@ -105,10 +79,6 @@ class EventListener
     {
         $addon = rex_addon::get('ai_chat');
         if (!self::isLiveReindexEnabled($addon)) {
-            return;
-        }
-
-        if (!self::isFrontendIndexingEnabled($addon)) {
             return;
         }
 

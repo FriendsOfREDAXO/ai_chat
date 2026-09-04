@@ -32,16 +32,36 @@ rex_sql_table::get(rex::getTable('ai_chat_cache'))
     ->ensureColumn(new rex_sql_column('embedding_norm', 'double', true))
     ->ensureColumn(new rex_sql_column('answer', 'text'))
     ->ensureColumn(new rex_sql_column('scope', 'varchar(50)'))
+    // NOT NULL, kein globaler Cache-Topf mehr (siehe Phase 2 der Hauptprofil-
+    // Entflechtung) - jeder Eintrag gehoert zu genau dem Profil, das ihn erzeugt hat,
+    // da unterschiedliche Profile auf dieselbe Frage unterschiedliche Antworten liefern
+    // koennen (eigener Prompt/eigene Anrede/eigenes Wissen). 0 = Migrations-Altlast
+    // (Zeilen aus der Zeit vor diesem Feld, siehe Migration unten), kein echtes Profil.
+    ->ensureColumn(new rex_sql_column('profile_id', 'int(10) unsigned', false, '0'))
     ->ensureColumn(new rex_sql_column('created_at', 'datetime'))
     ->ensureIndex(new rex_sql_index('scope', ['scope']))
+    ->ensureIndex(new rex_sql_index('profile_id', ['profile_id']))
     ->ensure();
+
+// Einmalige Migration: bestehende Cache-Zeilen aus der Zeit vor profile_id kennen ihr
+// urspruengliches Profil nicht (Cache war bisher nur nach "scope" getrennt) - der Cache ist
+// reine, sich selbst neu aufbauende Zwischenspeicherung, ein einmaliges Leeren ist kein
+// Datenverlust (im Gegensatz zu stillschweigend falsch zugeordneten Zeilen mit profile_id=0,
+// die dann faelschlich JEDES Profil mit ID 0 treffen wuerden - Profile-IDs starten aber bei 1,
+// profile_id=0 ist also ohnehin nie ein echtes Profil).
+$cacheMigrationSql = rex_sql::factory();
+$cacheMigrationSql->setQuery('DELETE FROM ' . rex::getTable('ai_chat_cache') . ' WHERE profile_id = 0');
 
 rex_sql_table::get(rex::getTable('ai_chat_triggers'))
     ->ensurePrimaryIdColumn()
     ->ensureColumn(new rex_sql_column('keyword', 'varchar(255)'))
     ->ensureColumn(new rex_sql_column('content', 'text'))
+    // NULL = gilt fuer alle Profile (bisheriges, weiterhin unveraendertes Verhalten fuer
+    // bestehende Trigger) - ein gesetzter Wert beschraenkt den Trigger auf genau ein Profil.
+    ->ensureColumn(new rex_sql_column('profile_id', 'int(10) unsigned', true))
     ->ensureColumn(new rex_sql_column('created_at', 'datetime'))
     ->ensureColumn(new rex_sql_column('updated_at', 'datetime'))
+    ->ensureIndex(new rex_sql_index('profile_id', ['profile_id']))
     ->ensure();
 
 rex_sql_table::get(rex::getTable('ai_chat_ratelimit'))
@@ -78,6 +98,54 @@ $profileTable = rex_sql_table::get(rex::getTable('ai_chat_profile'));
 // Vor ensureColumn() pruefen (die Spalte existiert zu diesem Zeitpunkt noch nicht
 // erst NACH ensure() unten) - steuert die einmalige Datenuebernahme weiter unten.
 $extraSourceMigrationNeeded = $profileTable->exists() && !$profileTable->hasColumn('extra_source') && $profileTable->hasColumn('index_source');
+// Vor ensureColumn() pruefen (die Spalte existiert hier noch nicht) - steuert die
+// einmalige Uebernahme der alten GLOBALEN FAQ-Vorcache-Config in jedes Profil weiter unten.
+$faqPrecacheMigrationNeeded = $profileTable->exists() && !$profileTable->hasColumn('faq_precache_questions');
+
+// Einmalige Migration: die 6 vormals tri-state Felder (''/NULL = "globale Hauptprofil-
+// Einstellung entscheidet") werden NOT NULL mit echtem Default - jedes Profil ist ab jetzt
+// vollstaendig eigenstaendig, es gibt kein globales Fallback mehr (Hauptprofil-Seiten
+// entfallen). Die aktuell wirksamen globalen Werte werden hier VOR der Spaltenaenderung
+// unten in bereits vorhandene, noch leere Zeilen uebernommen, damit sich das Verhalten
+// bestehender Installationen durch dieses Update nicht stillschweigend aendert. Muss vor
+// dem ensureColumn()-Aufruf unten laufen, der die Spalten NOT NULL macht - danach waeren
+// die urspruenglichen "leer = geerbt"-Zeilen nicht mehr von echten Werten zu unterscheiden.
+if ($profileTable->exists()) {
+    $aiChatAddon = rex_addon::get('ai_chat');
+    $profileTableName = rex::getTable('ai_chat_profile');
+
+    $inheritedAddressingMode = trim((string) $aiChatAddon->getConfig('frontend_addressing_mode', 'auto'));
+    $inheritedPersonalizationMode = trim((string) $aiChatAddon->getConfig('personalization_mode', 'off'));
+    $inheritedSuggestFollowup = ((bool) $aiChatAddon->getConfig('suggest_followup_questions', false)) ? '1' : '0';
+    $inheritedShowSources = ((bool) $aiChatAddon->getConfig('show_sources', true)) ? '1' : '0';
+
+    $backfillSql = rex_sql::factory();
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET addressing_mode = ? WHERE addressing_mode IS NULL OR TRIM(addressing_mode) = ''",
+        [$inheritedAddressingMode],
+    );
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET personalization_mode = ? WHERE personalization_mode IS NULL OR TRIM(personalization_mode) = ''",
+        [$inheritedPersonalizationMode],
+    );
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET suggest_followup_questions = ? WHERE suggest_followup_questions IS NULL OR TRIM(suggest_followup_questions) = ''",
+        [$inheritedSuggestFollowup],
+    );
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET show_sources = ? WHERE show_sources IS NULL OR TRIM(show_sources) = ''",
+        [$inheritedShowSources],
+    );
+    // chat_enabled/search_enabled hingen nie von einem eigenen globalen Config-Wert ab,
+    // sondern defaulteten in boot.php schon bisher auf "aktiv" (siehe $showChat/$showSearch,
+    // "?? true") - Backfill uebernimmt genau dieses Verhalten als echten Wert.
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET chat_enabled = '1' WHERE chat_enabled IS NULL OR TRIM(chat_enabled) = ''",
+    );
+    $backfillSql->setQuery(
+        "UPDATE {$profileTableName} SET search_enabled = '1' WHERE search_enabled IS NULL OR TRIM(search_enabled) = ''",
+    );
+}
 
 $profileTable
     ->ensurePrimaryIdColumn()
@@ -95,11 +163,11 @@ $profileTable
     // NICHT als JSON - siehe ChatProfile::decodeStringList().
     ->ensureColumn(new rex_sql_column('viewer_roles', 'text', true)) // |visitor|editor|admin|
     ->ensureColumn(new rex_sql_column('target_mode', 'varchar(20)', false, 'all')) // all|domains|clangs|domains_clangs|individual
-    // Tri-State (''=globale frontend_enabled/frontend_search_enabled-Einstellung entscheidet,
-    // '1'=fuer dieses Profil erzwungen an, '0'=erzwungen aus) statt tinyint(1) - eine dritte
-    // "geerbt"-Option braucht echtes NULL/leer, keinen weiteren Wahrheitswert, siehe boot.php.
-    ->ensureColumn(new rex_sql_column('chat_enabled', 'varchar(10)', true))
-    ->ensureColumn(new rex_sql_column('search_enabled', 'varchar(10)', true))
+    // Vormals Tri-State (''=globale Hauptprofil-Einstellung entscheidet) - jedes Profil ist
+    // jetzt vollstaendig eigenstaendig, kein globaler Fallback mehr (siehe Backfill-Migration
+    // oben). varchar(10) bleibt (statt tinyint), um Alt-Daten ohne Typkonflikt zu uebernehmen.
+    ->ensureColumn(new rex_sql_column('chat_enabled', 'varchar(10)', false, '1'))
+    ->ensureColumn(new rex_sql_column('search_enabled', 'varchar(10)', false, '1'))
     ->ensureColumn(new rex_sql_column('domains', 'text', true)) // |domain1|domain2|
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
     // use_shared_scope und extra_source gehoeren konzeptionell zusammen (beide
@@ -107,6 +175,12 @@ $profileTable
     // "zusaetzliche eigene Quelle?") - daher hier direkt nebeneinander definiert,
     // siehe auch die entsprechend gruppierten Formularfelder in pages/profiles.php.
     ->ensureColumn(new rex_sql_column('use_shared_scope', 'tinyint(1)', false, '1'))
+    // Explizite, mehrfach waehlbare Referenz auf andere Profile, deren Quellen zusaetzlich
+    // durchsucht werden sollen ("mit wem teile ich mein Wissen") - eigenstaendig neben
+    // use_shared_scope (dem EINEN globalen Pool): erlaubt gezieltes Teilen zwischen zwei
+    // bestimmten Profilen, ohne dass gleich der ganze globale Pool dazugehoert. Pipe-Format
+    // wie die anderen Mehrfachauswahl-Spalten (siehe ChatProfile::decodeIntList()).
+    ->ensureColumn(new rex_sql_column('include_profile_ids', 'text', true)) // |id1|id2|
     // Vormals "index_source" genannt - umbenannt wegen Namenskollision mit der
     // gleichnamigen, aber inhaltlich anderen globalen Einstellung (AI Chat →
     // Einstellungen → Indexierung, steuert was der SHARED POOL selbst indexiert).
@@ -130,6 +204,14 @@ $profileTable
     // Facetten in der Suche (ChatQueryService::search()) und Kontext-Hinweise fuer den Chat
     // (PromptBuilder). Gepflegt ueber einen JS-Repeater in pages/profiles.php, nicht per Hand.
     ->ensureColumn(new rex_sql_column('sitemap_groups', 'text', true))
+    // "mountpoint_category_id" (Alt, eine einzelne, unbenannte Kategorie) bleibt in der DB
+    // bestehen (siehe Migration unten), wird von neuem Code aber nicht mehr geschrieben -
+    // JSON-Array benannter Mountpoint-Gruppen: [{"label":"Service","description":"...",
+    // "is_timely":false,"category_id":5}, ...], strukturell identisch zu sitemap_groups
+    // (nur "urls" durch ein einzelnes "category_id" ersetzt) - jetzt GLEICHZEITIG mit
+    // Sitemap-Gruppen kombinierbar (kein "Eigene Quelle"-Entweder-Oder-Select mehr, siehe
+    // extra_source weiter unten). Gepflegt ueber einen JS-Repeater in pages/profiles.php.
+    ->ensureColumn(new rex_sql_column('mountpoint_groups', 'text', true))
     ->ensureColumn(new rex_sql_column('mountpoint_category_id', 'int(10) unsigned', true))
     ->ensureColumn(new rex_sql_column('custom_prompt', 'text', true))
     ->ensureColumn(new rex_sql_column('ui_language', 'varchar(10)', false, 'de'))
@@ -139,20 +221,22 @@ $profileTable
     // ein Profil kann also z.B. eine deutsche Oberflaeche mit englischen KI-Antworten haben.
     ->ensureColumn(new rex_sql_column('answer_language', 'varchar(50)', true))
     ->ensureColumn(new rex_sql_column('greeting', 'text', true))
-    // NULL/'' = globale Einstellung (Einstellungen -> Verhalten -> Chat) uebernehmen, genau wie
-    // custom_prompt/greeting oben - sonst auto|formal|informal|neutral. Kein NOT-NULL-Default
-    // mehr (war vorher 'auto'): der war fuer JEDES Profil gesetzt, wodurch die globale
-    // Einstellung nie zum Zug kam, obwohl das Formular/die Doku genau das versprach.
-    ->ensureColumn(new rex_sql_column('addressing_mode', 'varchar(20)', true))
-    // NULL/'' = globale Einstellung uebernehmen, sonst off|simple|name - gleicher Grund wie oben.
-    ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', true))
-    // Tri-State wie chat_enabled/search_enabled oben (''=globale Einstellung entscheidet,
-    // '1'/'0'=fuer dieses Profil erzwungen an/aus) - vorher rein globale Checkboxen ohne
-    // jede Profil-Override-Moeglichkeit (siehe pages/settings.behavior.php).
-    ->ensureColumn(new rex_sql_column('suggest_followup_questions', 'varchar(10)', true))
-    ->ensureColumn(new rex_sql_column('show_sources', 'varchar(10)', true))
+    // NOT NULL mit echtem Default seit der Hauptprofil-Entflechtung (siehe Backfill-Migration
+    // oben) - kein globaler Fallback mehr, auto|formal|informal|neutral.
+    ->ensureColumn(new rex_sql_column('addressing_mode', 'varchar(20)', false, 'neutral'))
+    // NOT NULL mit echtem Default, gleicher Grund wie oben - off|simple|name.
+    ->ensureColumn(new rex_sql_column('personalization_mode', 'varchar(20)', false, 'off'))
+    // NOT NULL mit echtem Default seit der Hauptprofil-Entflechtung, gleicher Grund wie oben.
+    ->ensureColumn(new rex_sql_column('suggest_followup_questions', 'varchar(10)', false, '1'))
+    ->ensureColumn(new rex_sql_column('show_sources', 'varchar(10)', false, '1'))
     ->ensureColumn(new rex_sql_column('chat_reset_countdown', 'int(10)', false, '0'))
     ->ensureColumn(new rex_sql_column('chat_copy_history', 'tinyint(1)', false, '0'))
+    // FAQ-Vorcaching war frueher global (eine Fragenliste fuer alle Profile) - jetzt je
+    // Profil, weil unterschiedliche Profile auf dieselbe Frage unterschiedliche Antworten
+    // liefern koennen (eigener Prompt/eigenes Wissen/eigene Anrede). Migration der alten
+    // globalen Werte in jedes bestehende Profil siehe unten.
+    ->ensureColumn(new rex_sql_column('faq_precache_enabled', 'tinyint(1)', false, '0'))
+    ->ensureColumn(new rex_sql_column('faq_precache_questions', 'text', true))
     // Alle theme_*-Farb-/Avatar-/Radius-Spalten sind Altlasten (siehe Migration unten,
     // "Zentrale Theme-Verwaltung") - abgeloest durch theme_id auf ein Theme aus
     // ai_chat_theme. Bleiben in der DB bestehen (nicht droppen), werden aber nirgends
@@ -182,6 +266,10 @@ rex_sql_table::get(rex::getTable('ai_chat_theme'))
     ->ensurePrimaryIdColumn()
     ->ensureColumn(new rex_sql_column('name', 'varchar(190)'))
     ->ensureColumn(new rex_sql_column('primary_color', 'varchar(20)', true))
+    // NULL = folgt weiterhin primary_color, siehe Fallback-Kette in assets/ai-chat.js
+    // (showFollowUpQuestions()) - Folgefragen-Chips waren vorher fest an die Akzentfarbe
+    // gekoppelt und dadurch nicht unabhaengig davon themebar.
+    ->ensureColumn(new rex_sql_column('followup_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('header_bg_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('chat_bg_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('text_color', 'varchar(20)', true))
@@ -228,6 +316,28 @@ foreach ($sitemapMigrationSql as $row) {
     $updateSql->update();
 }
 
+// Einmalige Migration: bestehende Profile mit der alten, einzelnen mountpoint_category_id
+// (extra_source='mountpoint') bekommen eine einzelne, namenlose mountpoint_groups-Gruppe mit
+// derselben Kategorie - ohne das wuerde der Umstieg auf mehrere benannte, mit Sitemap
+// kombinierbare Mountpoint-Gruppen eine bereits produktiv genutzte Struktur-Quelle
+// stillschweigend abschalten.
+$mountpointMigrationSql = rex_sql::factory();
+$mountpointMigrationSql->setQuery(
+    'SELECT id, mountpoint_category_id FROM ' . rex::getTable('ai_chat_profile') . " WHERE extra_source = 'mountpoint' AND mountpoint_category_id IS NOT NULL AND (mountpoint_groups IS NULL OR TRIM(mountpoint_groups) = '')",
+);
+foreach ($mountpointMigrationSql as $row) {
+    $categoryId = (int) $row->getValue('mountpoint_category_id');
+    if ($categoryId <= 0) {
+        continue;
+    }
+
+    $updateSql = rex_sql::factory();
+    $updateSql->setTable(rex::getTable('ai_chat_profile'));
+    $updateSql->setWhere(['id' => (int) $row->getValue('id')]);
+    $updateSql->setValue('mountpoint_groups', json_encode([['label' => '', 'description' => '', 'is_timely' => false, 'category_id' => $categoryId]]));
+    $updateSql->update();
+}
+
 // Einmalige Migration: die Spalte "index_source" wurde in "extra_source" umbenannt
 // (Namenskollision mit der gleichnamigen globalen Einstellung, siehe Kommentar oben) -
 // bestehende Werte einmalig uebernehmen, statt bereits konfigurierte eigene
@@ -235,6 +345,22 @@ foreach ($sitemapMigrationSql as $row) {
 if ($extraSourceMigrationNeeded) {
     $extraSourceMigrationSql = rex_sql::factory();
     $extraSourceMigrationSql->setQuery('UPDATE ' . rex::getTable('ai_chat_profile') . ' SET extra_source = index_source');
+}
+
+// Einmalige Migration: FAQ-Vorcaching war bisher global (eine Fragenliste fuer alle
+// Profile, siehe die jetzt entfernten Felder auf "Einstellungen -> Chunking & Retrieval") -
+// die alten globalen Werte werden in JEDES bestehende Profil uebernommen, damit sich das
+// Verhalten bestehender Installationen nicht stillschweigend aendert.
+if ($faqPrecacheMigrationNeeded) {
+    $faqAddon = rex_addon::get('ai_chat');
+    $faqPrecacheEnabled = (bool) $faqAddon->getConfig('faq_precache_enabled', false);
+    $faqPrecacheQuestions = (string) $faqAddon->getConfig('faq_precache_questions', '');
+
+    $faqMigrationSql = rex_sql::factory();
+    $faqMigrationSql->setQuery(
+        'UPDATE ' . rex::getTable('ai_chat_profile') . ' SET faq_precache_enabled = ?, faq_precache_questions = ?',
+        [$faqPrecacheEnabled ? 1 : 0, $faqPrecacheQuestions],
+    );
 }
 
 // Genau ein Default-Profil, das ohne jede weitere Konfiguration sofort greift
@@ -255,9 +381,15 @@ if (0 === (int) $defaultProfileSql->getValue('total')) {
     $seedSql->setValue('use_shared_scope', 1);
     $seedSql->setValue('extra_source', 'none');
     $seedSql->setValue('ui_language', 'de');
-    // addressing_mode/personalization_mode bewusst NICHT gesetzt (bleiben NULL = "globale
-    // Einstellung uebernehmen") - das Default-Profil soll sich wie die globale Konfiguration
-    // verhalten, nicht wie eine eigene, losgeloeste Festlegung.
+    // Explizit gesetzt statt auf die Spalten-Defaults zu vertrauen - seit der
+    // Hauptprofil-Entflechtung gibt es keine globale Einstellung mehr, die das
+    // Default-Profil stattdessen uebernehmen koennte.
+    $seedSql->setValue('chat_enabled', '1');
+    $seedSql->setValue('search_enabled', '1');
+    $seedSql->setValue('addressing_mode', 'neutral');
+    $seedSql->setValue('personalization_mode', 'off');
+    $seedSql->setValue('suggest_followup_questions', '1');
+    $seedSql->setValue('show_sources', '1');
     $seedSql->setValue('chat_reset_countdown', 0);
     $seedSql->setValue('chat_copy_history', 0);
     $seedSql->setDateTimeValue('createdate', time());

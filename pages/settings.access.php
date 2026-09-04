@@ -1,8 +1,5 @@
 <?php
 
-use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
-use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
-
 require __DIR__ . '/settings.shared.php';
 
 /**
@@ -32,61 +29,9 @@ $form->addRawField('<p class="help-block">' . $rawMsg('config_section_access_hin
 $form->addRawField('<div id="klxm-access-visibility-settings" class="ai-chat-settings-box">');
 $form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_visibility_section_title') . '</p>');
 
-// Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind diese beiden
-// globalen Schalter komplett wirkungslos - siehe ChatQueryService::resolveFrontendAccessDenial()
-// und boot.php ($showChat/$showSearch): dort entscheidet dann ausschliesslich das jeweilige
-// Profil (chat_enabled/search_enabled, Standard dort: aktiv), der globale Wert wird gar nicht
-// mehr gelesen. Ohne aktive Profile bleiben sie die alleinige Instanz (Profile sind optional).
-// Deshalb hier deaktiviert statt nur einer Warnung daneben - verhindert den falschen Eindruck,
-// Umschalten haette noch eine Wirkung.
-$frontendCapableProfiles = array_values(array_filter(
-    (new ProfileRepository())->getEnabled(),
-    static fn (ChatProfile $profile): bool => $profile->context !== 'backend',
-));
-$profilesControlAccess = [] !== $frontendCapableProfiles;
-
-if ($profilesControlAccess) {
-    $profileNames = implode(', ', array_map(
-        static fn (ChatProfile $profile): string => rex_escape($profile->name),
-        $frontendCapableProfiles,
-    ));
-    $form->addRawField(
-        '<div class="alert alert-info">' .
-        sprintf($addon->i18n('config_frontend_profiles_control_hint'), rex_url::backendPage('ai_chat/profiles'), $profileNames) .
-        '</div>',
-    );
-}
-
-$field = $form->addCheckboxField('frontend_enabled');
-$field->addOption($addon->i18n('config_frontend_enabled'), 1);
-if ($profilesControlAccess) {
-    // form-control-static laesst rex_config_form::save() (isReadOnly()-Check) dieses Feld
-    // komplett ueberspringen - der gespeicherte Wert bleibt unangetastet, auch weil ein
-    // disabled-Feld ohnehin nicht mitgepostet wird. Angehaengt statt ueberschrieben, falls
-    // der Renderer selbst schon eine eigene class setzt.
-    $field->setAttribute('disabled', 'disabled');
-    $field->setAttribute('class', trim($field->getAttribute('class', '') . ' form-control-static'));
-}
-
-// Select statt Checkbox - eine per Checkbox+rex_config_form deaktivierte Einstellung mit
-// "true" als Default liesse sich nie dauerhaft abschalten, siehe Kommentar bei
-// $addBoolSelectField in settings.shared.php.
-$searchEnabledField = $addBoolSelectField($form, 'frontend_search_enabled', $addon->i18n('config_frontend_search_enabled'), $addon->i18n('config_frontend_search_enabled_notice'), true);
-if ($profilesControlAccess) {
-    $searchEnabledField->setAttribute('disabled', 'disabled');
-    $searchEnabledField->setAttribute('class', trim($searchEnabledField->getAttribute('class', '') . ' form-control-static'));
-}
-
-// Standard AUS: jede Suche mit aktivem "Alle"-Filter und Treffern aus mehreren Bereichen
-// (ChatProfile::$sitemapGroups) loest sonst einen zusaetzlichen KI-Aufruf aus (siehe
-// ChatQueryService::buildSearchSummary()) - bewusst opt-in statt stiller Kosten-/Latenz-
-// Erhoehung fuer jede unfilterte Suche.
-$addBoolSelectField($form, 'search_ai_summary_enabled', $addon->i18n('config_search_ai_summary_enabled'), $addon->i18n('config_search_ai_summary_enabled_notice'), false);
-
-$field = $form->addCheckboxField('backend_enabled');
-$field->addOption($addon->i18n('config_backend_enabled'), 1);
-$field->setNotice($addon->i18n('config_backend_enabled_notice'));
-
+// Chat/Suche automatisch einbinden ist seit der Hauptprofil-Entflechtung ausschliesslich
+// eine Profil-Einstellung (chat_enabled/search_enabled, Standard: aktiv, siehe AI Chat →
+// Profile) - kein globaler Schalter mehr, der hier stehen koennte.
 $form->addRawField('<p class="help-block">' . sprintf($addon->i18n('config_visibility_profiles_hint'), rex_url::backendPage('ai_chat/profiles')) . '</p>');
 
 $field = $form->addTextField('frontend_allowed_ips');
@@ -132,13 +77,6 @@ $field->setLabel($addon->i18n('config_max_message_length_frontend'));
 $field->setNotice($addon->i18n('config_max_message_length_frontend_notice'));
 if ($isConfigUnset($field->getValue())) {
     $field->setValue(2000);
-}
-
-$field = $form->addTextField('max_message_length_backend');
-$field->setLabel($addon->i18n('config_max_message_length_backend'));
-$field->setNotice($addon->i18n('config_max_message_length_backend_notice'));
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue(20000);
 }
 
 $field = $form->addTextAreaField('privacy_email_domain_whitelist');

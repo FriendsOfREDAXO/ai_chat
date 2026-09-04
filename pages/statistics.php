@@ -49,14 +49,10 @@ if ($profileFilterRaw === '0') {
 
 $scopeLabels = [
     'frontend' => 'Frontend',
-    'developer' => 'Developer',
 ];
 $scopeModeLabels = [
     'frontend' => [
         'search' => 'Suchbegriffe',
-        'chat' => 'Fragen / Chat',
-    ],
-    'developer' => [
         'chat' => 'Fragen / Chat',
     ],
 ];
@@ -141,7 +137,7 @@ $buildOverviewChartOptions = static function (array $scopeSummary, string $title
     $labels = [];
     $values = [];
     foreach ($scopeSummary as $scopeKey => $value) {
-        $labels[] = $scopeKey === 'frontend' ? 'Frontend' : 'Developer';
+        $labels[] = 'Frontend';
         $values[] = (int) $value;
     }
 
@@ -209,7 +205,7 @@ $panel->setVar('title', 'Such- und Chat-Statistiken');
 
 $scopeSummaryHtml = '<div class="klxmchat-statistics-summary">';
 foreach ($scopeLabels as $scopeKey => $scopeName) {
-    $scopeSummaryHtml .= '<div class="klxmchat-stat-card ' . rex_escape($scopeKey === 'developer' ? 'developer' : '') . '">'
+    $scopeSummaryHtml .= '<div class="klxmchat-stat-card">'
         . '<div class="label">' . rex_escape($scopeName) . '</div>'
         . '<div class="value">' . (int) $scopeSummary[$scopeKey] . '</div>'
         . '</div>';
@@ -248,8 +244,8 @@ foreach ($scopeLabels as $scopeKey => $scopeName) {
         . '<div class="row">';
 
     foreach ($modeLabels as $modeKey => $modeName) {
-        $topRows = $topQueries[$scopeKey][$modeKey] ?? [];
-        $noResultRows = $noResultQueries[$scopeKey][$modeKey] ?? [];
+        $topRows = $topQueries[$scopeKey][$modeKey];
+        $noResultRows = $noResultQueries[$scopeKey][$modeKey];
 
         $body .= '<div class="col-md-6" style="margin-bottom: 18px;">'
             . '<div class="klxmchat-stat-card-panel">'
@@ -316,7 +312,7 @@ echo '</div>';
 $hasAnyStats = false;
 foreach ($scopeLabels as $scopeKey => $scopeName) {
     foreach (array_keys($scopeModeLabels[$scopeKey]) as $modeKey) {
-        if (($topQueries[$scopeKey][$modeKey] ?? []) !== []) {
+        if ($topQueries[$scopeKey][$modeKey] !== []) {
             $hasAnyStats = true;
             break 2;
         }

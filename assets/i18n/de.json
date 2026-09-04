@@ -27,6 +27,7 @@
   "search_submit_label": "Suchen",
   "search_panel_title": "Antwort",
   "search_summary_title": "Überblick über die Bereiche",
+  "search_summary_loading": "Wird zusammengefasst…",
   "search_filter_all": "Alle",
   "search_empty_results": "Keine Treffer gefunden.",
   "search_error": "Live-Suche aktuell nicht verfügbar.",

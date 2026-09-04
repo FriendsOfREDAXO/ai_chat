@@ -21,19 +21,13 @@ class IndexCronjob extends rex_cronjob
         try {
             $service  = new IndexerService();
             $mode     = $this->getParam('mode', 'incremental');
-            $github   = (bool) $this->getParam('update_github', 1);
             $maxItems = (int) $this->getParam('max_items', 0);
             if (!in_array($maxItems, [0, 10, 25, 50, 100, 250], true)) {
                 $maxItems = 0;
             }
             $maxItemsLabel = $maxItems > 0 ? (string) $maxItems : 'unbegrenzt';
 
-            // 1. Optionally update GitHub sources
-            if ($github) {
-                $service->updateGithubSources();
-            }
-
-            // 2. Full re-index or incremental sync
+            // Full re-index or incremental sync
             if ($mode === 'full') {
                 $service->clearIndex();
                 $tasks     = $service->collectTasks();
@@ -99,13 +93,6 @@ class IndexCronjob extends rex_cronjob
                     'full'        => rex_i18n::msg('ai_chat_cronjob_mode_full'),
                 ],
                 'default' => 'incremental',
-            ],
-            [
-                'label'   => rex_i18n::msg('ai_chat_cronjob_update_github_label'),
-                'name'    => 'update_github',
-                'type'    => 'checkbox',
-                'options' => [1 => rex_i18n::msg('ai_chat_cronjob_update_github_yes')],
-                'default' => 1,
             ],
             [
                 'label'  => rex_i18n::msg('ai_chat_cronjob_max_items_label'),

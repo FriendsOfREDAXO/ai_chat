@@ -18,6 +18,10 @@ final class ChatProfile
      * @param list<string> $yformProfileIds Profil-Keys aus yform_provider_profiles (Strings, keine IDs)
      * @param list<string> $pdfMediaIds Medienpool-Dateinamen (rex_media.filename), einzeln ausgewaehlte PDFs
      * @param list<int> $pdfCategoryIds Medienpool-Kategorie-IDs, deren PDF-Dateien mit indexiert werden
+     * @param list<int> $includeProfileIds Andere Profile, deren Quellen zusaetzlich durchsucht werden -
+     *        explizites, gezieltes Teilen zwischen zwei Profilen. Seit Phase 6 (kein globaler Shared
+     *        Pool mehr) der EINZIGE Weg, Wissen zwischen Profilen zu teilen - jedes Profil ist sonst
+     *        vollstaendig isoliert und waehlt ausschliesslich eigene Quellen.
      * @param list<array{label: string, description: string, is_timely: bool, urls: list<string>}> $sitemapGroups
      *        Benannte Sitemap-Gruppen (leeres label = unbenannt) - siehe pages/profiles.php (Repeater-UI)
      *        und IndexerService::collectProfileTasks()/ai_chat_index.source_label. $description ist ein
@@ -26,6 +30,10 @@ final class ChatProfile
      *        $is_timely markiert einen Bereich als "enthält aktuelle/zeitkritische Inhalte" (z.B.
      *        News) - genutzt fürs Score-Boosting bei erkannter Aktualitäts-Anfrage UND als
      *        Prompt-Hinweis (siehe ChatQueryService::looksLikeRecencyQuery()/boostTimelyCandidates()).
+     * @param list<array{label: string, description: string, is_timely: bool, category_id: int}> $mountpointGroups
+     *        Benannte Struktur-Bereiche (Kategorie-Teilbaum), strukturell identisch zu $sitemapGroups
+     *        (nur "urls" durch ein einzelnes "category_id" ersetzt) - seit Phase 6 gleichzeitig mit
+     *        $sitemapGroups kombinierbar, kein Entweder-Oder mehr (siehe $extraSource, veraltet).
      */
     public function __construct(
         public readonly int $id,
@@ -34,28 +42,33 @@ final class ChatProfile
         public readonly int $priority,
         public readonly string $context,
         public readonly array $viewerRoles,
-        public readonly ?bool $chatEnabled,
-        public readonly ?bool $searchEnabled,
+        public readonly bool $chatEnabled,
+        public readonly bool $searchEnabled,
         public readonly string $targetMode,
         public readonly array $domains,
         public readonly array $clangs,
         public readonly bool $useSharedScope,
+        public readonly array $includeProfileIds,
         public readonly string $extraSource,
         public readonly array $yformProfileIds,
         public readonly array $pdfMediaIds,
         public readonly array $pdfCategoryIds,
         public readonly array $sitemapGroups,
+        public readonly array $mountpointGroups,
         public readonly ?int $mountpointCategoryId,
         public readonly ?string $customPrompt,
         public readonly string $uiLanguage,
         public readonly ?string $answerLanguage,
         public readonly ?string $greeting,
-        public readonly ?string $addressingMode,
-        public readonly ?string $personalizationMode,
-        public readonly ?bool $suggestFollowupQuestions,
-        public readonly ?bool $showSources,
+        public readonly string $addressingMode,
+        public readonly string $personalizationMode,
+        public readonly bool $suggestFollowupQuestions,
+        public readonly bool $showSources,
         public readonly int $chatResetCountdown,
         public readonly bool $chatCopyHistory,
+        public readonly bool $faqPrecacheEnabled,
+        /** @var list<string> */
+        public readonly array $faqPrecacheQuestions,
         // NULL = globales Standard-Theme verwenden (siehe ThemeRepository, ProfileTheme) -
         // Farben/Avatar/Eckenradius kamen frueher aus den (jetzt geloeschten) theme_*-
         // Farbfeldern direkt auf diesem Objekt, siehe Git-Historie.
@@ -78,28 +91,32 @@ final class ChatProfile
             priority: (int) $row['priority'],
             context: (string) $row['context'],
             viewerRoles: self::decodeStringList($row['viewer_roles'] ?? null),
-            chatEnabled: self::decodeTriStateBool($row['chat_enabled'] ?? null),
-            searchEnabled: self::decodeTriStateBool($row['search_enabled'] ?? null),
+            chatEnabled: '0' !== (string) ($row['chat_enabled'] ?? '1'),
+            searchEnabled: '0' !== (string) ($row['search_enabled'] ?? '1'),
             targetMode: (string) $row['target_mode'],
             domains: self::decodeStringList($row['domains'] ?? null),
             clangs: self::decodeIntList($row['clangs'] ?? null),
             useSharedScope: (bool) $row['use_shared_scope'],
+            includeProfileIds: self::decodeIntList($row['include_profile_ids'] ?? null),
             extraSource: (string) $row['extra_source'],
             yformProfileIds: self::decodeStringList($row['yform_profile_ids'] ?? null),
             pdfMediaIds: self::decodeCommaList($row['pdf_media_ids'] ?? null),
             pdfCategoryIds: self::decodeIntList($row['pdf_category_ids'] ?? null),
             sitemapGroups: self::decodeSitemapGroups($row['sitemap_groups'] ?? null),
+            mountpointGroups: self::decodeMountpointGroups($row['mountpoint_groups'] ?? null),
             mountpointCategoryId: null !== $row['mountpoint_category_id'] ? (int) $row['mountpoint_category_id'] : null,
             customPrompt: self::nullableString($row['custom_prompt'] ?? null),
             uiLanguage: (string) $row['ui_language'],
             answerLanguage: self::nullableString($row['answer_language'] ?? null),
             greeting: self::nullableString($row['greeting'] ?? null),
-            addressingMode: self::nullableString($row['addressing_mode'] ?? null),
-            personalizationMode: self::nullableString($row['personalization_mode'] ?? null),
-            suggestFollowupQuestions: self::decodeTriStateBool($row['suggest_followup_questions'] ?? null),
-            showSources: self::decodeTriStateBool($row['show_sources'] ?? null),
+            addressingMode: '' !== (string) ($row['addressing_mode'] ?? '') ? (string) $row['addressing_mode'] : 'neutral',
+            personalizationMode: '' !== (string) ($row['personalization_mode'] ?? '') ? (string) $row['personalization_mode'] : 'off',
+            suggestFollowupQuestions: '0' !== (string) ($row['suggest_followup_questions'] ?? '1'),
+            showSources: '0' !== (string) ($row['show_sources'] ?? '1'),
             chatResetCountdown: (int) $row['chat_reset_countdown'],
             chatCopyHistory: (bool) $row['chat_copy_history'],
+            faqPrecacheEnabled: (bool) ($row['faq_precache_enabled'] ?? false),
+            faqPrecacheQuestions: self::decodeLines($row['faq_precache_questions'] ?? null),
             themeId: null !== ($row['theme_id'] ?? null) ? (int) $row['theme_id'] : null,
             themePosition: self::nullableString($row['theme_position'] ?? null),
         );
@@ -235,6 +252,21 @@ final class ChatProfile
     }
 
     /**
+     * Eine Frage pro Zeile (FAQ-Vorcache-Textarea, siehe pages/profiles.php) - kein Pipe-/
+     * JSON-Format wie die anderen Mehrfachfelder, da Fragen selbst Kommas/Pipes enthalten.
+     *
+     * @return list<string>
+     */
+    private static function decodeLines(mixed $raw): array
+    {
+        if (!is_string($raw) || '' === trim($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', preg_split('/[\r\n]+/', $raw) ?: [])));
+    }
+
+    /**
      * @return list<array{label: string, description: string, is_timely: bool, urls: list<string>}>
      */
     private static function decodeSitemapGroups(mixed $raw): array
@@ -280,15 +312,39 @@ final class ChatProfile
     }
 
     /**
-     * Tri-State: null = geerbt/globale Einstellung entscheidet, sonst der explizite Wert.
-     * Spalte ist varchar statt tinyint, damit "geerbt" ein echtes leeres Feld sein kann.
+     * @return list<array{label: string, description: string, is_timely: bool, category_id: int}>
      */
-    private static function decodeTriStateBool(mixed $raw): ?bool
+    private static function decodeMountpointGroups(mixed $raw): array
     {
-        if (!is_string($raw) || '' === $raw) {
-            return null;
+        if (!is_string($raw) || '' === trim($raw)) {
+            return [];
         }
 
-        return '1' === $raw;
+        /** @var mixed $decoded */
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $groups = [];
+        foreach ($decoded as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            $categoryId = (int) ($group['category_id'] ?? 0);
+            if ($categoryId <= 0) {
+                continue;
+            }
+
+            $groups[] = [
+                'label' => trim((string) ($group['label'] ?? '')),
+                'description' => trim((string) ($group['description'] ?? '')),
+                'is_timely' => (bool) ($group['is_timely'] ?? false),
+                'category_id' => $categoryId,
+            ];
+        }
+
+        return $groups;
     }
 }

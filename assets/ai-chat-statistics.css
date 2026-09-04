@@ -76,10 +76,6 @@ body.rex-theme-dark .klxmchat-statistics-shell {
     min-height: 110px;
 }
 
-.klxmchat-stat-card.developer {
-    border-left-color: var(--klxm-stat-purple);
-}
-
 .klxmchat-stat-card .label {
     display: inline-block;
     font-size: 11px;

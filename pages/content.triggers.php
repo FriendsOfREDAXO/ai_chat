@@ -1,5 +1,7 @@
 <?php
 
+use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
+
 $func = rex_request('func', 'string');
 $id = rex_request('id', 'int');
 
@@ -17,9 +19,8 @@ if ($func == 'add' || $func == 'edit') {
     $form->addParam('id', $id);
 
     $form->addRawField(rex_view::info(
-        'Trigger gelten immer <strong>global</strong>, unabhängig vom Profil und egal ob Chat, Suche oder '
-        . 'Backend-Chat (Developer) - anders als z.B. die Profile unter AI Chat → Profile, die nur fürs '
-        . 'Frontend gelten und je nach Domain/Sprache unterschiedlich sein können.'
+        'Sobald die Anfrage des Besuchers das Keyword enthält, wird die Zusatz-Antwort unten an die KI-Antwort '
+        . 'angehängt - unabhängig davon, ob dieselbe Information bereits über den Kontext gefunden würde.'
     ));
 
     $field = $form->addTextField('keyword');
@@ -30,13 +31,23 @@ if ($func == 'add' || $func == 'edit') {
     $field->setLabel('Zusatz-Antwort');
     $field->setNotice('Dieser Text wird unverändert (nicht durch die KI umformuliert) an die KI-Antwort angehängt - z.B. für Öffnungszeiten oder Kontaktdaten, die exakt so und nicht paraphrasiert erscheinen sollen. Markdown ist erlaubt (z.B. Tabellen, Überschriften, **fett**).');
 
+    $profiles = (new ProfileRepository())->getAll();
+    $field = $form->addSelectField('profile_id');
+    $field->setLabel('Gilt für Profil');
+    $select = $field->getSelect();
+    $select->addOption('Alle Profile', '');
+    foreach ($profiles as $triggerProfile) {
+        $select->addOption($triggerProfile->name, (string) $triggerProfile->id);
+    }
+    $field->setNotice('"Alle Profile" = global, wie bisher. Eine Auswahl beschränkt diesen Trigger auf genau ein Profil.');
+
     if ($func == 'add') {
         $form->addHiddenField('created_at', date('Y-m-d H:i:s'));
     }
     $form->addHiddenField('updated_at', date('Y-m-d H:i:s'));
 
     $content = $form->get();
-    
+
     $fragment = new rex_fragment();
     $fragment->setVar('class', 'edit', false);
     $fragment->setVar('title', ($func == 'edit') ? 'Trigger bearbeiten' : 'Neuen Trigger erstellen');
@@ -44,18 +55,33 @@ if ($func == 'add' || $func == 'edit') {
     echo $fragment->parse('core/page/section.php');
 
 } else {
-    $list = rex_list::factory('SELECT id, keyword, content FROM ' . rex::getTable('ai_chat_triggers') . ' ORDER BY keyword ASC');
+    $profileNames = [];
+    foreach ((new ProfileRepository())->getAll() as $listProfile) {
+        $profileNames[$listProfile->id] = $listProfile->name;
+    }
+
+    $list = rex_list::factory('SELECT id, keyword, content, profile_id FROM ' . rex::getTable('ai_chat_triggers') . ' ORDER BY keyword ASC');
     $list->addTableAttribute('class', 'table-striped');
-    
+
     $tdIcon = '<i class="rex-icon rex-icon-edit"></i>';
     $thIcon = '<a href="' . $list->getUrl(['func' => 'add']) . '" title="Hinzufügen"><i class="rex-icon rex-icon-add-module"></i></a>';
-    
+
     $list->addColumn($thIcon, $tdIcon, 0, ['<th class="rex-table-icon">###VALUE###</th>', '<td class="rex-table-icon">###VALUE###</td>']);
     $list->setColumnParams($thIcon, ['func' => 'edit', 'id' => '###id###']);
-    
+
     $list->setColumnLabel('keyword', 'Keyword');
     $list->setColumnLabel('content', 'Antwort-Zusatz');
-    
+
+    $list->setColumnLabel('profile_id', 'Profil');
+    $list->setColumnFormat('profile_id', 'custom', static function (array $params) use ($profileNames): string {
+        $profileId = $params['list']->getValue('profile_id');
+        if (empty($profileId)) {
+            return '<span class="text-muted">Alle Profile</span>';
+        }
+
+        return rex_escape($profileNames[(int) $profileId] ?? ('#' . $profileId));
+    });
+
     $list->addColumn('delete', '<i class="rex-icon rex-icon-delete"></i> Löschen', -1, ['', '<td class="rex-table-action">###VALUE###</td>']);
     $list->setColumnParams('delete', ['func' => 'delete', 'id' => '###id###']);
     $list->addLinkAttribute('delete', 'data-confirm', 'Wirklich löschen?');

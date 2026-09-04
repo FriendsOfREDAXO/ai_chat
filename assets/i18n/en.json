@@ -27,6 +27,7 @@
   "search_submit_label": "Search",
   "search_panel_title": "Answer",
   "search_summary_title": "Overview across areas",
+  "search_summary_loading": "Summarizing…",
   "search_filter_all": "All",
   "search_empty_results": "No results found.",
   "search_error": "Live search is currently unavailable.",

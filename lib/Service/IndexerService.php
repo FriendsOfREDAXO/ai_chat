@@ -40,6 +40,13 @@ class IndexerService
     }
 
     /**
+     * Seit Phase 6 (kein globaler Shared Pool mehr) gibt es keine globale Struktur-/
+     * Sitemap-/PDF-Indexierung und keine AddOn-/GitHub-Docs-Quelle im Kern mehr - jedes
+     * Profil waehlt ausschliesslich eigene Quellen (siehe collectProfileTasks()).
+     * Drittanbieter-Provider ueber die AI_CHAT_CONTENT_PROVIDERS-Extension-Point (z.B.
+     * "forcal") bleiben als einzige globale, profil-unabhaengige Quelle bestehen - ihre
+     * Aktivierung ist bewusst weiterhin unveraendert (siehe ContentProviderRegistry).
+     *
      * @return list<array<string, mixed>>
      */
     public function collectTasks(): array
@@ -47,176 +54,6 @@ class IndexerService
         $tasks = [];
         $addon = \rex_addon::get('ai_chat');
 
-        $indexSource = $addon->getConfig('index_source', 'structure');
-        $includeStructure = in_array($indexSource, ['structure', 'structure_sitemap'], true);
-        $includeSitemap = in_array($indexSource, ['sitemap', 'structure_sitemap'], true);
-        $sitemapOnlyMode = $includeSitemap && !$includeStructure;
-
-        // 1. Collect Frontend Content (either via structure or sitemap)
-        if ($includeSitemap) {
-            $allUrls = [];
-            foreach (self::parseSitemapUrls((string) $addon->getConfig('index_sitemap_url', '')) as $sitemapUrl) {
-                $allUrls = array_merge($allUrls, $this->fetchSitemapUrls($sitemapUrl));
-            }
-
-            // Mehrere Sitemaps können sich überlappende Seiten liefern (z.B. eine
-            // Haupt- und eine Bereichs-Sitemap) - einmal über alle hinweg dedupen,
-            // statt jede URL pro Sitemap erneut zu indizieren.
-            foreach (array_unique($allUrls) as $url) {
-                $tasks[] = [
-                    'type' => 'url',
-                    'url'  => $url
-                ];
-            }
-        }
-
-        if ($includeStructure) {
-            // Standard REDAXO structure collection
-            // Default to true if not set (first install)
-            if ((bool) $addon->getConfig('index_frontend', 1)) {
-                $clangs = rex_clang::getAllIds();
-
-                // Article status filter
-                $articleStatus = $addon->getConfig('index_article_status', 'online');
-                $where = match ($articleStatus) {
-                    'all'     => '1=1',
-                    'offline' => 'status = 0',
-                    default   => 'status = 1',   // 'online'
-                };
-
-                // Exclude individual articles
-                $excludeArticles = [];
-                $excludeArticleConfig = $addon->getConfig('index_exclude_articles');
-                if (!empty($excludeArticleConfig)) {
-                    $excludeArticles = array_filter(array_map('intval', explode(',', $excludeArticleConfig)));
-                }
-
-                // Exclude categories (incl. all subcategories recursively)
-                $excludeCategoryIds = [];
-                $excludeCatConfig = $addon->getConfig('index_exclude_categories');
-                if (!empty($excludeCatConfig)) {
-                    $rootIds = [];
-                    if (is_array($excludeCatConfig)) {
-                        $rootIds = array_map('intval', $excludeCatConfig);
-                    } else {
-                        $split = preg_split('/[\s,|]+/', (string) $excludeCatConfig);
-                        $rootIds = array_filter(array_map('intval', is_array($split) ? $split : []));
-                    }
-
-                    foreach ($rootIds as $catId) {
-                        $excludeCategoryIds = array_merge($excludeCategoryIds, $this->getCategoryIdsRecursive($catId));
-                    }
-                    $excludeCategoryIds = array_unique($excludeCategoryIds);
-                }
-
-                // yrewrite steuert pro Artikel Indexierbarkeit/Sitemap-Sichtbarkeit über das
-                // Metainfo-Feld 'yrewrite_index' (siehe rex_yrewrite_seo::sendSitemap()). Bei der
-                // internen (nicht HTTP-Crawler-)Indexierung soll ein Artikel, den yrewrite selbst
-                // aus Sitemap/Suchmaschinen-Index ausschließt, standardmäßig auch hier ausgeschlossen werden.
-                $respectYrewriteSeo = (bool) $addon->getConfig('index_respect_yrewrite_seo', 1)
-                    && \rex_addon::get('yrewrite')->isAvailable();
-
-                foreach ($clangs as $clangId) {
-                    $articleSql = rex_sql::factory();
-                    $articleSql->setQuery(
-                        'SELECT id, parent_id FROM ' . \rex::getTable('article') . ' WHERE ' . $where . ' AND clang_id = ?',
-                        [$clangId]
-                    );
-
-                    foreach ($articleSql as $row) {
-                        $id         = (int) $row->getValue('id');
-                        $categoryId = (int) $row->getValue('parent_id');
-
-                        // Skip excluded articles
-                        if (in_array($id, $excludeArticles, true)) {
-                            continue;
-                        }
-
-                        // Skip articles in excluded categories. Der Start-Artikel einer Kategorie
-                        // hat parent_id = Elternkategorie, aber seine eigene Artikel-id === Kategorie-id
-                        // (siehe rex_article::getCategoryId()/isStartArticle()) - deshalb muss zusätzlich
-                        // die eigene id geprüft werden, sonst wird der Start-Artikel einer ausgeschlossenen
-                        // Kategorie selbst nie ausgeschlossen.
-                        if (!empty($excludeCategoryIds) && (in_array($categoryId, $excludeCategoryIds, true) || in_array($id, $excludeCategoryIds, true))) {
-                            continue;
-                        }
-
-                        if ($respectYrewriteSeo && $this->isExcludedByYrewriteSeo($id, $clangId)) {
-                            continue;
-                        }
-
-                        $tasks[] = [
-                            'type'  => 'article',
-                            'id'    => $id,
-                            'clang' => $clangId,
-                        ];
-                    }
-                }
-            }
-        }
-
-        // 2. Collect Addon Docs (unabhängig von index_source, eigene Zusatzquelle)
-        $addonMode = $addon->getConfig('index_addons_mode', 'all');
-
-        if ($addonMode !== 'none') {
-            $selectedAddons = [];
-            if ($addonMode === 'selected') {
-                $list = $addon->getConfig('index_addons_list');
-                if (is_string($list)) {
-                    // Handle pipe separated string |addon1|addon2|
-                    $selectedAddons = array_filter(explode('|', $list));
-                } elseif (is_array($list)) {
-                    $selectedAddons = $list;
-                }
-            }
-
-            $addons = \rex_addon::getAvailableAddons();
-            foreach ($addons as $a) {
-                $addonKey = $a->getPackageId();
-                
-                // Skip if mode is selected and addon is not in list
-                if ($addonMode === 'selected' && !in_array($addonKey, $selectedAddons)) {
-                    continue;
-                }
-
-                $path = $a->getPath();
-                
-                // Root files
-                $files = ['README.md', 'README.de.md', 'API.md', 'CHANGELOG.md'];
-                foreach ($files as $file) {
-                    if (file_exists($path . $file)) {
-                        $tasks[] = [
-                            'type' => 'file',
-                            'path' => $path . $file,
-                            'addon' => $addonKey,
-                            'relPath' => $file
-                        ];
-                    }
-                }
-
-                // Docs directory
-                if (is_dir($path . 'docs')) {
-                    $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path . 'docs'));
-                    foreach ($iterator as $fileInfo) {
-                        if ($fileInfo->isFile() && $fileInfo->getExtension() === 'md') {
-                            $relativePath = str_replace($path, '', $fileInfo->getPathname());
-                            $tasks[] = [
-                                'type' => 'file',
-                                'path' => $fileInfo->getPathname(),
-                                'addon' => $addonKey,
-                                'relPath' => $relativePath
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3. Collect GitHub Docs (unabhängig von index_source, eigene Zusatzquelle)
-        $githubTasks = $this->collectGithubTasks();
-        $tasks = array_merge($tasks, $githubTasks);
-
-        // 4. Collect optional content providers (e.g. forcal)
         foreach ($this->providerRegistry->getEnabledProviders($addon) as $provider) {
             try {
                 $tasks = array_merge($tasks, $provider->collectTasks());
@@ -225,33 +62,18 @@ class IndexerService
             }
         }
 
-        // 4b. PDF-Dokumente aus dem Medienpool (global konfiguriert, siehe
-        // pages/settings.indexing.php) - bewusst NICHT ueber getEnabledProviders()
-        // oben, da die Auswahl selbst (Dateien/Kategorien) die Aktivierung ist,
-        // kein separates Checkbox-"aktivieren" noetig - exakt dasselbe Muster wie
-        // bei der profil-eigenen PDF-Auswahl unten in collectProfileTasks().
-        // MediaPoolContentProvider::collectTasks() liefert von sich aus [], wenn
-        // global keine PDFs konfiguriert sind.
-        try {
-            $tasks = array_merge($tasks, (new MediaPoolContentProvider())->collectTasks());
-        } catch (\Throwable $e) {
-            \rex_logger::logException($e);
-        }
-
-        // 5. Profil-eigene Quellen (YForm-Auswahl/Sitemap/Mountpoint je Profil) -
-        // zusaetzlich zum obigen Shared Pool, mit chat_profile_id markiert.
         $tasks = array_merge($tasks, $this->collectProfileTasks());
 
-        $modeLabel = $sitemapOnlyMode ? 'sitemap-plus-providers' : $indexSource;
-        \rex_logger::factory()->info('AiChat Indexer: Collected {count} tasks ({mode}).', ['count' => count($tasks), 'mode' => $modeLabel]);
+        \rex_logger::factory()->info('AiChat Indexer: Collected {count} tasks.', ['count' => count($tasks)]);
 
         return $tasks;
     }
 
     /**
      * Sammelt Tasks für profil-eigene Quellen (siehe ChatProfile::$yformProfileIds/
-     * $extraSource/$sitemapGroups/$mountpointCategoryId) - zusätzlich zum globalen
-     * Shared Pool oben. Jeder Task bekommt 'chat_profile_id' (ID aus
+     * $sitemapGroups/$mountpointGroups/$pdfMediaIds/$pdfCategoryIds) - seit Phase 6 die
+     * EINZIGE Quelle profilgebundener Tasks, alle gleichzeitig kombinierbar. Jeder Task
+     * bekommt 'chat_profile_id' (ID aus
      * `ai_chat_profile`, NICHT zu verwechseln mit dem YForm-Mapping-'profile_id'-
      * Schlüssel, den YformContentProvider/processTask() für ihre eigenen,
      * string-basierten Profile verwenden), damit processTask() den fertigen
@@ -288,7 +110,7 @@ class IndexerService
                 }
             }
 
-            if ('sitemap' === $profile->extraSource && [] !== $profile->sitemapGroups) {
+            if ([] !== $profile->sitemapGroups) {
                 foreach ($profile->sitemapGroups as $group) {
                     $groupUrls = [];
                     foreach ($group['urls'] as $sitemapUrl) {
@@ -309,14 +131,18 @@ class IndexerService
                 }
             }
 
-            if ('mountpoint' === $profile->extraSource && null !== $profile->mountpointCategoryId && $profile->mountpointCategoryId > 0) {
+            // Mehrere benannte Struktur-Bereiche, seit Phase 6 gleichzeitig mit den
+            // Sitemap-Gruppen oben nutzbar (kein extraSource-Entweder-Oder mehr).
+            foreach ($profile->mountpointGroups as $group) {
+                $label = '' !== $group['label'] ? $group['label'] : null;
                 foreach (rex_clang::getAllIds() as $clangId) {
-                    foreach ($this->collectArticlesUnderCategory($profile->mountpointCategoryId, $clangId) as $articleId) {
+                    foreach ($this->collectArticlesUnderCategory($group['category_id'], $clangId) as $articleId) {
                         $tasks[] = [
                             'type' => 'article',
                             'id' => $articleId,
                             'clang' => $clangId,
                             'chat_profile_id' => $profile->id,
+                            'source_label' => $label,
                         ];
                     }
                 }
@@ -328,7 +154,7 @@ class IndexerService
 
     /**
      * Alle Artikel-IDs unterhalb (inkl.) einer Kategorie, für eine bestimmte
-     * Sprache - Grundlage für ein Profil mit `extra_source = mountpoint`.
+     * Sprache - Grundlage für einen Eintrag in `$profile->mountpointGroups`.
      * Nutzt dieselbe rekursive Kategorie-Baum-Logik wie die bestehenden
      * Kategorie-Ausschlüsse (getCategoryIdsRecursive()).
      *
@@ -410,16 +236,6 @@ class IndexerService
                     $article = rex_article::get($task['id'], $task['clang']);
                     if (!$article) continue;
                     $currentUpdateDate = $article->getUpdateDate();
-                } elseif ($task['type'] === 'file') {
-                    $sourceType = 'addon_docs';
-                    $sourceId = $task['addon'] . '/' . $task['relPath'];
-                    if (!file_exists($task['path'])) continue;
-                    $currentUpdateDate = filemtime($task['path']);
-                } elseif ($task['type'] === 'github_file') {
-                    $sourceType = 'github_docs';
-                    $sourceId = 'github:' . $task['repo'] . '/' . $task['relPath'];
-                    if (!file_exists($task['path'])) continue;
-                    $currentUpdateDate = filemtime($task['path']);
                 } elseif ($task['type'] === 'url') {
                     $sourceType = 'sitemap_url';
                     $sourceId = $task['url'];
@@ -508,183 +324,6 @@ class IndexerService
     }
 
     /**
-     * @return array{status: string, message?: string, messages?: list<string>}
-     */
-    public function updateGithubSources(): array
-    {
-        $reposConfig = \rex_addon::get('ai_chat')->getConfig('github_repos');
-        if (empty($reposConfig)) return ['status' => 'error', 'message' => 'No repos configured'];
-
-        $repos = explode("\n", $reposConfig);
-        $targetBaseDir = \rex_path::addonData('ai_chat', 'github_repos');
-        
-        if (!is_dir($targetBaseDir)) {
-            \rex_dir::create($targetBaseDir);
-        }
-
-        $results = [];
-
-        foreach ($repos as $repo) {
-            $repo = trim($repo);
-            if (empty($repo)) continue;
-            
-            try {
-                $this->downloadRepo($repo, $targetBaseDir);
-                $results[] = "Updated $repo";
-            } catch (\Exception $e) {
-                $results[] = "Failed $repo: " . $e->getMessage();
-                \rex_logger::logException($e);
-            }
-        }
-        
-        return ['status' => 'success', 'messages' => $results];
-    }
-
-    private function downloadRepo(string $repo, string $baseDir): void
-    {
-        $token = \rex_addon::get('ai_chat')->getConfig('github_token');
-        $zipPath = $baseDir . '/temp.zip';
-        
-        // Try main branch first
-        $url = "https://github.com/$repo/archive/refs/heads/main.zip";
-        if (!$this->downloadFile($url, $zipPath, $token)) {
-            // Try master branch
-            $url = "https://github.com/$repo/archive/refs/heads/master.zip";
-            if (!$this->downloadFile($url, $zipPath, $token)) {
-                throw new \Exception("Could not download ZIP for $repo (tried main and master)");
-            }
-        }
-
-        $zip = new \ZipArchive;
-        if ($zip->open($zipPath) === TRUE) {
-            $extractPath = $baseDir . '/temp_extract_' . md5($repo);
-            \rex_dir::create($extractPath);
-            $zip->extractTo($extractPath);
-            $zip->close();
-            
-            $folders = glob($extractPath . '/*', GLOB_ONLYDIR);
-            $folders = is_array($folders) ? $folders : [];
-            if (count($folders) > 0) {
-                $innerFolder = $folders[0];
-                $repoTargetDir = $baseDir . '/' . $repo;
-                
-                \rex_dir::delete($repoTargetDir);
-                
-                // Ensure parent dir exists (e.g. owner)
-                $repoParts = explode('/', $repo);
-                if (count($repoParts) === 2) {
-                     \rex_dir::create($baseDir . '/' . $repoParts[0]);
-                }
-
-                // Use rex_dir::copy instead of rename
-                \rex_dir::copy($innerFolder, $repoTargetDir);
-            }
-            
-            \rex_dir::delete($extractPath);
-            unlink($zipPath);
-        } else {
-            throw new \Exception("Failed to open ZIP for $repo");
-        }
-    }
-
-    private function downloadFile(string $url, string $destination, ?string $token = null): bool
-    {
-        try {
-            if ($url === '') {
-                throw new \Exception('Download URL is empty');
-            }
-
-            if (!function_exists('curl_init')) {
-                throw new \Exception('cURL extension is required');
-            }
-
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'REDAXO-AiChat');
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-            
-            $headers = [
-                'Accept: application/zip, application/octet-stream, */*',
-                'Cache-Control: no-cache'
-            ];
-            if ($token) {
-                $headers[] = 'Authorization: token ' . trim($token);
-            }
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-            $content = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $error = curl_error($ch);
-            curl_close($ch);
-
-            if ($content === false || $httpCode !== 200 || !empty($error)) {
-                if ($httpCode === 403) {
-                    throw new \Exception("GitHub API 403 Forbidden");
-                }
-                if ($httpCode === 404) {
-                    return false; // Not found, try next branch
-                }
-                throw new \Exception("Download failed: HTTP $httpCode " . ($error ? "($error)" : ""));
-            }
-
-            return \rex_file::put($destination, (string) $content);
-        } catch (\Exception $e) {
-            \rex_logger::logException($e);
-            return false;
-        }
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function collectGithubTasks(): array
-    {
-        $tasks = [];
-        $reposConfig = \rex_addon::get('ai_chat')->getConfig('github_repos');
-        
-        if (empty($reposConfig)) {
-            return [];
-        }
-
-        $repos = explode("\n", $reposConfig);
-        $baseDir = \rex_path::addonData('ai_chat', 'github_repos');
-
-        foreach ($repos as $repo) {
-            $repo = trim($repo);
-            if (empty($repo)) continue;
-
-            $repoDir = $baseDir . '/' . $repo;
-            if (!is_dir($repoDir)) continue;
-
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($repoDir));
-            foreach ($iterator as $fileInfo) {
-                // Skip hidden files/dirs starting with .
-                if (str_starts_with($fileInfo->getFilename(), '.')) continue;
-                
-                if ($fileInfo->isFile() && $fileInfo->getExtension() === 'md') {
-                    $relativePath = str_replace($repoDir . '/', '', $fileInfo->getPathname());
-                    
-                    $tasks[] = [
-                        'type' => 'github_file',
-                        'repo' => $repo,
-                        'path' => $fileInfo->getPathname(),
-                        'relPath' => $relativePath,
-                        'html_url' => "https://github.com/$repo/blob/main/" . $relativePath
-                    ];
-                }
-            }
-        }
-
-        return $tasks;
-    }
-
-    /**
      * @param array<string, mixed> $task
      * @return array{title: string, chunks: int, error: string|null}
      */
@@ -709,12 +348,6 @@ class IndexerService
                          // indexArticle should throw if it really fails
                     }
                 }
-            } elseif ($type === 'file') {
-                $result['title'] = $task['addon'] . ': ' . $task['relPath'];
-                $result['chunks'] = $this->indexFile($task['path'], $task['addon'], $task['relPath']);
-            } elseif ($type === 'github_file') {
-                $result['title'] = $task['repo'] . '/' . $task['relPath'];
-                $result['chunks'] = $this->indexGithubFile($task);
             } elseif ($type === 'url') {
                 $result['title'] = $task['url'];
                 $sourceLabel = isset($task['source_label']) && is_string($task['source_label']) && '' !== $task['source_label'] ? $task['source_label'] : null;
@@ -824,60 +457,10 @@ class IndexerService
         return $chunkCount;
     }
 
-    /**
-     * @param array<string, mixed> $task
-     */
-    private function indexGithubFile(array $task): int
-    {
-        $chunkCount = 0;
-        try {
-            $content = \rex_file::get($task['path']);
-            if (empty($content)) return 0;
-
-            $cleanText = $this->cleanText($content);
-
-            if (empty($cleanText)) return 0;
-
-            $chunks = $this->chunkText($cleanText);
-
-            if ($chunks !== []) {
-                $semanticChunks = [];
-                foreach ($chunks as $chunk) {
-                    $semanticChunks[] = $this->prepareEmbeddingText($chunk, $task['relPath'] ?? '', $task['html_url'] ?? '', 'github_docs');
-                }
-                $embeddings = $this->aiService->getEmbeddings($semanticChunks);
-
-                foreach ($chunks as $i => $chunk) {
-                    $embedding = $embeddings[$i] ?? null;
-                    if ($embedding === null) {
-                        continue;
-                    }
-
-                    $sql = rex_sql::factory();
-                    $sql->setTable(\rex::getTable('ai_chat_index'));
-                    $sql->setValue('source_type', 'github_docs');
-                    $sql->setValue('source_id', 'github:' . $task['repo'] . '/' . $task['relPath']);
-                    // Kein Chunk-Index-Suffix - siehe Kommentar bei processTask() weiter oben.
-                    $sql->setValue('title', $task['repo'] . ': ' . $task['relPath']);
-                    $sql->setValue('content', $chunk);
-                    $this->setEmbeddingColumns($sql, $embedding);
-                    $sql->setValue('url', $task['html_url']);
-                    $sql->setDateTimeValue('updatedate', time());
-                    $sql->insert();
-                    ++$chunkCount;
-                }
-            }
-        } catch (\Exception $e) {
-            // Re-throw or log and throw
-            \rex_logger::logException($e);
-            throw $e;
-        }
-        return $chunkCount;
-    }
 
     /**
-     * Runs a complete reindex (GitHub-Quellen aktualisieren -> Index leeren ->
-     * Aufgaben sammeln -> jede Aufgabe verarbeiten) in einem Rutsch. Genutzt vom
+     * Runs a complete reindex (Index leeren -> Aufgaben sammeln -> jede Aufgabe
+     * verarbeiten) in einem Rutsch. Genutzt vom
      * Konsolenbefehl und vom Hintergrund-Worker (Api\ReindexWorker) - beide
      * brauchen dieselbe vollständige Pipeline wie der browsergesteuerte
      * AJAX-Ablauf, nur ohne dass der Browser jede einzelne Aufgabe selbst anstößt.
@@ -892,12 +475,6 @@ class IndexerService
      */
     public function runFull(?callable $onProgress = null, ?callable $shouldStop = null): array
     {
-        // Gleiche Bedingung wie im browsergesteuerten Ablauf (ai-chat-indexer.js
-        // handleStart()): im reinen "sitemap"-Modus wird der GitHub-Sync bewusst
-        // übersprungen, "structure_sitemap" und "structure" führen ihn weiterhin aus.
-        if ('sitemap' !== \rex_addon::get('ai_chat')->getConfig('index_source', 'structure')) {
-            $this->updateGithubSources();
-        }
         $this->clearIndex();
 
         $tasks = $this->collectTasks();
@@ -963,54 +540,10 @@ class IndexerService
 
         return match ($type) {
             'article' => 'Artikel ' . ($task['id'] ?? '?') . ' (Sprache ' . ($task['clang'] ?? '?') . ')',
-            'file' => 'Addon-Dok: ' . ($task['addon'] ?? '?') . '/' . ($task['relPath'] ?? '?'),
-            'github_file' => 'GitHub: ' . ($task['repo'] ?? '?') . '/' . ($task['relPath'] ?? '?'),
             'url' => 'Sitemap: ' . ($task['url'] ?? '?'),
             'provider_item' => 'Provider ' . ($task['provider'] ?? '?') . ': ' . ($task['title'] ?? $task['source_id'] ?? '?'),
             default => '' !== $type ? $type : 'Element',
         };
-    }
-
-    private function indexFile(string $filePath, string $addonKey, string $relativePath): int
-    {
-        $chunkCount = 0;
-        $content = \rex_file::get($filePath);
-        if (empty($content)) return 0;
-
-        $cleanText = $this->cleanText($content);
-
-        if (empty($cleanText)) return 0;
-
-        $chunks = $this->chunkText($cleanText);
-        if ($chunks === []) {
-            return 0;
-        }
-
-        $semanticChunks = [];
-        foreach ($chunks as $chunk) {
-            $semanticChunks[] = $this->prepareEmbeddingText($chunk, $relativePath, '', 'addon_docs');
-        }
-        $embeddings = $this->aiService->getEmbeddings($semanticChunks);
-
-        foreach ($chunks as $i => $chunk) {
-            $embedding = $embeddings[$i] ?? null;
-            if ($embedding === null) {
-                continue;
-            }
-
-            $sql = rex_sql::factory();
-            $sql->setTable(\rex::getTable('ai_chat_index'));
-            $sql->setValue('source_type', 'addon_docs');
-            $sql->setValue('source_id', $addonKey . '/' . $relativePath);
-            // Kein Chunk-Index-Suffix - siehe Kommentar bei processTask() weiter oben.
-            $sql->setValue('title', $addonKey . ': ' . $relativePath);
-            $sql->setValue('content', $chunk);
-            $this->setEmbeddingColumns($sql, $embedding);
-            $sql->setDateTimeValue('updatedate', time());
-            $sql->insert();
-            ++$chunkCount;
-        }
-        return $chunkCount;
     }
 
     private function indexUrl(string $url, ?int $chatProfileId = null, ?string $sourceLabel = null): int
@@ -1037,56 +570,12 @@ class IndexerService
                 $title = $titleNode ? $titleNode->textContent : '';
             }
 
-            // Ausschluss-Selektoren (z.B. Navigation, Off-Canvas-Menue, Cookie-Banner) VOR der
-            // Haupt-Selektor-Extraktion aus dem DOM entfernen - cleanText() strippt zwar bereits
-            // <nav>/<header>/<footer>/<form>/<button>, erkennt aber z.B. ein UIkit-Off-Canvas-Menue
-            // (<div id="sidebar-navi" ...>) nicht, das kein <nav>-Tag ist. War dieselbe Einstellung
-            // wie processTask()s eigener HTTP-Crawl-Zweig (index_http_exclude_selectors), dort
-            // aber schon laenger verdrahtet - hier bisher schlicht nie ausgewertet.
-            $excludeSelectors = \rex_addon::get('ai_chat')->getConfig('index_http_exclude_selectors', '');
-            if ('' !== trim((string) $excludeSelectors)) {
-                $excludeXpath = new \DOMXPath($dom);
-                foreach ($this->splitSelectorList((string) $excludeSelectors) as $excludeSelector) {
-                    $excludeNodes = $excludeXpath->query($this->cssSelectorToXpath($excludeSelector));
-                    if (!$excludeNodes instanceof \DOMNodeList) {
-                        continue;
-                    }
-                    // Rueckwaerts entfernen, da removeChild() die (live) NodeList sonst veraendert.
-                    for ($ei = $excludeNodes->length - 1; $ei >= 0; --$ei) {
-                        $excludeNode = $excludeNodes->item($ei);
-                        if ($excludeNode instanceof \DOMNode && $excludeNode->parentNode !== null) {
-                            $excludeNode->parentNode->removeChild($excludeNode);
-                        }
-                    }
-                }
-            }
-
-            // Extract content source (HTML) - unterstuetzt wie processTask()s HTTP-Crawl-Zweig
-            // mehrere kommagetrennte Selektoren UND mehrere Treffer pro Selektor (z.B. wenn eine
-            // Seite den Hauptinhalt auf zwei ".content"-Bloecke aufteilt) statt nur den ersten
-            // Treffer des ersten Selektors zu nehmen.
-            $sourceHtml = '';
-            $selectorConfig = (string) \rex_addon::get('ai_chat')->getConfig('index_http_selector', 'body');
-
-            if ($selectorConfig !== 'body' && '' !== trim($selectorConfig)) {
-                $xpath = new \DOMXPath($dom);
-                foreach ($this->splitSelectorList($selectorConfig) as $mainSelector) {
-                    $nodes = $xpath->query($this->cssSelectorToXpath($mainSelector));
-                    if (!$nodes instanceof \DOMNodeList) {
-                        continue;
-                    }
-                    foreach ($nodes as $node) {
-                        if ($node instanceof \DOMNode) {
-                            $sourceHtml .= (string) $dom->saveHTML($node);
-                        }
-                    }
-                }
-            }
-            
-            if (empty($sourceHtml)) {
-                $body = $dom->getElementsByTagName('body')->item(0);
-                $sourceHtml = $body ? (string) $dom->saveHTML($body) : (string) $html;
-            }
+            // Kein konfigurierbarer Haupt-/Ausschluss-Selektor mehr (index_http_selector/
+            // index_http_exclude_selectors - beide ohne UI seit Phase 6, siehe
+            // settings.indexing.php): immer den kompletten <body> extrahieren, cleanText()
+            // filtert Navigation/Footer/Skripte etc. bereits generisch heraus.
+            $body = $dom->getElementsByTagName('body')->item(0);
+            $sourceHtml = $body ? (string) $dom->saveHTML($body) : (string) $html;
 
             $cleanText = $this->cleanText($sourceHtml);
 
@@ -1137,23 +626,6 @@ class IndexerService
     }
 
     /**
-     * `index_sitemap_url` erlaubt mehrere Sitemaps, eine pro Zeile (Backward-
-     * kompatibel: ein einzelner alter Wert ohne Zeilenumbruch ist einfach eine
-     * Liste mit einem Eintrag). Kommas werden zusätzlich als Trenner akzeptiert,
-     * falls jemand die alte einzeilige Konfiguration um weitere URLs erweitert
-     * hat, ohne dabei auf mehrere Zeilen umzusteigen.
-     *
-     * @return list<string>
-     */
-    public static function parseSitemapUrls(string $raw): array
-    {
-        $parts = preg_split('/[\r\n,]+/', $raw) ?: [];
-        $urls = array_filter(array_map('trim', $parts), static fn (string $url): bool => $url !== '');
-
-        return array_values(array_unique($urls));
-    }
-
-    /**
      * @return list<string>
      */
     private function fetchSitemapUrls(string $sitemapUrl): array
@@ -1187,30 +659,6 @@ class IndexerService
     }
 
     /**
-     * Prüft, ob yrewrite diesen Artikel per Metainfo-Feld 'yrewrite_index' aus der Sitemap
-     * und dem Suchmaschinen-Index ausschließt (Werte -1 = NoIndex, 2 = NoIndex+Follow, sowie
-     * 0 = "Status" bei offline geschaltetem Artikel). Spiegelt exakt die Bedingung aus
-     * rex_yrewrite_seo::sendSitemap() wider.
-     */
-    private function isExcludedByYrewriteSeo(int $articleId, int $clangId): bool
-    {
-        if (!class_exists('rex_yrewrite_seo')) {
-            return false;
-        }
-
-        $article = \rex_article::get($articleId, $clangId);
-        if (!$article) {
-            return false;
-        }
-
-        $index = $article->getValue(\rex_yrewrite_seo::$meta_index_field) ?? \rex_yrewrite_seo::$index_setting_default;
-
-        $allowed = 1 == $index || ($article->isOnline() && 0 == $index);
-
-        return !$allowed;
-    }
-
-    /**
      * Returns the given category ID plus all descendant category IDs recursively.
      *
      * @return int[]
@@ -1228,72 +676,6 @@ class IndexerService
         return $ids;
     }
 
-    private function isExcluded(int $articleId, int $clangId): bool
-    {
-        $addon = \rex_addon::get('ai_chat');
-
-        // 1. Check if indexing is generally enabled. REDAXO-Checkboxen speichern einen
-        // aktivierten Wert als "|1|" (Pipe-umschlossen); ein reiner '0'/0-Vergleich erkennt
-        // ein deaktiviertes Haekchen (gespeichert als leer/null) daher NIE.
-        if (!(bool) $addon->getConfig('index_frontend', 1)) {
-            return true;
-        }
-
-        // 2. Check individual article exclusion
-        $excludeArticleConfig = $addon->getConfig('index_exclude_articles');
-        if (!empty($excludeArticleConfig)) {
-            $excludeArticles = array_filter(array_map('intval', explode(',', $excludeArticleConfig)));
-            if (in_array($articleId, $excludeArticles, true)) {
-                return true;
-            }
-        }
-
-        // 3. Check category exclusion
-        $excludeCatConfig = $addon->getConfig('index_exclude_categories');
-        if (!empty($excludeCatConfig)) {
-            $rootIds = [];
-            if (is_array($excludeCatConfig)) {
-                $rootIds = array_map('intval', $excludeCatConfig);
-            } else {
-                    $split = preg_split('/[\s,|]+/', (string) $excludeCatConfig);
-                    $rootIds = array_filter(array_map('intval', is_array($split) ? $split : []));
-            }
-
-            if (!empty($rootIds)) {
-                $article = rex_article::get($articleId, $clangId);
-                if ($article) {
-                    $categoryId = $article->getCategoryId();
-                    
-                    // We check if the category or any of its parents is in the excluded list
-                    // This is more efficient than building the whole recursive list of all child IDs
-                    $checkCat = \rex_category::get($categoryId);
-                    while ($checkCat) {
-                        if (in_array($checkCat->getId(), $rootIds, true)) {
-                            return true;
-                        }
-                        $checkCat = $checkCat->getParent();
-                    }
-                    
-                    // Special case: check if category 0 (root) is excluded (unlikely but possible)
-                    if ($categoryId === 0 && in_array(0, $rootIds, true)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // 4. Check yrewrite Sitemap/Robots exclusion (yrewrite_index Metainfo-Feld)
-        if (
-            ((bool) $addon->getConfig('index_respect_yrewrite_seo', 1))
-            && \rex_addon::get('yrewrite')->isAvailable()
-            && $this->isExcludedByYrewriteSeo($articleId, $clangId)
-        ) {
-            return true;
-        }
-
-        return false;
-    }
-
     public function deleteArticleFromIndex(int $articleId, int $clangId): void
     {
         $sql = rex_sql::factory();
@@ -1304,9 +686,11 @@ class IndexerService
 
     public function updateArticleIndex(int $articleId, int $clangId): void
     {
-        // Loescht ALLE Varianten dieses Artikels (Shared Pool + jedes Profil, das ihn
-        // exklusiv via Mountpoint fuehrt) - unten wird der komplette, korrekte Satz an
-        // Zeilen neu aufgebaut, kein partielles Update.
+        // Loescht alle Varianten dieses Artikels (je Profil, das ihn exklusiv via
+        // Mountpoint fuehrt) - unten wird der komplette, korrekte Satz an Zeilen neu
+        // aufgebaut, kein partielles Update. Seit Phase 6 (kein globaler Shared Pool
+        // mehr) gibt es keinen profile_id=NULL-Zweig mehr: ein Artikel wird NUR indiziert,
+        // wenn mindestens ein Profil ihn ueber $profile->mountpointGroups fuehrt.
         $this->deleteArticleFromIndex($articleId, $clangId);
 
         $article = rex_article::get($articleId, $clangId);
@@ -1314,27 +698,7 @@ class IndexerService
             return;
         }
 
-        // Shared Pool: globaler Ausschluss (index_exclude_categories/yrewrite-SEO) betrifft
-        // nur diesen Zweig, nicht profil-eigene Mountpoints weiter unten - ein Profil hat den
-        // Artikel bewusst separat ausgewaehlt.
-        if (!$this->isExcluded($articleId, $clangId)) {
-            $addon = \rex_addon::get('ai_chat');
-            $articleStatus = $addon->getConfig('index_article_status', 'online');
-            $shouldIndex = match ($articleStatus) {
-                'all'     => true,
-                'offline' => !$article->isOnline(),
-                default   => $article->isOnline(),
-            };
-
-            if ($shouldIndex) {
-                $this->indexArticle($article, $clangId);
-            }
-        }
-
-        // Profil-eigene Mountpoints: vorher fiel ein Artikel, der exklusiv zu einem Profil-
-        // Mountpoint gehoert, beim naechsten Speichern auf profile_id=NULL (Shared Pool)
-        // zurueck, bis der naechste volle Reindex-Lauf ihn wieder korrekt zuordnete (siehe
-        // TODO.md). Keine article_status-Pruefung hier, analog zu collectProfileTasks() -
+        // Keine article_status-/Exclude-Pruefung hier, analog zu collectProfileTasks() -
         // ein Mountpoint ist eine bewusste, enge Auswahl, die unabhaengig vom globalen
         // Online/Offline-Filter indexiert wird.
         foreach ($this->resolveChatProfileIdsForMountpoint($article->getCategoryId()) as $mountpointProfileId) {
@@ -1357,11 +721,11 @@ class IndexerService
 
         $profileIds = [];
         foreach ((new ProfileRepository())->getEnabled() as $profile) {
-            if ('mountpoint' !== $profile->extraSource || null === $profile->mountpointCategoryId || $profile->mountpointCategoryId <= 0) {
-                continue;
-            }
-            if (in_array($categoryId, $this->getCategoryIdsRecursive($profile->mountpointCategoryId), true)) {
-                $profileIds[] = $profile->id;
+            foreach ($profile->mountpointGroups as $group) {
+                if (in_array($categoryId, $this->getCategoryIdsRecursive($group['category_id']), true)) {
+                    $profileIds[] = $profile->id;
+                    break;
+                }
             }
         }
 
@@ -1475,160 +839,46 @@ class IndexerService
         return trim($profileId, '_') . ':' . $recordId;
     }
 
-    private function secureRemoteUrl(string $url): string
-    {
-        $parts = parse_url($url);
-        if (($parts['scheme'] ?? '') !== 'http' || !isset($parts['host'])) {
-            return $url;
-        }
-
-        $host = strtolower((string) $parts['host']);
-        $isPrivateIp = filter_var($host, FILTER_VALIDATE_IP)
-            && !filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
-
-        if ($host === 'localhost' || str_ends_with($host, '.local') || $isPrivateIp) {
-            return $url;
-        }
-
-        return 'https://' . substr($url, 7);
-    }
-
     public function indexArticle(rex_article $article, int $clangId, ?int $chatProfileId = null): int
     {
         $chunkCount = 0;
-        $addon = \rex_addon::get('ai_chat');
-        $method = $addon->getConfig('index_method', 'internal');
-        $text = '';
 
-        if ($method === 'http') {
-            try {
-                $url = $article->getUrl();
-                // Ensure absolute URL
-                if (!str_starts_with($url, 'http')) {
-                    $server = \rex::getServer();
-                    if (!$server) {
-                        // Fallback if no server set
-                        $server = YrewriteDomainResolver::getCurrentDomain()?->getUrl() ?? '';
-                    }
-                    $url = rtrim($server, '/') . '/' . ltrim($url, '/');
-                }
+        // Kein HTTP-Crawl-Modus mehr (index_method - ohne UI seit Phase 6, siehe
+        // settings.indexing.php): Artikel werden immer intern gerendert statt ihre
+        // eigene Live-URL per HTTP abzurufen.
+        //
+        // Simulate Frontend Environment for correct module output. rex::isBackend()/
+        // isFrontend() lesen intern die Property "redaxo" (siehe core/boot.php:
+        // rex::setProperty('redaxo', $REX['REDAXO'])) - NICHT "is_backend". Ein Modul,
+        // das per rex::isBackend() zwischen echtem Frontend-Output und einer
+        // Editor-Vorschau (Grid-/Container-Bearbeitungs-Overlay, "Zurück"-Devlink, o.ae.)
+        // unterscheidet, hat bei falscher Property also weiterhin "Backend" gesehen und
+        // seine Editor-Ausgabe in den Index geschrieben (siehe GitHub-Issue-Report von Oli:
+        // sichtbare Grid-/Container-Einstellungen im Suchergebnis-Snippet).
+        $isBackend = \rex::isBackend();
+        $originalArticleId = \rex::getProperty('article_id');
+        $originalClang = \rex::getProperty('clang');
 
-                $url = $this->secureRemoteUrl($url);
-
-                $socket = \rex_socket::factoryUrl($url);
-                $response = $socket->doGet();
-                
-                if ($response->isOk()) {
-                    $html = $response->getBody();
-                    
-                    // Extract content via DOMDocument
-                    $dom = new \DOMDocument();
-                    // Suppress HTML5 errors
-                    libxml_use_internal_errors(true);
-                    // XML-Prolog-Praefix statt mb_convert_encoding(..., 'HTML-ENTITIES', ...) - Letzteres
-                    // ist seit PHP 8.2 deprecated (siehe indexUrl() weiter oben, die bereits dasselbe
-                    // Muster nutzt) und zwingt DOMDocument so zur korrekten UTF-8-Interpretation.
-                    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
-                    libxml_clear_errors();
-
-                    $xpath = new \DOMXPath($dom);
-
-                    // <style>/<script>/<noscript> IMMER aus dem DOM entfernen, BEVOR textContent
-                    // gelesen wird. DOMDocument::textContent liefert bei diesen Elementen ihren
-                    // rohen Inhalt (CSS/JS) mit - das Verstecken ist reine Browser-Rendering-
-                    // Konvention, keine DOM-API-Garantie. Ohne diesen Schritt landet z.B. der
-                    // komplette Inhalt eines <style>-Blocks der Navigation als Fließtext im Index,
-                    // weil zu diesem Zeitpunkt keine <style>-Tags mehr existieren, an denen die
-                    // Tag-Entfernung in cleanText() ansetzen könnte.
-                    $noiseNodes = $xpath->query('//style|//script|//noscript');
-                    if ($noiseNodes instanceof \DOMNodeList) {
-                        // Rückwärts entfernen, da removeChild() die (live) NodeList sonst verändert.
-                        for ($i = $noiseNodes->length - 1; $i >= 0; --$i) {
-                            $noiseNode = $noiseNodes->item($i);
-                            if ($noiseNode instanceof \DOMNode && $noiseNode->parentNode !== null) {
-                                $noiseNode->parentNode->removeChild($noiseNode);
-                            }
-                        }
-                    }
-
-                    // Ausschluss-Selektoren (z.B. Navigation, Footer, Cookie-Banner) zuerst aus dem
-                    // DOM entfernen, damit ihr Text weder im Haupt-Selektor noch im Body-Fallback landet.
-                    $excludeSelectors = $addon->getConfig('index_http_exclude_selectors', '');
-                    foreach ($this->splitSelectorList((string) $excludeSelectors) as $excludeSelector) {
-                        $excludeNodes = $xpath->query($this->cssSelectorToXpath($excludeSelector));
-                        if (!$excludeNodes instanceof \DOMNodeList) {
-                            continue;
-                        }
-                        // Rückwärts entfernen, da removeChild() die NodeList sonst live verändert.
-                        for ($i = $excludeNodes->length - 1; $i >= 0; --$i) {
-                            $node = $excludeNodes->item($i);
-                            if ($node instanceof \DOMNode && $node->parentNode !== null) {
-                                $node->parentNode->removeChild($node);
-                            }
-                        }
-                    }
-
-                    $selector = (string) $addon->getConfig('index_http_selector', 'body');
-                    $text = '';
-                    foreach ($this->splitSelectorList($selector !== '' ? $selector : 'body') as $mainSelector) {
-                        $nodes = $xpath->query($this->cssSelectorToXpath($mainSelector));
-                        if (!$nodes instanceof \DOMNodeList) {
-                            continue;
-                        }
-                        foreach ($nodes as $node) {
-                            if ($node instanceof \DOMNode) {
-                                $text .= $node->textContent . ' ';
-                            }
-                        }
-                    }
-
-                    if (trim($text) === '') {
-                        // Fallback to body if selector not found
-                        $bodyNode = $dom->getElementsByTagName('body')->item(0);
-                        $text = $bodyNode ? $bodyNode->textContent : '';
-                    }
-                }
-            } catch (\Exception $e) {
-                \rex_logger::logException($e);
-                // Fallback to internal
-                $method = 'internal';
-            }
+        if ($isBackend) {
+            \rex::setProperty('redaxo', false);
         }
 
-        if ($method === 'internal' || empty($text)) {
-            // Simulate Frontend Environment for correct module output. rex::isBackend()/
-            // isFrontend() lesen intern die Property "redaxo" (siehe core/boot.php:
-            // rex::setProperty('redaxo', $REX['REDAXO'])) - NICHT "is_backend". Ein Modul,
-            // das per rex::isBackend() zwischen echtem Frontend-Output und einer
-            // Editor-Vorschau (Grid-/Container-Bearbeitungs-Overlay, "Zurück"-Devlink, o.ae.)
-            // unterscheidet, hat bei falscher Property also weiterhin "Backend" gesehen und
-            // seine Editor-Ausgabe in den Index geschrieben (siehe GitHub-Issue-Report von Oli:
-            // sichtbare Grid-/Container-Einstellungen im Suchergebnis-Snippet).
-            $isBackend = \rex::isBackend();
-            $originalArticleId = \rex::getProperty('article_id');
-            $originalClang = \rex::getProperty('clang');
+        // Set context for modules that rely on rex_article::getCurrent() or global properties
+        \rex::setProperty('article_id', $article->getId());
+        \rex::setProperty('clang', $clangId);
 
+        try {
+            $content = new \rex_article_content($article->getId(), $clangId);
+            $text = $content->getArticle();
+        } finally {
+            // Restore Environment
             if ($isBackend) {
-                \rex::setProperty('redaxo', false);
+                \rex::setProperty('redaxo', true);
             }
-
-            // Set context for modules that rely on rex_article::getCurrent() or global properties
-            \rex::setProperty('article_id', $article->getId());
-            \rex::setProperty('clang', $clangId);
-
-            try {
-                $content = new \rex_article_content($article->getId(), $clangId);
-                $text = $content->getArticle();
-            } finally {
-                // Restore Environment
-                if ($isBackend) {
-                    \rex::setProperty('redaxo', true);
-                }
-                \rex::setProperty('article_id', $originalArticleId);
-                \rex::setProperty('clang', $originalClang);
-            }
+            \rex::setProperty('article_id', $originalArticleId);
+            \rex::setProperty('clang', $originalClang);
         }
-        
+
         $cleanText = $this->cleanText($text);
 
         if (empty($cleanText)) return 0;
@@ -1665,48 +915,6 @@ class IndexerService
             ++$chunkCount;
         }
         return $chunkCount;
-    }
-
-    /**
-     * Splits a comma-separated list of CSS selectors (e.g. from a settings field)
-     * into trimmed, non-empty selector strings.
-     *
-     * @return list<string>
-     */
-    private function splitSelectorList(string $raw): array
-    {
-        $parts = explode(',', $raw);
-        $selectors = [];
-        foreach ($parts as $part) {
-            $selector = trim($part);
-            if ($selector !== '') {
-                $selectors[] = $selector;
-            }
-        }
-
-        return $selectors;
-    }
-
-    /**
-     * Converts a simple CSS selector (tag, #id or .class – ohne Anführungszeichen)
-     * into an XPath query. Nur einfache Einzel-Selektoren werden unterstützt.
-     */
-    private function cssSelectorToXpath(string $selector): string
-    {
-        $selector = trim($selector);
-        if ($selector === '') {
-            return '//body';
-        }
-
-        if (str_starts_with($selector, '#')) {
-            return '//*[@id="' . substr($selector, 1) . '"]';
-        }
-
-        if (str_starts_with($selector, '.')) {
-            return '//*[contains(concat(" ",normalize-space(@class)," ")," ' . substr($selector, 1) . ' ")]';
-        }
-
-        return '//' . $selector;
     }
 
     /**
@@ -1766,6 +974,14 @@ class IndexerService
         // Schritt 1 dadurch nicht das komplette Fragment matcht). Entfernt Zeilen, die eindeutig
         // wie CSS aussehen, bevor sie als Fließtext indexiert werden.
         $text = $this->stripResidualCssNoise($text);
+
+        // 4c. Sicherheitsnetz gegen "Ähnliche Beiträge"/"Links:"-Widgets ohne passendes
+        // semantisches Tag (weder <nav> noch <aside>, siehe Schritt 1 oben) - z.B. eine
+        // Blog-Teaser-Liste am Artikelende. Ohne das landet so ein Widget unveraendert als
+        // Fliesstext im Index UND wird von der KI woertlich in die Antwort uebernommen
+        // (realer Fall: eine "Links:"-Ueberschrift plus mehrere kurze Artikeltitel wurde als
+        // vermeintliche Antwort auf eine unabhaengige Frage wiedergegeben).
+        $text = $this->stripRelatedContentWidgets($text);
 
         // 5. Normalize whitespace: horizontale Whitespaces zusammenfassen, Zeilenumbrüche
         // (Fakt-/Absatzgrenzen) aber bewusst erhalten statt sie mit wegzunormalisieren.
@@ -1828,6 +1044,71 @@ class IndexerService
             }
 
             $filtered[] = $line;
+        }
+
+        return implode("\n", $filtered);
+    }
+
+    /**
+     * Entfernt "Ähnliche Beiträge"/"Das könnte Sie auch interessieren"-Widgets, die ohne ein
+     * von cleanText() bereits erkanntes semantisches Tag (nav/aside/footer) auskommen - z.B.
+     * eine simple Teaser-Liste direkt im Artikel-Markup. Erkennungsmuster: eine kurze
+     * Ueberschriftszeile aus einer festen Liste typischer Formulierungen, gefolgt von mehreren
+     * kurzen, satzzeichenlosen "Titel-Zeilen" (wie sie Artikel-/Linktitel typischerweise sind).
+     * Bewusst als Nachbearbeitung auf Zeilenebene statt als HTML-Selektor, weil das Markup
+     * dieser Widgets von Website zu Website völlig unterschiedlich aufgebaut ist - nur das
+     * resultierende Textmuster ist einigermaßen konstant.
+     */
+    private function stripRelatedContentWidgets(string $text): string
+    {
+        $headingPattern = '/^(links|lesetipps?|weiterlesen|mehr zum thema|weitere artikel|verwandte artikel|ähnliche (artikel|beiträge)|das könnte (sie|dich) auch interessieren)\s*:?\s*$/iu';
+
+        $lines = explode("\n", $text);
+        $filtered = [];
+        $count = count($lines);
+
+        for ($i = 0; $i < $count; ++$i) {
+            $trimmed = trim($lines[$i]);
+
+            if ('' === $trimmed || !preg_match($headingPattern, $trimmed)) {
+                $filtered[] = $lines[$i];
+                continue;
+            }
+
+            // Ueberschrift gefunden - pruefen, ob unmittelbar danach (ueberspringt genau eine
+            // Leerzeile, wie sie durch die Block-Umwandlung in Schritt 2b typischerweise
+            // entsteht) mehrere kurze, titelartige Zeilen folgen. Ohne diese Bestaetigung bleibt
+            // die Ueberschrift stehen - sonst wuerde z.B. ein legitimer Absatz, der zufaellig
+            // mit "Weiterlesen:" endet, mitsamt seinem folgenden Fliesstext geloescht.
+            $lookahead = $i + 1;
+            if ($lookahead < $count && '' === trim($lines[$lookahead])) {
+                ++$lookahead;
+            }
+
+            $titleLines = 0;
+            $scan = $lookahead;
+            while ($scan < $count && $titleLines < 10) {
+                $candidate = trim($lines[$scan]);
+                if ('' === $candidate) {
+                    break;
+                }
+                // Eine "Titel-Zeile" ist kurz und endet nicht wie ein normaler Satz (Punkt/!/?)-
+                // echter Fliesstext nach einer Ueberschrift sieht anders aus.
+                if (mb_strlen($candidate) > 100 || preg_match('/[.!?]$/u', $candidate)) {
+                    break;
+                }
+                ++$titleLines;
+                ++$scan;
+            }
+
+            if ($titleLines < 2) {
+                // Kein erkennbares Widget-Muster - Ueberschrift ist vermutlich echter Inhalt.
+                $filtered[] = $lines[$i];
+                continue;
+            }
+
+            // Ueberschrift + alle erkannten Titel-Zeilen ueberspringen.
+            $i = $scan - 1;
         }
 
         return implode("\n", $filtered);

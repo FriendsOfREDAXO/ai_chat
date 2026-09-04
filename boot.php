@@ -7,11 +7,8 @@ use FriendsOfRedaxo\AiChat\Api\ChatTest as ApiChatTest;
 use FriendsOfRedaxo\AiChat\Api\CloudflareModels as ApiCloudflareModels;
 use FriendsOfRedaxo\AiChat\Api\ReindexWorker as ApiReindexWorker;
 use FriendsOfRedaxo\AiChat\Api\SelfCallPing as ApiSelfCallPing;
-use FriendsOfRedaxo\AiChat\Api\RoutePackage\Backend\AiChat as ApiBackendAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\RoutePackage\AiChat as ApiAiChatRoutePackage;
 use FriendsOfRedaxo\AiChat\Api\WidgetTranslations as ApiWidgetTranslations;
-use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
-use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileResolver;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\ChatQueryService;
@@ -26,11 +23,6 @@ if (is_file(__DIR__ . '/vendor/autoload.php')) {
 }
 
 $addon = rex_addon::get('ai_chat');
-
-// Kein Seitenrecht (steuert keine eigene Unterseite, sondern nur ob der automatisch
-// eingebundene Backend-Chat fuer den jeweiligen Nutzer angezeigt wird) - muss daher
-// explizit registriert werden, damit es in der Rollen-Verwaltung waehlbar ist.
-rex_perm::register('ai_chat[backend_chat]', 'Backend Chat nutzen');
 
 // Namespace-Registrierung der rex-api-call-Endpunkte (seit REDAXO 5.17), siehe
 // https://redaxo.org/doku/5.x/api#namespace-registrierung - die rex-api-call-Namen
@@ -73,7 +65,6 @@ $streamEnabledAttr = $isStreamEnabled() ? 'true' : 'false';
 
 if (rex_addon::get('api')->isAvailable() && class_exists(RouteCollection::class)) {
     RouteCollection::registerRoutePackage(new ApiAiChatRoutePackage());
-    RouteCollection::registerRoutePackage(new ApiBackendAiChatRoutePackage());
 }
 
 if (rex_addon::get('cronjob')->isAvailable()) {
@@ -138,7 +129,7 @@ if (rex::isBackend() && rex::getUser()) {
 
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
-        && rex_be_controller::getCurrentPagePart(2) === 'settings'
+        && rex_be_controller::getCurrentPagePart(2) === 'content'
         && rex_be_controller::getCurrentPagePart(3) === 'yform'
     ) {
         rex_view::addJsFile($addon->getAssetsUrl('ai-yform-mapping.js?v=' . $assetVersion('ai-yform-mapping.js')));
@@ -157,7 +148,7 @@ if (rex::isBackend() && rex::getUser()) {
 
     if (
         rex_be_controller::getCurrentPagePart(1) === 'ai_chat'
-        && in_array(rex_be_controller::getCurrentPagePart(2), ['settings', 'hauptprofil', 'content'], true)
+        && in_array(rex_be_controller::getCurrentPagePart(2), ['settings', 'content'], true)
     ) {
         rex_view::addCssFile($addon->getAssetsUrl('ai-chat-settings-backend.css?v=' . $assetVersion('ai-chat-settings-backend.css')));
     }
@@ -180,130 +171,29 @@ if (rex::isBackend() && rex::getUser()) {
         }
 
         $content = $ep->getSubject();
-        // Nur wenn nicht schon durch den Backend-Chat hinzugefügt
-        if (strpos($content, 'ai-chat.js') === false) {
+        // Eigenes Marker-Attribut statt eines naiven strpos() auf "ai-chat.js" - der reine
+        // Dateiname taucht auch in Code-Kommentaren innerhalb von Seiten-eigenem Inline-JS
+        // auf (z.B. pages/themes.php's Live-Vorschau-Script referenziert "assets/ai-chat.js"
+        // in einem Kommentar), was den urspruenglichen Substring-Check faelschlich als
+        // "bereits geladen" werten liess - das Skript wurde dann nie eingebunden, die
+        // <ai-chat>-Komponente blieb undefiniert (siehe Theme-Vorschau-Bug).
+        if (strpos($content, 'data-ai-chat-widget-script') === false) {
             $i18nScript = '<script src="' . $addon->getAssetsUrl('ai-i18n.js?v=' . $assetVersion('ai-i18n.js')) . '"></script>';
-            $script = $i18nScript . '<script type="module" src="' . $addon->getAssetsUrl('ai-chat.js?v=' . (is_file(rex_path::addon($addon->getName(), 'assets/ai-chat.js')) ? $addon->getVersion() . '-' . (string) filemtime(rex_path::addon($addon->getName(), 'assets/ai-chat.js')) : $addon->getVersion())) . '"></script>';
+            $script = $i18nScript . '<script type="module" data-ai-chat-widget-script src="' . $addon->getAssetsUrl('ai-chat.js?v=' . (is_file(rex_path::addon($addon->getName(), 'assets/ai-chat.js')) ? $addon->getVersion() . '-' . (string) filemtime(rex_path::addon($addon->getName(), 'assets/ai-chat.js')) : $addon->getVersion())) . '"></script>';
             $content = str_replace('</body>', $script . '</body>', $content);
         }
         return $content;
     });
 }
 
-// Backend: Developer Chat - haengt bewusst an KEINEM Profil (Profile sind ausschliesslich
-// ein Frontend-Konzept, siehe ChatProfile/Sichtbarkeit) - "backend_enabled" (global) plus
-// die Berechtigung sind die alleinigen Kriterien. Frueher musste zusaetzlich ein Profil mit
-// context=backend/both existieren, sonst blieb der Chat trotz aktivem Schalter unsichtbar.
-if (
-    rex::isBackend()
-    && rex::getUser()
-    && $addon->getConfig('backend_enabled')
-    && (rex::getUser()->isAdmin() || rex::getUser()->hasPerm('ai_chat[backend_chat]'))
-) {
-    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr) {
-        $content = $ep->getSubject();
-
-        $scriptAttr = 'script-v4-load';
-        if (strpos($content, $scriptAttr) === false) {
-               $i18nScript = '<script src="' . $addon->getAssetsUrl('ai-i18n.js?v=' . $assetVersion('ai-i18n.js')) . '"></script>';
-               $script = $i18nScript . '<script type="module" ' . $scriptAttr . '="true" src="' . $addon->getAssetsUrl('ai-chat.js?v=' . $assetVersion('ai-chat.js')) . '"></script>';
-             $content = str_replace('</body>', $script . '</body>', $content);
-        }
-        
-        // Robust URL Generation: Try to use rex_url, fallback to rex::getServer()
-        $apiUrl = rex_url::frontendController(['rex-api-call' => 'ai_chat_query']);
-        
-        // If the URL doesn't look like a full URL or index.php call, force a standard one
-        if (strpos($apiUrl, 'rex-api-call') === false) {
-             $apiUrl = '/index.php?rex-api-call=ai_chat_query';
-        }
-
-        if (strpos($apiUrl, 'http') === false) {
-             $server = rtrim(rex::getServer(), '/');
-             if (empty($server)) {
-                  // Last fallback if server is not set
-                  $server = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
-             }
-             $apiUrl = $server . '/' . ltrim($apiUrl, '/');
-        }
-
-        $backendUser = rex::getUser();
-        $backendName = 'Admin';
-        if ($backendUser) {
-            $userName = trim((string) $backendUser->getName());
-            if ($userName !== '') {
-                $backendName = $userName;
-            } else {
-                $login = trim((string) $backendUser->getLogin());
-                if ($login !== '') {
-                    $backendName = $login;
-                }
-            }
-        }
-
-        // Kein Profil mehr beteiligt (Profile sind rein Frontend, siehe oben) - die
-        // dynamische Namens-Begruessung bleibt der einzige Begruessungs-Mechanismus hier.
-        $backendGreeting = 'Hallo ' . $backendName . '! Wie kann ich dir im Backend helfen?';
-        $maxLengthFrontend = (int) $addon->getConfig('max_message_length_frontend', 2000);
-        $maxLengthBackend = (int) $addon->getConfig('max_message_length_backend', 20000);
-
-        // Alle aktiven, nicht rein backend-exklusiven Profile stehen im Scope-Umschalter
-        // NEBEN "Developer" zur Auswahl (siehe ai-chat.js render()/getSelectedScopeAndProfileId())
-        // - ein Backend-Nutzer kann so jedes Profil live durchklicken, ohne die Seite zu
-        // wechseln. "context !== 'backend'" ist reine Altlasten-Absicherung fuer Profile aus
-        // vor dieser Aenderung - neue Profile sind ohnehin ausschliesslich Frontend-Profile.
-        $profileOptions = [];
-        foreach ((new ProfileRepository())->getEnabled() as $profile) {
-            if ('backend' === $profile->context) {
-                continue;
-            }
-            $profileOptions[] = ['id' => $profile->id, 'name' => $profile->name];
-        }
-        // Kein JSON_THROW_ON_ERROR - ein einzelner kaputter Profilname (ungueltiges UTF-8)
-        // soll nicht die komplette Seitenausgabe mit einer unbehandelten Exception abreissen.
-        // json_encode() liefert dann bool false, (string) false wird '' - derselbe Fall wie
-        // "keine Profile", der Scope-Umschalter faellt einfach auf "nur Developer" zurueck.
-        $profileOptionsJson = [] !== $profileOptions ? (string) json_encode($profileOptions) : '';
-
-        // Explicitly set scope to developer and allow switching
-        // scope-accent="true" nur hier setzen: die Frontend-/Custom-Branding-Instanz (primary-color,
-        // avatar-url, ...) soll von der Backend-only Scope-Akzentfarbe unberührt bleiben.
-        $tag = sprintf(
-            '<ai-chat api-url="%s" scope="developer" title="REDAXO Chat" allow-scope-switch="true" scope-accent="true" greeting="%s" personalization-mode="off" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" ui-language="de"%s></ai-chat>',
-            rex_escape($apiUrl, 'html_attr'),
-            rex_escape($backendGreeting, 'html_attr'),
-            $streamEnabledAttr,
-            $maxLengthFrontend,
-            $maxLengthBackend,
-            '' !== $profileOptionsJson ? ' profile-options="' . rex_escape($profileOptionsJson, 'html_attr') . '"' : ''
-        );
-
-        return str_replace('</body>', $tag . '</body>', $content);
-    });
-}
-
 // Frontend: Visitor Chat + eigenständiges Such-Widget (klxm-search) - unabhängig
 // voneinander aktivierbar, damit z.B. nur die Suche ohne Chat-Bubble laufen kann
-// oder umgekehrt.
-$frontendChatEnabled = (bool) $addon->getConfig('frontend_enabled');
-$frontendSearchEnabled = (bool) $addon->getConfig('frontend_search_enabled', true);
-
-// Bewusst NICHT zusaetzlich auf ($frontendChatEnabled || $frontendSearchEnabled)
-// prüfen: chat_enabled/search_enabled sind je Profil erzwingbar (Tri-State, siehe
-// $showChat/$showSearch unten) UNABHAENGIG von den globalen Schaltern - waeren
-// beide global aus, wuerde dieser fruehe Kurzschluss ein Profil, das Chat/Suche
-// explizit erzwingt, nie zum Zug kommen lassen. Die eigentliche Entscheidung
-// passiert ausschliesslich in $showChat/$showSearch weiter unten.
+// oder umgekehrt. Seit der Hauptprofil-Entflechtung gibt es dafuer keine globalen
+// Schalter mehr - jedes Profil traegt sein eigenes chatEnabled/searchEnabled
+// (Standard: aktiv, siehe ChatProfile), ein Profil existiert nach der Installation
+// immer (Standard-Profil-Seed in install.php).
 if (rex::isFrontend()) {
 
-    // Chat und Suche im Frontend sind Teil desselben Scopes: EIN aufgeloestes
-    // Profil (Kontext/Rolle/Domain/Sprache, siehe ChatProfile) entscheidet
-    // Sichtbarkeit fuer BEIDE. "frontend_enabled"/"frontend_search_enabled"
-    // bleiben die zwei unabhaengigen Ein/Aus-Schalter innerhalb dieses Scopes
-    // (z.B. nur Suche ohne Chat-Bubble) - die alten globalen Testmodus-/
-    // Domain-/Sprach-Einstellungen wurden dafuer vollstaendig durch das
-    // Profil ersetzt.
-    //
     // Domain-/Profil-Aufloesung passiert bewusst ERST HIER, in der OUTPUT_FILTER-
     // Closure, NICHT auf oberster boot.php-Ebene: yrewrite hat seine eigene
     // Domain-/Pfad-Zuordnung (rex_yrewrite::getCurrentDomain()) zum Zeitpunkt, an dem
@@ -313,7 +203,7 @@ if (rex::isFrontend()) {
     // domain-/sprach-eingeschraenkte Profil nie, das Chat-/Suche-Widget verschwindet
     // komplett, sobald "Anzeigebereich" auf eine bestimmte Domain/Sprache eingeschraenkt
     // wird (unabhaengig davon, ob die aktuelle Domain/Sprache eigentlich passt).
-    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr, $frontendChatEnabled, $frontendSearchEnabled) {
+    rex_extension::register('OUTPUT_FILTER', function (rex_extension_point $ep) use ($addon, $assetVersion, $streamEnabledAttr) {
         $content = $ep->getSubject();
 
         $currentDomain = YrewriteDomainResolver::getCurrentDomain();
@@ -329,23 +219,10 @@ if (rex::isFrontend()) {
             ? (new ProfileResolver())->resolveForFrontend($currentDomain, rex_clang::getCurrentId(), ChatQueryService::getAuthenticatedBackendUser(), $ipTestModeActive)
             : null;
 
-        // Sobald mindestens ein aktives, frontend-faehiges Profil existiert, sind die globalen
-        // Schalter komplett wirkungslos (siehe auch pages/settings.access.php, dort dann
-        // deaktiviert) - Profile sind dann fuer JEDE Anfrage die alleinige Instanz, unabhaengig
-        // davon, ob sie zu DIESEM Besucher passen (chat_enabled/search_enabled je Profil
-        // defaulten dabei auf "aktiv"). Ohne aktive Profile bleiben die globalen Schalter die
-        // alleinige Instanz - Profile sind optional. Identische Pruefung nochmal serverseitig
-        // in ChatQueryService::resolveFrontendAccessDenial().
-        $hasFrontendProfiles = [] !== array_filter(
-            (new ProfileRepository())->getEnabled(),
-            static fn (ChatProfile $profile): bool => $profile->context !== 'backend',
-        );
-        $showChat = $hasFrontendProfiles
-            ? (null !== $frontendProfile && ($frontendProfile->chatEnabled ?? true))
-            : $frontendChatEnabled;
-        $showSearch = $hasFrontendProfiles
-            ? (null !== $frontendProfile && ($frontendProfile->searchEnabled ?? true))
-            : $frontendSearchEnabled;
+        // Ohne aufgeloestes Profil ist der Zugriff verweigert - identische Regel
+        // serverseitig in ChatQueryService::resolveFrontendAccessDenial().
+        $showChat = null !== $frontendProfile && $frontendProfile->chatEnabled;
+        $showSearch = null !== $frontendProfile && $frontendProfile->searchEnabled;
         $isTestingMode = null !== $frontendProfile && !in_array('visitor', $frontendProfile->viewerRoles, true);
 
         if (!$showChat && !$showSearch) {
@@ -401,35 +278,17 @@ if (rex::isFrontend()) {
              $apiUrl = $server . '/' . ltrim($apiUrl, '/');
         }
 
-        // Config - Begrüßung, Personalisierung, Reset/Copy kommen jetzt aus dem
-        // aufgeloesten Profil statt aus globaler Config (siehe ChatProfile). Ohne
-        // Profil (Profile sind optional, siehe $hasFrontendProfiles oben) faellt jedes
-        // einzelne Feld auf sein globales Aequivalent zurueck statt auf einen Absturz
-        // durch Property-/Methodenaufruf auf null.
+        // Config - Begrüßung, Personalisierung, Reset/Copy kommen aus dem aufgeloesten
+        // Profil. $frontendProfile ist an dieser Stelle garantiert nicht null - $showChat
+        // ist oben bereits false (und die Funktion damit verlassen), wenn kein Profil
+        // aufgeloest wurde.
         $searchCurrentPageOnly = $addon->getConfig('frontend_search_current_page_only') ? 'true' : 'false';
-        // Explizite if/else statt verketteter ?->/?? - Eigenschaftszugriff auf ein
-        // null-Objekt via ?-> waere hier zwar unschaedlich (PHP wertet zu null aus,
-        // rex_logger sammelt aber trotzdem eine Warnung je Aufruf, was bei jedem
-        // Seitenaufruf ohne aufgeloestes Profil den Log fluten wuerde), daher lieber
-        // einmal klar verzweigen als $frontendProfile fuenfmal einzeln "vorsichtig" lesen.
-        if (null !== $frontendProfile) {
-            $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
-            $frontendResetCountdown = $frontendProfile->chatResetCountdown;
-            $frontendCopyHistory = $frontendProfile->chatCopyHistory;
-            $personalization = $frontendProfile->personalizationMode ?? (string) $addon->getConfig('personalization_mode', 'off');
-            $profileIdAttrValue = $frontendProfile->id;
-            $uiLanguage = $frontendProfile->uiLanguage;
-        } else {
-            $greeting = (string) $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
-            $frontendResetCountdown = 0;
-            $frontendCopyHistory = false;
-            $personalization = (string) $addon->getConfig('personalization_mode', 'off');
-            $profileIdAttrValue = 0;
-            $uiLanguage = 'de';
-        }
-        if ('' === $personalization) {
-            $personalization = 'off';
-        }
+        $greeting = $frontendProfile->greeting ?? $addon->getConfig('frontend_greeting', 'Hallo! Wie kann ich Ihnen helfen?');
+        $frontendResetCountdown = $frontendProfile->chatResetCountdown;
+        $frontendCopyHistory = $frontendProfile->chatCopyHistory;
+        $personalization = $frontendProfile->personalizationMode;
+        $profileIdAttrValue = $frontendProfile->id;
+        $uiLanguage = $frontendProfile->uiLanguage;
         // Darstellung: das per Profil gewaehlte Theme (oder, falls keins gewaehlt, das
         // globale Standard-Theme) liefert Farben/Avatar/Eckenradius - die Position bleibt
         // bewusst ein eigenes, vom Theme unabhaengiges Profil-Override (siehe ProfileTheme).
@@ -437,13 +296,6 @@ if (rex::isFrontend()) {
         $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
         $primaryColor = ProfileTheme::resolvePrimaryColor($frontendTheme);
         $mode = $addon->getConfig('frontend_mode', 'bubble');
-        // War hier lange hart auf 'false' verdrahtet, obwohl "Scope-Switch erlauben"
-        // auf der Darstellung-Einstellungsseite als aktiv nutzbare Option angezeigt
-        // wird - die Einstellung blieb dadurch wirkungslos. Serverseitig bleibt
-        // scope=developer ohnehin nur fuer authentifizierte Backend-Nutzer erlaubt
-        // (siehe ChatQueryService::process()), ein sichtbarer Umschalter fuer
-        // anonyme Besucher ist also ungefaehrlich, nur je nach Website ggf. unerwuenschte UX.
-        $allowSwitch = $addon->getConfig('frontend_allow_scope_switch') ? 'true' : 'false';
         $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendTheme);
         $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
         $frontendCopyAttr = $frontendCopyHistory ? ' copy-history="true"' : '';
@@ -457,7 +309,7 @@ if (rex::isFrontend()) {
         $styleAttr = '' !== $themeStyleAttr ? ' style="' . rex_escape($themeStyleAttr, 'html_attr') . '"' : '';
 
         $tag = sprintf(
-            '<ai-chat api-url="%s" scope="frontend" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" allow-scope-switch="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" max-length-backend="%d" profile-id="%d" ui-language="%s"%s%s%s></ai-chat>',
+            '<ai-chat api-url="%s" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" profile-id="%d" ui-language="%s"%s%s%s></ai-chat>',
             rex_escape($apiUrl, 'html_attr'),
             $searchCurrentPageOnly,
             rex_escape($greeting, 'html_attr'),
@@ -465,11 +317,9 @@ if (rex::isFrontend()) {
             $primaryColor,
             $avatarUrl,
             $mode,
-            $allowSwitch,
             $personalization,
             $streamEnabledAttr,
             (int) $addon->getConfig('max_message_length_frontend', 2000),
-            (int) $addon->getConfig('max_message_length_backend', 20000),
             $profileIdAttrValue,
             rex_escape($uiLanguage, 'html_attr'),
             $frontendResetAttr,

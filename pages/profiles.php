@@ -1,6 +1,5 @@
 <?php
 
-use FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry;
 use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
@@ -40,7 +39,7 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField($renderInfoPanel(
         'Was ist ein Profil?',
         'fa-info-circle',
-        '<p>Ein Profil legt fest, <strong>wer</strong> den Chat/die Suche sieht (Kontext, Rolle, Domain, Sprache), <strong>was</strong> er weiß (gemeinsamer Wissens-Pool und/oder eigene Quellen) und <strong>wie</strong> er antwortet (Prompt, Anrede, Begrüßung).</p>'
+        '<p>Ein Profil legt fest, <strong>wer</strong> den Chat/die Suche sieht (Rolle, Domain, Sprache), <strong>was</strong> er weiß (eigene Quellen: Sitemap, Struktur, YForm, PDFs) und <strong>wie</strong> er antwortet (Prompt, Anrede, Begrüßung).</p>'
         . '<p>Mehrere Profile können nebeneinander existieren – z.B. ein offenes für alle Besucher und ein zweites, sprachlich oder inhaltlich isoliertes für einen bestimmten Bereich. Passen mehrere Profile auf dieselbe Anfrage, gewinnt das mit der höheren Priorität. Ein Profil ohne passende Rolle/Domain/Sprache wird nie angezeigt.</p>',
         'panel-info'
     ));
@@ -70,10 +69,9 @@ if ('add' === $func || 'edit' === $func) {
             }
 
             $testGreeting = $testProfile->greeting ?? 'Hallo! Wie kann ich helfen?';
-            $testScope = $testProfile->context === 'backend' ? 'developer' : 'frontend';
             $testResetAttr = $testProfile->chatResetCountdown > 0 ? ' reset-countdown="' . $testProfile->chatResetCountdown . '"' : '';
             $testCopyAttr = $testProfile->chatCopyHistory ? ' copy-history="true"' : '';
-            $testPersonalization = $testProfile->personalizationMode ?? (string) $addon->getConfig('personalization_mode', 'off');
+            $testPersonalization = $testProfile->personalizationMode;
             $testTheme = ProfileTheme::resolveTheme($testProfile, $addon);
             $testPrimaryColor = ProfileTheme::resolvePrimaryColor($testTheme);
             $testAvatarUrl = ProfileTheme::resolveAvatarUrl($testTheme);
@@ -96,12 +94,11 @@ if ('add' === $func || 'edit' === $func) {
             $testWidgetHtml = '<div class="panel panel-default" style="position:sticky;top:20px;">'
                 . '<header class="panel-heading"><div class="panel-title"><i class="rex-icon fa-comments"></i> Profil testen</div></header>'
                 . '<div class="panel-body">'
-                . '<p class="help-block" style="margin-top:0;">Testet den <strong>gespeicherten</strong> Stand dieses Profils live - ungespeicherte Änderungen links zuerst speichern, dann diese Seite neu laden. "Frontend"/"Developer" oben im Fenster wechselt zwischen den zwei Arten, wie dieses Profil im Chat verwendet werden kann (Website-Besucher vs. automatisch eingebundener Backend-Chat).</p>'
+                . '<p class="help-block" style="margin-top:0;">Testet den <strong>gespeicherten</strong> Stand dieses Profils live - ungespeicherte Änderungen links zuerst speichern, dann diese Seite neu laden.</p>'
                 . sprintf(
-                    '<ai-chat id="ai-chat-profile-test-widget" mode="inline" style="%s" api-url="%s" scope="%s" allow-scope-switch="true" title="%s" greeting="%s" primary-color="%s" avatar-url="%s" position="%s" personalization-mode="%s" stream-enabled="%s" profile-id="%d" ui-language="%s"%s%s></ai-chat>',
+                    '<ai-chat id="ai-chat-profile-test-widget" mode="inline" style="%s" api-url="%s" scope="frontend" title="%s" greeting="%s" primary-color="%s" avatar-url="%s" position="%s" personalization-mode="%s" stream-enabled="%s" profile-id="%d" ui-language="%s"%s%s></ai-chat>',
                     rex_escape($testInlineStyle, 'html_attr'),
                     rex_escape($apiUrl, 'html_attr'),
-                    rex_escape($testScope, 'html_attr'),
                     rex_escape($testProfile->name, 'html_attr'),
                     rex_escape($testGreeting, 'html_attr'),
                     rex_escape($testPrimaryColor, 'html_attr'),
@@ -167,7 +164,7 @@ if ('add' === $func || 'edit' === $func) {
     $field = $form->addSelectField('viewer_roles');
     $field->setLabel('Sichtbar für');
     $field->setNotice('Ohne Auswahl sieht niemand dieses Profil – es wird dann nie aufgelöst. Ohne "Besucher" wirkt es wie ein Testmodus: nur eingeloggte Redakteure/Admins sehen es (mit Hinweis-Badge im Frontend). Alternative für nicht eingeloggte Tester: der globale IP-Testmodus (Einstellungen → Zugriff) hebt diese Einschränkung für zugelassene IPs auf, unabhängig vom Login.');
-    $field->setAttribute('class', 'selectpicker');
+    $field->setAttribute('class', 'form-control selectpicker');
     $field->setAttribute('data-actions-box', 'true');
     $select = $field->getSelect();
     $select->setMultiple();
@@ -180,27 +177,25 @@ if ('add' === $func || 'edit' === $func) {
     // Profil mit Kontext "Backend" blendet JS diesen ganzen Block aus.
     $form->addRawField('<div id="ai-chat-profile-frontend-only">');
 
-    // Sobald mindestens ein aktives Profil existiert, sind die globalen Schalter
-    // (AI Chat → Zugriff) komplett wirkungslos und dort auch deaktiviert - Profile sind
-    // dann die alleinige Instanz. "Standard" (leer) bedeutet deshalb "aktiv", nicht mehr
-    // "globale Einstellung entscheidet" - siehe boot.php $showChat/$showSearch und
-    // ChatQueryService::resolveFrontendAccessDenial(). "Ja"/"Nein" bleiben fuer den Fall,
-    // ein Profil soll trotzdem NUR die Suche ohne Chat-Bubble zeigen o.ae.
+    // Kein globaler Schalter mehr (siehe AI Chat → Einstellungen) - jedes Profil
+    // entscheidet allein, ob es Chat/Suche automatisch einbindet.
     $field = $form->addSelectField('chat_enabled');
     $field->setLabel('Chat automatisch einbinden');
     $select = $field->getSelect();
-    $select->addOption('Standard (aktiv)', '');
-    $select->addOption('Ja (erzwungen)', '1');
-    $select->addOption('Nein (deaktiviert)', '0');
-    $field->setNotice('Solange mindestens ein aktives Profil existiert, hat die globale "Chat im Frontend anzeigen"-Einstellung keine Wirkung mehr - dieses Feld entscheidet dann allein. Ohne aktive Profile gilt stattdessen wieder ausschließlich die globale Einstellung.');
+    $select->addOption('Ja', '1');
+    $select->addOption('Nein', '0');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('1');
+    }
 
     $field = $form->addSelectField('search_enabled');
     $field->setLabel('Suche automatisch einbinden');
     $select = $field->getSelect();
-    $select->addOption('Standard (aktiv)', '');
-    $select->addOption('Ja (erzwungen)', '1');
-    $select->addOption('Nein (deaktiviert)', '0');
-    $field->setNotice('Solange mindestens ein aktives Profil existiert, hat die globale "Suche im Frontend aktivieren"-Einstellung keine Wirkung mehr - dieses Feld entscheidet dann allein. Ohne aktive Profile gilt stattdessen wieder ausschließlich die globale Einstellung.');
+    $select->addOption('Ja', '1');
+    $select->addOption('Nein', '0');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('1');
+    }
 
     $field = $form->addSelectField('target_mode');
     $field->setLabel($tooltipLabel('Anzeigebereich (Domain/Sprache)', 'config_profile_target_mode_notice'));
@@ -223,7 +218,7 @@ if ('add' === $func || 'edit' === $func) {
     if (count($yrewriteDomains) > 1) {
         $domainField = $form->addSelectField('domains');
         $domainField->setLabel('Domains');
-        $domainField->setAttribute('class', 'selectpicker');
+        $domainField->setAttribute('class', 'form-control selectpicker');
         $domainField->setAttribute('data-actions-box', 'true');
         $domainSelect = $domainField->getSelect();
         $domainSelect->setMultiple();
@@ -246,7 +241,7 @@ if ('add' === $func || 'edit' === $func) {
     if (count($allClangs) > 1) {
         $clangField = $form->addSelectField('clangs');
         $clangField->setLabel('Sprachen');
-        $clangField->setAttribute('class', 'selectpicker');
+        $clangField->setAttribute('class', 'form-control selectpicker');
         $clangField->setAttribute('data-actions-box', 'true');
         $clangSelect = $clangField->getSelect();
         $clangSelect->setMultiple();
@@ -262,37 +257,24 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('</div>');
 
     $form->addRawField('<div class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Individuelle Einstellungen (Indizierung)</p>');
-    $form->addRawField('<p class="help-block" style="margin-top:-8px;">Was dieses Profil wissen darf, unabhängig davon, wer es sieht: gemeinsamer Wissens-Pool und/oder eigene Quellen (Sitemap, Struktur-Bereich, YForm-Tabellen, PDFs).</p>');
+    $form->addRawField('<p class="ai-chat-settings-box-title">Wissen (Indizierung)</p>');
+    $form->addRawField('<p class="help-block" style="margin-top:-8px;">Jedes Profil ist vollständig isoliert und durchsucht ausschließlich seine eigenen, hier gewählten Quellen (Sitemap, Struktur-Bereich, YForm-Tabellen, PDFs) - beliebig kombinierbar. Es gibt keinen gemeinsamen globalen Wissens-Pool mehr.</p>');
 
-    // use_shared_scope und extra_source stehen bewusst direkt nebeneinander (statt
-    // extra_source erst nach den YForm-/PDF-Feldern) - beide bestimmen zusammen den
-    // groben Wissens-Scope des Profils ("globalen Pool nutzen?" + "eine dritte, eigene
-    // Quelle zusätzlich?"), bevor es an die konkrete Quellenauswahl (YForm/PDF) geht.
-
-    // Select statt Checkbox - siehe Kommentar bei "status" oben.
-    $field = $form->addSelectField('use_shared_scope');
-    $field->setLabel($tooltipLabel('Gemeinsamer Wissens-Pool', 'config_profile_shared_scope_notice'));
-    $select = $field->getSelect();
-    $select->addOption('Zusätzlich nutzen', '1');
-    $select->addOption('Nicht nutzen (isolierter Wissensstand)', '0');
-    $field->setNotice('Der gemeinsame Pool ist alles, was unter Einstellungen → Indexierung global aktiviert/konfiguriert ist (Struktur/Artikel, globale Sitemap-URLs, Addon-/GitHub-Docs, globale PDFs sowie global aktivierte Content-Provider wie YForm/forcal). "Nicht nutzen": Dieses Profil sieht ausschließlich seine eigenen, unten gewählten Quellen - ein vollständig isolierter Wissensstand.');
-    $currentUseSharedScope = (string) $field->getValue();
-    if ('add' === $func && '' === $currentUseSharedScope) {
-        $field->setValue('1');
-        $currentUseSharedScope = '1';
-    }
-
-    $field = $form->addSelectField('extra_source');
-    $field->setLabel('Eigene Sitemap/Struktur-Quelle');
-    $field->setNotice('Eine optionale VIERTE Inhaltsquelle, zusätzlich zu „Gemeinsamer Wissens-Pool" oben und den YForm-/PDF-Auswahlen unten. „Keine" = einfach weglassen, ändert nichts an den anderen drei. Beispiel für eine auf eine einzige Quelle spezialisierte Suche (z.B. nur PDFs): hier „Keine" UND oben „Gemeinsamer Wissens-Pool" auf „Nicht nutzen" stellen, dann unten nur PDFs auswählen.');
-    $field->setAttribute('id', 'ai-chat-profile-extra-source');
-    $select = $field->getSelect();
-    $select->addOption('Keine zusätzliche Quelle', 'none');
-    $select->addOption('Eigene Sitemap', 'sitemap');
-    $select->addOption('Struktur-Mountpoint (Kategorie-Teilbaum)', 'mountpoint');
-    if ('add' === $func && '' === (string) $field->getValue()) {
-        $field->setValue('none');
+    // Gezieltes Teilen zwischen zwei bestimmten Profilen - die einzige Möglichkeit, Wissen
+    // zwischen Profilen zu teilen (kein globaler Pool mehr).
+    $otherProfiles = array_values(array_filter((new ProfileRepository())->getAll(), static fn ($p) => $p->id !== $id));
+    if ([] !== $otherProfiles) {
+        $field = $form->addSelectField('include_profile_ids');
+        $field->setLabel('Wissen teilen mit Profil(en)');
+        $field->setNotice('Zusätzlich zu den eigenen Quellen dieses Profils werden auch die Quellen der hier gewählten Profile durchsucht.');
+        $field->setAttribute('class', 'form-control selectpicker');
+        $field->setAttribute('data-actions-box', 'true');
+        $select = $field->getSelect();
+        $select->setMultiple();
+        $select->setSize(min(count($otherProfiles), 6));
+        foreach ($otherProfiles as $otherProfile) {
+            $select->addOption($otherProfile->name, (string) $otherProfile->id);
+        }
     }
 
     $form->addRawField('<div id="ai-chat-profile-source-sitemap">');
@@ -343,52 +325,74 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('</div>');
     $form->addRawField('</div>');
 
-    $form->addRawField('<div id="ai-chat-profile-source-mountpoint">');
-    $field = $form->addSelectField('mountpoint_category_id');
-    $field->setLabel('Mountpoint-Kategorie');
-    $field->setNotice('Dieses Profil indexiert dann exklusiv alle Artikel in dieser Kategorie und ihren Unterkategorien.');
-    $field->setAttribute('class', 'selectpicker');
-    $field->setAttribute('data-live-search', 'true');
-    // rex_category_select (Kern-Widget aus dem structure-Addon, siehe auch
-    // pages/settings.indexing.php) statt Zahlenfeld mit der ID von Hand - rendert die
-    // Kategorien nativ hierarchisch eingerückt (inkl. "[ID]"-Suffix je Option), kein
-    // Nachschlagen der ID mehr nötig. addHomepage=false + eigene Leer-Option zuerst, damit
-    // "nichts ausgewählt" nicht mit der Kategorie 0 (Homepage) verwechselt werden kann - bei
-    // einem Single-Select sendet der Browser sonst immer die erste Option, auch ohne
-    // bewusste Auswahl.
+    // Benannte Struktur-Bereiche (Kategorie-Teilbaum) - strukturell identisch zum
+    // Sitemap-Gruppen-Repeater oben (Name/Beschreibung/"aktuell"), nur mit einer
+    // Kategorie-Auswahl statt URLs, UND seit Phase 6 gleichzeitig mit Sitemap-Gruppen
+    // kombinierbar (kein "Eigene Quelle"-Entweder-Oder-Select mehr).
+    $mountpointGroupsField = $form->addTextField('mountpoint_groups');
+    $mountpointGroupsField->setAttribute('type', 'hidden');
+    $mountpointGroupsField->setAttribute('id', 'ai-chat-mountpoint-groups-value');
+    $currentMountpointGroups = json_decode((string) $mountpointGroupsField->getValue(), true);
+    $currentMountpointGroups = is_array($currentMountpointGroups) ? $currentMountpointGroups : [];
+
+    // Eine einzelne rex_category_select-Instanz liefert die komplette, rechteabhaengige
+    // Options-Liste (inkl. "[ID]"-Suffix je Option) - wird fuer jede Repeater-Zeile
+    // wiederverwendet (JS setzt danach nur noch .value), statt sie pro Zeile neu
+    // aufzubauen. addHomepage=false + eigene Leer-Option zuerst, siehe Kommentar beim
+    // frueheren Einzel-Select.
     $mountpointCategorySelect = new rex_category_select(false, false, false, false);
     $mountpointCategorySelect->addOption('Bitte wählen…', '');
-    $field->setSelect($mountpointCategorySelect);
-    $form->addRawField('</div>');
+    $mountpointCategorySelectHtml = $mountpointCategorySelect->get();
+    $mountpointCategoryOptionsHtml = '';
+    if (preg_match('/<select[^>]*>(.*)<\/select>/s', $mountpointCategorySelectHtml, $matches)) {
+        $mountpointCategoryOptionsHtml = $matches[1];
+    }
 
-    // Globaler YForm-Provider deckt IMMER ALLE Mappings ab (siehe YformContentProvider::
-    // collectTasks() -> YformProfiles::getAll(), keine Teilauswahl moeglich) - waehlt ein
-    // Profil mit aktivem Shared Pool zusaetzlich eine hier bereits global geteilte Tabelle
-    // als "eigene" Quelle, wird exakt dieselbe Tabelle doppelt indexiert (einmal geteilt,
-    // einmal profil-exklusiv) und taucht in der Suche/im Chat doppelt als Quelle auf.
-    $globalYformProviderEnabled = in_array('yform', array_map(
-        static fn ($provider) => $provider->getKey(),
-        (new ContentProviderRegistry())->getEnabledProviders($addon),
-    ), true);
+    $form->addRawField('<label>Struktur-Bereiche</label>');
+    $form->addRawField('<p class="help-block" style="margin-top:0;">Ein oder mehrere Kategorie-Teilbäume, optional mit Namen gruppiert - genau wie die Sitemap-Quellen oben, nur mit einer Kategorie statt URLs. Beide Quellenarten sind beliebig gleichzeitig nutzbar.</p>');
+    $form->addRawField('<div id="ai-chat-mountpoint-groups-repeater">');
+    $form->addRawField('<div class="ai-chat-mountpoint-groups-items">');
+    if ([] === $currentMountpointGroups) {
+        $currentMountpointGroups = [['label' => '', 'description' => '', 'is_timely' => false, 'category_id' => '']];
+    }
+    foreach ($currentMountpointGroups as $group) {
+        $groupLabel = is_array($group) ? (string) ($group['label'] ?? '') : '';
+        $groupDescription = is_array($group) ? (string) ($group['description'] ?? '') : '';
+        $groupIsTimely = is_array($group) && !empty($group['is_timely']);
+        $groupCategoryId = is_array($group) && !empty($group['category_id']) ? (string) $group['category_id'] : '';
+        $form->addRawField(
+            '<div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
+            . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value="' . rex_escape($groupLabel, 'html_attr') . '"></div>'
+            . '<div class="col-md-8"><label>Kategorie</label><select class="form-control" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div>'
+            . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten" value="' . rex_escape($groupDescription, 'html_attr') . '"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
+            . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely' . ($groupIsTimely ? ' checked' : '') . '> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
+            . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'
+            . '</div>',
+        );
+    }
+    $form->addRawField('</div>');
+    $form->addRawField('<button type="button" class="btn btn-default btn-sm" id="ai-chat-mountpoint-group-add">+ Struktur-Bereich hinzufügen</button>');
+    $form->addRawField('<template id="ai-chat-mountpoint-group-template"><div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
+        . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value=""></div>'
+        . '<div class="col-md-8"><label>Kategorie</label><select class="form-control" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div>'
+        . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
+        . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
+        . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'
+        . '</div></template>');
+    $form->addRawField('</div>');
 
     $yformProfiles = YformProfiles::getAll($addon);
     if ([] !== $yformProfiles) {
         $field = $form->addSelectField('yform_profile_ids');
         $field->setLabel('Eigene YForm-Quellen');
-        $field->setNotice('Zusätzlich zum Shared Pool (falls aktiviert) für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).' . ($globalYformProviderEnabled ? ' Achtung: YForm ist bereits global aktiviert (Einstellungen → Indexierung) - dort erfasste Tabellen sind damit schon Teil des Shared Pools, eine zusätzliche Auswahl hier würde sie doppelt indexieren.' : ''));
-        $field->setAttribute('class', 'selectpicker');
+        $field->setNotice('Für dieses Profil indexierte YForm-Tabellen (verwaltet unter AI Chat → YForm-Tabellen).');
+        $field->setAttribute('class', 'form-control selectpicker');
         $field->setAttribute('data-actions-box', 'true');
         $select = $field->getSelect();
         $select->setMultiple();
         $select->setSize(min(count($yformProfiles), 6));
         foreach ($yformProfiles as $yformProfile) {
             $select->addOption((string) ($yformProfile['label'] ?? $yformProfile['id']), (string) $yformProfile['id']);
-        }
-        $currentYformProfileIds = array_filter((array) $field->getValue());
-        if ($globalYformProviderEnabled && '1' === $currentUseSharedScope && [] !== $currentYformProfileIds) {
-            $form->addRawField(rex_view::warning(
-                'YForm ist global aktiviert UND dieses Profil hat eigene YForm-Quellen gewählt, bei aktivem Shared Pool - die gewählten Tabellen werden dadurch doppelt indexiert (geteilt + profil-exklusiv). Entweder den Shared Pool oben deaktivieren, oder hier nur Tabellen wählen, die NICHT bereits über den globalen YForm-Provider laufen.'
-            ));
         }
     } else {
         $form->addRawField('<p class="help-block">Keine YForm-Tabellen-Mappings konfiguriert – siehe AI Chat → YForm-Tabellen, um welche anzulegen.</p>');
@@ -399,10 +403,10 @@ if ('add' === $func || 'edit' === $func) {
             $form,
             'pdf_media_ids',
             'Eigene PDF-Dokumente',
-            'Zusätzlich zum Shared Pool (falls aktiviert) für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert. Achtung: ist dieselbe Datei bereits global unter Einstellungen → Indexierung ausgewählt, wird sie bei aktivem Shared Pool doppelt indexiert.',
+            'Für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
             'pdf_category_ids',
             'PDFs aus Medienpool-Kategorien',
-            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert. Achtung: ist dieselbe Kategorie bereits global ausgewählt, wird sie bei aktivem Shared Pool doppelt indexiert.',
+            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.',
         );
     }
 
@@ -414,7 +418,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addTextAreaField('custom_prompt');
     $field->setLabel($tooltipLabel('Eigener Prompt', 'config_profile_custom_prompt_notice'));
-    $field->setNotice('Ersetzt den global konfigurierten Frontend-Prompt für dieses Profil. Leer = globale Einstellung wird verwendet. Wirkt nicht auf den festen Developer-Systemprompt im Backend-Kontext.');
+    $field->setNotice('Ersetzt den global konfigurierten Prompt für dieses Profil. Leer = globale Einstellung wird verwendet.');
     $field->setAttribute('rows', '4');
 
     $field = $form->addTextField('ui_language');
@@ -431,7 +435,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addTextAreaField('greeting');
     $field->setLabel('Begrüßung');
-    $field->setNotice('Leer = Standard-Begrüßung (Frontend) bzw. dynamische Namens-Begrüßung (Backend).');
+    $field->setNotice('Leer = Standard-Begrüßung.');
     $field->setAttribute('rows', '2');
 
     $addressingModeLabels = [
@@ -440,62 +444,50 @@ if ('add' === $func || 'edit' === $func) {
         'informal' => 'Immer Du',
         'neutral' => 'Neutral',
     ];
-    $currentGlobalAddressingMode = trim((string) $addon->getConfig('frontend_addressing_mode', 'auto'));
     $field = $form->addSelectField('addressing_mode');
     $field->setLabel('Anrede');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung übernehmen', '');
     foreach ($addressingModeLabels as $value => $label) {
         $select->addOption($label, $value);
     }
-    $field->setNotice(sprintf(
-        'Wie die KI den Besucher anspricht. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
-        $addressingModeLabels[$currentGlobalAddressingMode] ?? $currentGlobalAddressingMode
-    ));
+    $field->setNotice('Wie die KI den Besucher anspricht.');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('neutral');
+    }
 
     $personalizationModeLabels = [
         'off' => 'Aus',
         'simple' => 'Einfach (Du/Sie erfragen)',
         'name' => 'Mit Namen',
     ];
-    $currentGlobalPersonalizationMode = trim((string) $addon->getConfig('personalization_mode', 'off'));
     $field = $form->addSelectField('personalization_mode');
     $field->setLabel('Personalisierung');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung übernehmen', '');
     foreach ($personalizationModeLabels as $value => $label) {
         $select->addOption($label, $value);
     }
-    $field->setNotice(sprintf(
-        'Ob/wie die KI den Besucher zu Beginn nach Anrede bzw. Namen fragt, um beides in spätere Antworten einzubauen. Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
-        $personalizationModeLabels[$currentGlobalPersonalizationMode] ?? $currentGlobalPersonalizationMode
-    ));
+    $field->setNotice('Ob/wie die KI den Besucher zu Beginn nach Anrede bzw. Namen fragt, um beides in spätere Antworten einzubauen.');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('off');
+    }
 
-    $triStateOnOffLabel = static fn (bool $currentGlobal): string => $currentGlobal ? 'An' : 'Aus';
-
-    $currentGlobalSuggestFollowup = (bool) $addon->getConfig('suggest_followup_questions', false);
     $field = $form->addSelectField('suggest_followup_questions');
     $field->setLabel('Vorgeschlagene Folgefragen anzeigen');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung übernehmen', '');
     $select->addOption('An', '1');
     $select->addOption('Aus', '0');
-    $field->setNotice(sprintf(
-        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
-        $triStateOnOffLabel($currentGlobalSuggestFollowup)
-    ));
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('1');
+    }
 
-    $currentGlobalShowSources = (bool) $addon->getConfig('show_sources', true);
     $field = $form->addSelectField('show_sources');
     $field->setLabel('Quellen/Links in Antworten anzeigen');
     $select = $field->getSelect();
-    $select->addOption('Globale Einstellung übernehmen', '');
     $select->addOption('An', '1');
     $select->addOption('Aus', '0');
-    $field->setNotice(sprintf(
-        'Leer = aktuell global eingestellter Wert wird verwendet (derzeit „%s", siehe Hauptprofil → Verhalten & Antworten).',
-        $triStateOnOffLabel($currentGlobalShowSources)
-    ));
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('1');
+    }
 
     $field = $form->addTextField('chat_reset_countdown');
     $field->setLabel('Reset-Countdown (Sekunden)');
@@ -514,6 +506,27 @@ if ('add' === $func || 'edit' === $func) {
     if ('add' === $func && '' === (string) $field->getValue()) {
         $field->setValue('0');
     }
+    $form->addRawField('</div>');
+
+    // FAQ-Vorcaching: eine Frage pro Zeile, gilt ausschliesslich fuer dieses Profil (siehe
+    // AI Chat → Indexierung → Cache-Fragen fuer den "Vorcache aufwaermen"-Button, der ueber
+    // alle Profile mit aktiviertem Vorcaching laeuft).
+    $form->addRawField('<div class="ai-chat-settings-box">');
+    $form->addRawField('<p class="ai-chat-settings-box-title">FAQ-Vorcaching</p>');
+
+    $field = $form->addSelectField('faq_precache_enabled');
+    $field->setLabel('Vorcaching aktivieren');
+    $select = $field->getSelect();
+    $select->addOption('Aus', '0');
+    $select->addOption('An', '1');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('0');
+    }
+
+    $field = $form->addTextAreaField('faq_precache_questions');
+    $field->setLabel('Vorcache-Fragen');
+    $field->setNotice('Eine Frage pro Zeile - wird per Klick auf "Vorcache aufwärmen" (AI Chat → Indexierung) einmalig durch dieses Profil beantwortet und die Antwort gecacht, damit ein Besucher mit einer dieser (oder sehr ähnlichen) Fragen sofort eine bereits fertige Antwort bekommt.');
+    $field->setAttribute('rows', '4');
     $form->addRawField('</div>');
 
     // Darstellung: Farben/Avatar/Eckenradius kommen seit der zentralen Theme-Verwaltung
@@ -547,20 +560,10 @@ if ('add' === $func || 'edit' === $func) {
 <script>
 (function() {
     function initAiChatProfileForm() {
-        var contextSelect = document.getElementById("ai-chat-profile-context");
         var targetModeSelect = document.getElementById("ai-chat-profile-target-mode");
-        var extraSourceSelect = document.getElementById("ai-chat-profile-extra-source");
 
-        var frontendOnly = document.getElementById("ai-chat-profile-frontend-only");
         var targetDomains = document.getElementById("ai-chat-profile-target-domains");
         var targetClangs = document.getElementById("ai-chat-profile-target-clangs");
-        var sourceSitemap = document.getElementById("ai-chat-profile-source-sitemap");
-        var sourceMountpoint = document.getElementById("ai-chat-profile-source-mountpoint");
-
-        function updateContextVisibility() {
-            if (!contextSelect || !frontendOnly) return;
-            frontendOnly.style.display = contextSelect.value === "backend" ? "none" : "block";
-        }
 
         function updateTargetModeVisibility() {
             if (!targetModeSelect) return;
@@ -573,28 +576,9 @@ if ('add' === $func || 'edit' === $func) {
             }
         }
 
-        function updateExtraSourceVisibility() {
-            if (!extraSourceSelect) return;
-            var source = extraSourceSelect.value;
-            if (sourceSitemap) {
-                sourceSitemap.style.display = source === "sitemap" ? "block" : "none";
-            }
-            if (sourceMountpoint) {
-                sourceMountpoint.style.display = source === "mountpoint" ? "block" : "none";
-            }
-        }
-
-        if (contextSelect) {
-            contextSelect.addEventListener("change", updateContextVisibility);
-            updateContextVisibility();
-        }
         if (targetModeSelect) {
             targetModeSelect.addEventListener("change", updateTargetModeVisibility);
             updateTargetModeVisibility();
-        }
-        if (extraSourceSelect) {
-            extraSourceSelect.addEventListener("change", updateExtraSourceVisibility);
-            updateExtraSourceVisibility();
         }
 
         // Sitemap-Gruppen-Repeater: Gruppen hinzufuegen/entfernen per Template-Klonen
@@ -652,6 +636,77 @@ if ('add' === $func || 'edit' === $func) {
                     groups.push({ label: label, description: description, is_timely: isTimely, urls: urls });
                 });
                 hiddenGroupsField.value = JSON.stringify(groups);
+            });
+        }
+
+        // Mountpoint-Gruppen-Repeater: identisches Muster wie der Sitemap-Gruppen-Repeater
+        // oben, nur mit einer Kategorie-Auswahl statt eines URL-Textfelds pro Zeile. Der
+        // gespeicherte Kategoriewert kommt aus "data-selected-value" (serverseitig gerendert)
+        // und wird beim Initialisieren einmalig auf das <select> uebertragen, weil das
+        // wiederverwendete Options-HTML selbst kein "selected" pro Zeile kennt.
+        var mpRepeaterItems = document.querySelector("#ai-chat-mountpoint-groups-repeater .ai-chat-mountpoint-groups-items");
+        var mpAddGroupBtn = document.getElementById("ai-chat-mountpoint-group-add");
+        var mpGroupTemplate = document.getElementById("ai-chat-mountpoint-group-template");
+        var mpHiddenGroupsField = document.getElementById("ai-chat-mountpoint-groups-value");
+        var mpProfileForm = mpHiddenGroupsField ? mpHiddenGroupsField.closest("form") : null;
+
+        function applySelectedCategory(block) {
+            var select = block.querySelector("[data-group-category]");
+            if (!select) return;
+            var selectedValue = select.getAttribute("data-selected-value");
+            if (selectedValue) {
+                select.value = selectedValue;
+            }
+        }
+
+        if (mpRepeaterItems) {
+            mpRepeaterItems.querySelectorAll(".ai-chat-mountpoint-group").forEach(applySelectedCategory);
+        }
+
+        function removeMountpointGroupBlock(event) {
+            var target = event.target.closest(".ai-chat-mountpoint-group");
+            if (!target || !mpRepeaterItems) return;
+            if (mpRepeaterItems.querySelectorAll(".ai-chat-mountpoint-group").length <= 1) {
+                target.querySelector("[data-group-label]").value = "";
+                target.querySelector("[data-group-category]").value = "";
+                target.querySelector("[data-group-description]").value = "";
+                target.querySelector("[data-group-is-timely]").checked = false;
+                return;
+            }
+            target.remove();
+        }
+
+        if (mpRepeaterItems) {
+            mpRepeaterItems.addEventListener("click", function (event) {
+                if (event.target.closest("[data-remove-group]")) {
+                    removeMountpointGroupBlock(event);
+                }
+            });
+        }
+
+        if (mpAddGroupBtn && mpGroupTemplate && mpRepeaterItems) {
+            mpAddGroupBtn.addEventListener("click", function () {
+                var clone = mpGroupTemplate.content.cloneNode(true);
+                mpRepeaterItems.appendChild(clone);
+            });
+        }
+
+        if (mpProfileForm && mpHiddenGroupsField) {
+            mpProfileForm.addEventListener("submit", function () {
+                var groups = [];
+                document.querySelectorAll("#ai-chat-mountpoint-groups-repeater .ai-chat-mountpoint-group").forEach(function (block) {
+                    var labelInput = block.querySelector("[data-group-label]");
+                    var categorySelect = block.querySelector("[data-group-category]");
+                    var descriptionInput = block.querySelector("[data-group-description]");
+                    var isTimelyInput = block.querySelector("[data-group-is-timely]");
+                    var label = labelInput ? labelInput.value.trim() : "";
+                    var description = descriptionInput ? descriptionInput.value.trim() : "";
+                    var isTimely = isTimelyInput ? isTimelyInput.checked : false;
+                    var categoryId = categorySelect ? parseInt(categorySelect.value, 10) : 0;
+                    if (!categoryId) return;
+                    groups.push({ label: label, description: description, is_timely: isTimely, category_id: categoryId });
+                });
+                mpHiddenGroupsField.value = JSON.stringify(groups);
             });
         }
     }

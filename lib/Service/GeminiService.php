@@ -155,28 +155,9 @@ class GeminiService implements AiServiceInterface
 
         $systemPrompt = "Wichtiger Zeit-Kontext: " . SystemToolService::getDateTimeContext() . "\n\n";
 
-        if ($scope === 'developer') {
-            $systemPrompt .= "Du bist ein erfahrener REDAXO CMS Entwickler und Experte. Nutze die folgende Dokumentation und Code-Beispiele, um Fragen zur Entwicklung, API und Addons zu beantworten. Sei technisch präzise.";
-            
-            // Add system context for developer
-            $systemPrompt .= "\n\nAktuelles System-Kontext:\n" .
-                             "- REDAXO Version: " . \rex::getVersion() . "\n" .
-                             "- Installierte Addons: " . SystemToolService::getAddonListContext() . "\n";
-
-            // Add system tools to developer prompt
-            $systemPrompt .= "\n\nHinweis: Du hast Zugriff auf bestimmte System-Aktionen. Wenn du eine Aktion ausführen möchtest, schreibe am Ende deiner Antwort oder an der passenden Stelle einen Befehl im Format: `[[ACTION:ACTION_NAME]]`. " .
-                             "Mögliche Aktionen: \n" .
-                             "- [[ACTION:CLEAR_CACHE]] (Löscht den REDAXO Cache)\n" .
-                             "- [[ACTION:SYSTEM_INFO]] (Gibt REDAXO-Version, PHP-Version und Speicher aus)\n" .
-                             "- [[ACTION:LIST_ADDONS]] (Listet alle installierten Addons auf)\n" .
-                             "- [[ACTION:GET_LOGS]] (Zeigt die letzten Einträge aus dem System-Log)\n" .
-                             "- [[ACTION:REINDEX_CHAT]] (Startet die Neu-Indizierung des Chats)\n";
-        } else {
-            // Frontend scope. Ein Profil-eigener Prompt (siehe ChatProfile::$customPrompt)
-            // geht vor der globalen "frontend_prompt"-Einstellung - Reihenfolge nur für
-            // den Frontend-Zweig relevant, der Developer-Systemprompt oben bleibt fest
-            // (enthaelt die [[ACTION:...]]-Anleitung fuer die System-Tools).
-            $addon = rex_addon::get('ai_chat');
+        // Ein Profil-eigener Prompt (siehe ChatProfile::$customPrompt) geht vor der
+        // globalen "frontend_prompt"-Einstellung.
+        $addon = rex_addon::get('ai_chat');
             $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
             if (!empty($customPrompt)) {
                 $systemPrompt = $customPrompt;
@@ -184,7 +165,7 @@ class GeminiService implements AiServiceInterface
                 $systemPrompt = "Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.";
             }
 
-            $addressingMode = $addressingModeOverride ?? trim((string) $addon->getConfig('frontend_addressing_mode', 'auto'));
+            $addressingMode = $addressingModeOverride ?? 'auto';
             if ($addressingMode === 'formal') {
                 $systemPrompt .= "\n- Sprich den Nutzer durchgehend förmlich mit 'Sie' an.";
             } elseif ($addressingMode === 'informal') {
@@ -208,10 +189,9 @@ class GeminiService implements AiServiceInterface
             $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
             $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt.";
 
-            $additionalContext = $addon->getConfig('frontend_additional_context');
-            if (!empty($additionalContext)) {
-                $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
-            }
+        $additionalContext = $addon->getConfig('frontend_additional_context');
+        if (!empty($additionalContext)) {
+            $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
         }
 
         $instruction = "Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction();

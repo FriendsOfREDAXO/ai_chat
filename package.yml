@@ -1,5 +1,5 @@
 package: ai_chat
-version: '1.2.0'
+version: '2.0.0-beta1'
 author: 'KLXM Crossmedia GmbH'
 supportpage: https://github.com/FriendsOfRedaxo/ai_chat
 
@@ -11,30 +11,31 @@ page:
     title: 'AI Chat'
     perm: 'ai_chat[]'
     subpages:
-        statistics: { title: 'Statistiken' }
         profiles: { title: 'Profile', perm: 'ai_chat[chatadmin]' }
-        themes: { title: 'Themes', perm: 'ai_chat[chatadmin]' }
-        content: { title: 'Indexierung', perm: 'ai_chat[chatadmin]' }
-        triggers: { title: 'Trigger & Antworten' }
-        cache: { title: 'Cache-Fragen', perm: 'ai_chat[chatadmin]' }
-        demo: { title: 'Demos & Beispiele' }
-        hauptprofil:
-            title: 'Hauptprofil'
+        content:
+            title: 'Index'
             perm: 'ai_chat[chatadmin]'
             subpages:
-                behavior: { title: 'Verhalten & Antworten' }
-                appearance: { title: 'Erscheinungsbild & Suche' }
+                overview: { title: 'Übersicht' }
+                yform: { title: 'YForm-Tabellen' }
+                triggers: { title: 'Trigger & Antworten' }
+                cache: { title: 'Cache-Fragen' }
+        statistics: { title: 'Statistik' }
+        themes: { title: 'Themes', perm: 'ai_chat[chatadmin]' }        
+        demo: { title: 'Demos & Beispiele', itemClass: 'pull-right' }
         settings:
             title: 'Einstellungen'
             perm: 'ai_chat[chatadmin]'
             itemClass: 'pull-left'
             subpages:
-                access: { title: 'Zugriff & Sicherheit' }
+                simple: { title: 'Übersicht' }
                 provider: { title: 'KI-Provider & Parameter' }
                 indexing: { title: 'Indexierungs-Quellen' }
+                behavior: { title: 'Verhalten & Antworten' }
+                search: { title: 'Suche' }
+                access: { title: 'Zugriff & Sicherheit' }
+                retrieval: { title: 'Chunking & Cache' }
                 systemcheck: { title: 'Systemcheck' }
-                retrieval: { title: 'Chunking & Retrieval' }
-                yform: { title: 'YForm-Tabellen' }
         help: { title: 'Hilfe', subPath: README.md, itemClass: 'pull-right' }
 
 console_commands:
@@ -42,7 +43,6 @@ console_commands:
 
 default_config:
     provider: gemini
-    frontend_search_enabled: '|1|'
     frontend_visibility: all
     ai_temperature: '0.7'
     ai_max_tokens: 2048
@@ -53,8 +53,6 @@ default_config:
     chunk_overlap: 200
     cache_similarity: '0.95'
     cache_candidate_limit: 150
-    show_sources: '|1|'
-    suggest_followup_questions: false
     stream_enabled: false
     stats_logging_enabled: true
     live_reindex_enabled: true

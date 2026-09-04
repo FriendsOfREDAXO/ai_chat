@@ -1,65 +1,58 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0-beta1] - 2026-09-04
 
-### Geändert (Hintergrund-Selbstaufruf-Test zeigt jetzt auch Response-Header)
-- Der User-Agent-Fix allein hat einen real gemeldeten 403-Fall nicht gelöst - viele
-  WAF/ModSecurity-Regelwerke werten mehrere Signale kumulativ (Anomaly-Score), nicht nur
-  den User-Agent. Das Diagnose-Werkzeug (Einstellungen → Systemcheck → "Hintergrund-
-  Selbstaufruf testen") sendet jetzt zusätzlich übliche Browser-Header
-  (`Accept`/`Accept-Language`) und zeigt die vollständigen Response-Header jedes
-  Versuchs an (`-D -`) - bei einer Blockade liefert das oft entscheidende Hinweise
-  (z.B. ein ModSecurity-Referenz-Header oder der genaue Server-/PHP-Stack), die der
-  reine Statuscode/Body nicht hergibt.
+Der große Umbau: reine, eigenständige Profile statt eines globalen
+Hauptprofils, kein Developer-Chat mehr. Breaking Changes, siehe unten -
+wer eine der entfernten Sachen konkret braucht, kann sie sich über die
+bestehenden Erweiterungspunkte selbst nachbauen.
 
-### Behoben (Hintergrund-Indexierung konnte je nach Server hängen bleiben)
-- "Im Hintergrund indexieren" ruft NICHT PHP-CLI auf, sondern startet einen abgekoppelten
-  `curl`/`wget`-Prozess, der die eigene öffentliche URL selbst aufruft (drei Versuche:
-  öffentliche URL, dann Loopback über Port 443/80, je mit 20s Zeitlimit). Der aufgerufene
-  Worker antwortete bisher aber erst NACH Abschluss der kompletten (potenziell viele
-  Minuten dauernden) Indexierung - lief ein Durchlauf länger als 20s, wertete curl das als
-  gescheitert und startete über die verkettete Fallback-Logik einen ZWEITEN, mit dem
-  ersten (dank `ignore_user_abort()` weiterlaufenden) Lauf überlappenden Versuch gegen
-  denselben Lauf-Token. Zwei Prozesse schrieben dann gleichzeitig in denselben
-  Fortschritts-Speicher - sichtbares Symptom: hängender Fortschritt, funktioniert aber auf
-  einer anderen, z.B. kleineren Installation, deren Gesamtlaufzeit zufällig unter 20s
-  bleibt. Der Worker antwortet jetzt sofort nach dem Start (`fastcgi_finish_request()`,
-  wo verfügbar) und lässt die eigentliche Indexierung erst danach laufen - der
-  Fallback-Mechanismus greift dadurch nur noch bei echten Erreichbarkeitsproblemen, nicht
-  mehr bei einer schlicht lang laufenden Indexierung.
-- Neues Diagnose-Werkzeug unter **Einstellungen → Systemcheck**: "Hintergrund-Selbstaufruf
-  testen" spielt denselben Mechanismus einmal harmlos durch (eigener, wirkungsloser
-  Echo-Endpunkt statt eines echten Indexierungslaufs) und zeigt für jeden der drei
-  Versuche Dauer, HTTP-Status und Rohausgabe - bisher gab es dafür keinerlei Einblick,
-  obwohl `curl`/`wget` bei jedem echten Lauf bereits ein Log mitschrieben, das nirgends
-  angezeigt wurde. Das Log des letzten echten Hintergrundlaufs sowie der Status eines
-  gemerkten PID-Prozesses werden jetzt ebenfalls mit angezeigt.
-- Mit diesem Werkzeug direkt einen zweiten, eigenständigen Fall gefunden und mitgefixt:
-  auf manchen gemanagten Hosting-/Plesk-Setups blockt eine WAF/ModSecurity-Regel
-  (OWASP-Core-Rule-Set "Scripting User Agent") den Selbstaufruf anhand von curls/wgets
-  eigenem Standard-User-Agent-String - sichtbar als sofortiges HTTP 403 direkt vom
-  Webserver, nicht als Verbindungs- oder Zeitproblem. Alle Selbstaufrufe (echter
-  Hintergrundlauf UND das neue Diagnose-Werkzeug) senden jetzt einen gängigen
-  Browser-User-Agent statt des leicht als Skript erkennbaren Standardwerts - der Aufruf
-  bleibt dabei ein rein interner Selbstaufruf derselben Seite, es wird keine echte
-  Schutzmaßnahme gegen externe Bots umgangen.
+### Entfernt
+- **Hauptprofil.** Kein globaler Fallback mehr für Chat/Suche-Verhalten -
+  jedes Profil ist jetzt komplett eigenständig konfiguriert. Bestehende
+  Installationen übernehmen beim Update automatisch die zuletzt wirksamen
+  globalen Werte in jedes Profil, damit sich erstmal nichts ändert.
+- **Globaler Wissens-Pool.** Jedes Profil wählt seine Quellen jetzt selbst
+  (Sitemap, Struktur, YForm, PDFs - beliebig kombinierbar, Struktur-Bereiche
+  können jetzt auch mehrfach benannt werden). Wissen gezielt zwischen zwei
+  Profilen teilen geht über das neue Feld "Wissen teilen mit Profil(en)".
+- **Developer-Chat.** Backend-Auto-Chat, REDAXO-Systemwerkzeuge und die
+  GitHub-/AddOn-Docs-Indexierung sind komplett raus. Eigene Wissensquellen
+  gibt's weiterhin über den `AI_CHAT_CONTENT_PROVIDERS`-Erweiterungspunkt.
 
-### Behoben (Statistiken: Profil-/Zeitraum-Filter landete auf der Struktur-Seite)
-- Das Profil-/Zeitraum-Filterformular auf der Statistiken-Seite ist ein GET-Formular,
-  dessen `action` die Ziel-URL inkl. `?page=ai_chat/statistics` enthielt - beim Absenden
-  verwirft ein GET-Formular aber die komplette Query-String aus `action` und ersetzt sie
-  nur durch die eigenen Formularfelder. Der `page`-Parameter ging dadurch bei jeder
-  Filteränderung verloren, REDAXO landete mangels erkanntem `page` auf der
-  Standardseite (Struktur) statt auf der Statistiken-Seite zu bleiben. Behoben durch ein
-  explizites verstecktes `page`-Feld im Formular (derselbe Weg, den `pages/cache.php`
-  bereits richtig gemacht hat).
-- Nebenbei entfernt: mehrere unnötige `rex_escape()`-Aufrufe um `rex_url::backendPage()`/
-  `currentBackendPage()`-Ausgaben (`pages/statistics.php`, `pages/settings.yform.php`,
-  `pages/demo.php`) - diese Methoden escapen den `&`-Trenner zwischen mehreren
-  Parametern bereits selbst, ein zusätzliches `rex_escape()` hätte bei mehr als einem
-  Parameter zu doppelt escapten `&amp;amp;` geführt (aktuell noch harmlos, da überall nur
-  ein einzelner Parameter übergeben wird, aber eine tickende Falle für den nächsten
-  Parameter).
+### Neu
+- Zentrale Theme-Verwaltung: mehrere benannte, wiederverwendbare Themes mit
+  Live-Vorschau und alpha-fähigem Colorpicker statt Theme-Feldern in jedem
+  Profil einzeln. Folgefragen-Chips haben jetzt außerdem eine eigene,
+  unabhängig von der Akzentfarbe einstellbare Farbe.
+- FAQ-Vorcaching und Trigger & Antworten sind jetzt je Profil konfigurierbar
+  bzw. einschränkbar, statt nur global zu gelten.
+- YForm-Mappings werden jetzt wie Profile/Themes als übersichtliche Liste
+  verwaltet statt als Wand aus aufgeklappten Formularen.
+- Neue Navigation: Profile ist jetzt die Startseite, Trigger/Cache/YForm
+  sind Unterseiten von Indexierung, neue Einfach-Einstellungsseite und
+  eigene Suche-Einstellungsseite.
+- Globaler IP-Testmodus: eigene IP eintragen und die komplette Seite (auch
+  eingeschränkte Profile) nur für dich sehen, ganz ohne Login.
+- Chunking-Einblick auf der Indexierungs-Übersicht mit konkreter
+  Größenempfehlung bei auffälliger Fragmentierung.
+- Ladeanzeige für die KI-Zusammenstellung in der Suche.
+- Live-Suche filtert jetzt Frage-/Füllwörter (wer/was/macht/tut/...) aus den
+  Suchbegriffen raus - weniger thematisch zufällige Treffer.
+
+### Behoben
+- Boilerplate-Widgets ("Ähnliche Beiträge"/"Links:") landeten im Suchindex
+  und wurden von der KI wörtlich nachgeplappert.
+- Suchergebnis-Snippets markierten den Domainnamen doppelt in der
+  angezeigten URL.
+- Schmale Mehrfachauswahl-Felder im Profil-Formular.
+- Theme-Live-Vorschau lud das Widget-Skript nicht zuverlässig.
+- "Profil testen" zeigte teils Verlauf/Begrüßung eines anderen Profils.
+- Hängende Hintergrund-Indexierung auf manchen Servern, dazu ein
+  WAF-bedingtes 403 bei manchen Hosting-/Plesk-Setups.
+- Statistik-Filter landete nach dem Absenden auf der falschen Seite.
+
+Kompletter technischer Feinschliff wie gewohnt im Git-Log.
 
 ## [1.2.0] - 2026-09-03
 

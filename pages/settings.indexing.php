@@ -1,6 +1,5 @@
 <?php
 
-use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\Db\VectorCapability;
 
 require __DIR__ . '/settings.shared.php';
@@ -28,7 +27,11 @@ if ('recheck_vector' === rex_request('func', 'string')) {
 
 $form = rex_config_form::factory('ai_chat');
 
-$form->addRawField('<p class="help-block">' . $rawMsg('config_section_indexing_hint') . '</p>');
+// Seit der Hauptprofil-Entflechtung waehlt jedes Profil seine Quellen selbst (Sitemap/
+// Struktur/YForm/PDFs, siehe AI Chat → Profile) - es gibt keine globale Struktur-/Sitemap-/
+// PDF-Indexierung mehr. Was hier bleibt: technische Retrieval-Infrastruktur und die
+// Aktivierung optionaler, profil-unabhaengiger Content-Provider (z.B. forcal).
+$form->addRawField('<p class="help-block">' . sprintf('Wissensquellen (Sitemap, Struktur, YForm, PDFs) werden seit Kurzem je Profil gewählt, nicht mehr global - siehe <a href="%s">AI Chat → Profile</a>.', rex_url::backendPage('ai_chat/profiles')) . '</p>');
 
 // Status-Box: rein informativ, kein Formularfeld - die Strategie (nativ vs. Brute-Force)
 // wird ausschliesslich automatisch per VectorCapability::isSupported() gewaehlt, siehe
@@ -54,92 +57,28 @@ $form->addRawField('</div>');
 // https://github.com/KLXM/klxmchat/issues/23.
 $addBoolSelectField($form, 'live_reindex_enabled', $addon->i18n('config_live_reindex_enabled'), $addon->i18n('config_live_reindex_enabled_notice'), true);
 
-$field = $form->addSelectField('index_source');
-$field->setLabel($tooltipLabel($addon->i18n('config_index_source'), 'config_index_source_notice'));
-$field->setAttribute('class', 'selectpicker');
-$field->setAttribute('id', 'klxm-index-source-select');
-$select = $field->getSelect();
-$select->addOption($addon->i18n('config_index_source_structure'), 'structure');
-$select->addOption($addon->i18n('config_index_source_sitemap'), 'sitemap');
-$select->addOption($addon->i18n('config_index_source_structure_sitemap'), 'structure_sitemap');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('structure');
-}
-$field->setNotice($addon->i18n('config_index_source_notice'));
-
-$form->addRawField('<div id="klxm-index-structure-settings">');
-
-$field = $form->addSelectField('index_method');
-$field->setLabel($tooltipLabel($addon->i18n('config_index_method'), 'config_index_method_notice'));
-$field->setNotice($addon->i18n('config_index_method_notice'));
-$field->setAttribute('class', 'selectpicker');
-$select = $field->getSelect();
-$select->addOption($addon->i18n('config_index_method_internal'), 'internal');
-$select->addOption($addon->i18n('config_index_method_http'), 'http');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('internal');
-}
-
-$field = $form->addTextField('index_http_selector');
-$field->setLabel($tooltipLabel($addon->i18n('config_index_http_selector'), 'config_index_http_selector_notice'));
-$field->setNotice($addon->i18n('config_index_http_selector_notice'));
-$field->setAttribute('placeholder', 'main');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('body');
-}
-
-$field = $form->addTextField('index_http_exclude_selectors');
-$field->setLabel($tooltipLabel($addon->i18n('config_index_http_exclude_selectors'), 'config_index_http_exclude_selectors_notice'));
-$field->setNotice($addon->i18n('config_index_http_exclude_selectors_notice'));
-$field->setAttribute('placeholder', 'nav, footer, .cookie-banner');
-
 // Select statt Checkbox - siehe Kommentar bei $addBoolSelectField in settings.shared.php.
-$addBoolSelectField($form, 'index_frontend', $addon->i18n('config_index_frontend'), '', true);
-
-$form->addRawField('</div>');
-
-// Chunking/Embedding-Kontext gilt für JEDE Quelle gleichermaßen und lebt deshalb auf dem
-// eigenen, übergreifenden Reiter "Chunking & Retrieval" statt hier bei den quellenspezifischen
-// Einstellungen - siehe pages/settings.retrieval.php.
-
-$form->addRawField('<div id="index-source-sitemap-settings" class="ai-chat-settings-box" style="display:none;">');
-$form->addRawField('<p class="ai-chat-settings-box-title">' . $addon->i18n('config_index_sitemap_section_title') . '</p>');
-$form->addRawField('<p class="help-block" style="margin: 0 0 15px;">' . $addon->i18n('config_index_sitemap_section_notice') . '</p>');
-$field = $form->addTextAreaField('index_sitemap_url');
-$field->setLabel($addon->i18n('config_index_sitemap_url'));
-$field->setNotice($addon->i18n('config_index_sitemap_url_notice'));
-$field->setAttribute('id', 'ai-chat-index-sitemap-url');
-$field->setAttribute('rows', '4');
-$field->setAttribute('placeholder', "https://example.com/sitemap.xml\nhttps://shop.example.com/sitemap.xml");
-
-// Button zum Testen aller eingetragenen Sitemap-URLs (eine pro Zeile)
-$form->addRawField('<div style="margin-left: 170px; margin-bottom: 15px;">');
-$form->addRawField('<button type="button" class="btn btn-default" id="test-sitemap-url-btn"><i class="rex-icon fa-globe"></i> Sitemaps prüfen</button>');
-$form->addRawField('<div id="sitemap-test-result" style="margin-top: 10px;"></div>');
-$form->addRawField('</div>');
-$form->addRawField('</div>');
+// Betrifft die event-getriebene Einzelartikel-Neuindizierung (siehe IndexerService::
+// updateArticleIndex()) - yrewrite steuert pro Artikel Indexierbarkeit ueber das
+// Metainfo-Feld 'yrewrite_index'.
+$addBoolSelectField($form, 'index_respect_yrewrite_seo', $addon->i18n('config_index_respect_yrewrite_seo'), $addon->i18n('config_index_respect_yrewrite_seo_notice'), true);
 
 $form->addRawField('<div id="klxm-index-provider-settings">');
 $providerRegistry = new FriendsOfRedaxo\AiChat\ContentProvider\ContentProviderRegistry();
 $availableProviders = array_filter(
     $providerRegistry->getAll(),
-    // "mediapool" hier bewusst ausgeschlossen: der Provider traegt nie zum Shared Pool
-    // bei (siehe MediaPoolContentProvider::collectTasks(), rein profil-exklusiv per
-    // Design) - ein globales "aktivieren" haette hier keinerlei Wirkung und wuerde nur
-    // Verwirrung stiften. Die eigentliche Auswahl (Dateien/Kategorien) passiert je
-    // Profil auf der Profile-Seite.
-    static fn ($provider): bool => $provider->isAvailable() && 'mediapool' !== $provider->getKey(),
+    // "mediapool"/"yform" hier bewusst ausgeschlossen: beide sind rein profil-exklusiv
+    // (siehe pages/profiles.php) und tragen seit der Hauptprofil-Entflechtung nicht mehr
+    // zu einem globalen Pool bei - ein globales "aktivieren" haette hier keine Wirkung.
+    static fn ($provider): bool => $provider->isAvailable() && !in_array($provider->getKey(), ['mediapool', 'yform'], true),
 );
-
-$providerField = null;
 
 if ($availableProviders !== []) {
     // Als Multi-Select statt Checkbox-Gruppe: bei mehreren Optionen speichert REDAXO Checkboxen
-    // als Pipe-String ("|forcal|yform|"), was fehleranfaellig ist. Ein Multi-Select nutzt exakt
-    // dasselbe Speicherformat/rex_select-Mechanismus wie bereits bei "Kategorien ausschließen".
+    // als Pipe-String ("|forcal|"), was fehleranfaellig ist.
     $providerField = $form->addSelectField('index_content_providers');
     $providerField->setLabel($addon->i18n('config_index_content_providers'));
-    $providerField->setNotice($addon->i18n('config_index_content_providers_notice'));
+    $providerField->setNotice('Profil-unabhängige Zusatzquellen (z.B. forcal-Kalendereinträge), sichtbar für jedes Profil.');
     $providerField->setAttribute('class', 'selectpicker');
     $providerField->setAttribute('data-actions-box', 'true');
 
@@ -153,7 +92,6 @@ if ($availableProviders !== []) {
 }
 
 if (isset($availableProviders['forcal'])) {
-
     $field = $form->addTextField('forcal_url_schema');
     $field->setLabel($addon->i18n('config_forcal_url_schema'));
     $field->setNotice($addon->i18n('config_forcal_url_schema_notice'));
@@ -167,25 +105,7 @@ if (isset($availableProviders['forcal'])) {
     }
 }
 
-if (isset($availableProviders['yform'])) {
-
-    $form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_yform_provider_profiles_notice') . ' <a href="' . rex_url::backendPage('ai_chat/settings/yform') . '">YForm-Mappings öffnen</a></p>');
-}
-
-// Wie bei den Profilen (pages/profiles.php): kein Haekchen in der Liste oben, die Auswahl
-// selbst (Dateien/Kategorien) ist die Aktivierung - siehe MediaPoolContentProvider-Klassenkommentar.
-$mediaPoolProvider = $providerRegistry->getProvider('mediapool');
-if (null !== $mediaPoolProvider && $mediaPoolProvider->isAvailable()) {
-    MediaPoolContentProvider::renderSourceFields(
-        $form,
-        'pdf_media_ids',
-        'PDF-Dokumente',
-        'Zusätzlich zur Struktur-/Sitemap-Indexierung in den gemeinsamen Wissens-Pool aufgenommene PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
-        'pdf_category_ids',
-        'PDFs aus Medienpool-Kategorien',
-        'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten in den Wissens-Pool aufgenommen.',
-    );
-}
+$form->addRawField('<p class="help-block" style="margin-left:170px;">YForm-Tabellen und PDF-Dokumente werden je Profil gewählt (siehe <a href="' . rex_url::backendPage('ai_chat/profiles') . '">AI Chat → Profile</a>), YForm-Mappings selbst weiterhin zentral unter <a href="' . rex_url::backendPage('ai_chat/content/yform') . '">AI Chat → Indexierung → YForm-Tabellen</a>.</p>');
 
 if (rex_addon::exists('knowledgebase') && !rex_addon::get('knowledgebase')->isAvailable()) {
     $form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_index_content_provider_knowledgebase_unavailable') . '</p>');
@@ -197,168 +117,6 @@ if ($availableProviders === []) {
 
 $form->addRawField('</div>');
 
-$form->addRawField('<div id="klxm-index-local-content-settings">');
-
-$field = $form->addSelectField('index_article_status');
-$field->setLabel($addon->i18n('config_index_article_status'));
-$field->setNotice($addon->i18n('config_index_article_status_notice'));
-$field->setAttribute('class', 'selectpicker');
-$select = $field->getSelect();
-$select->addOption($addon->i18n('config_index_article_status_online'), 'online');
-$select->addOption($addon->i18n('config_index_article_status_all'), 'all');
-$select->addOption($addon->i18n('config_index_article_status_offline'), 'offline');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('online');
-}
-
-$field = $form->addLinklistField('index_exclude_articles');
-$field->setLabel($addon->i18n('config_index_exclude_articles'));
-$field->setNotice($addon->i18n('config_index_exclude_articles_notice'));
-
-$field = $form->addSelectField('index_exclude_categories');
-$field->setLabel($addon->i18n('config_index_exclude_categories'));
-$field->setNotice($addon->i18n('config_index_exclude_categories_notice'));
-$field->setAttribute('class', 'selectpicker');
-$field->setAttribute('data-live-search', 'true');
-$field->setAttribute('data-actions-box', 'true');
-$field->setAttribute('data-selected-text-format', 'count > 3');
-
-// rex_category_select (Kern-Widget aus dem structure-Addon) statt manuellem Aufbau: rendert
-// die Kategorien nativ hierarchisch eingerückt (rex_select::outOption() nutzt &nbsp;-Einrückung
-// je Baumtiefe) und respektiert dabei automatisch echte Eltern-Kind-Beziehungen.
-$categorySelect = new \rex_category_select(false, false, false, true);
-$categorySelect->setMultiple();
-$categorySelect->setSize(10);
-$field->setSelect($categorySelect);
-
-// Select statt Checkbox - siehe Kommentar bei $addBoolSelectField in settings.shared.php.
-$addBoolSelectField($form, 'index_respect_yrewrite_seo', $addon->i18n('config_index_respect_yrewrite_seo'), $addon->i18n('config_index_respect_yrewrite_seo_notice'), true);
-
-$form->addRawField('</div>');
-
-// Addon-Docs/GitHub/Provider-Indexierung ist eine von index_source unabhängige Zusatzquelle und muss immer erreichbar sein.
-$form->addRawField('<div id="klxm-index-addon-settings">');
-$form->addRawField('<p class="help-block" style="margin-left:170px;">' . $addon->i18n('config_index_addons_section_notice') . '</p>');
-
-$field = $form->addSelectField('index_addons_mode');
-$field->setLabel($tooltipLabel($addon->i18n('config_index_addons_mode'), 'config_index_addons_section_notice'));
-$field->setAttribute('class', 'selectpicker');
-$select = $field->getSelect();
-$select->addOption($addon->i18n('config_index_addons_mode_all'), 'all');
-$select->addOption($addon->i18n('config_index_addons_mode_selected'), 'selected');
-$select->addOption($addon->i18n('config_index_addons_mode_none'), 'none');
-if ($isConfigUnset($field->getValue())) {
-    $field->setValue('all');
-}
-
-$field = $form->addSelectField('index_addons_list');
-$field->setLabel($addon->i18n('config_index_addons_list'));
-$field->setAttribute('class', 'selectpicker');
-$field->setAttribute('data-live-search', 'true');
-$field->setAttribute('data-actions-box', 'true');
-$field->setAttribute('data-selected-text-format', 'count > 3');
-$field->setAttribute('multiple', 'multiple');
-$field->setAttribute('size', '10');
-$select = $field->getSelect();
-foreach (rex_addon::getAvailableAddons() as $a) {
-    $select->addOption($a->getName() . ' (' . $a->getPackageId() . ')', $a->getPackageId());
-}
-
-$field = $form->addTextField('github_token');
-$field->setLabel($addon->i18n('config_github_token'));
-$field->setNotice($addon->i18n('config_github_token_notice'));
-
-$field = $form->addTextAreaField('github_repos');
-$field->setLabel($addon->i18n('config_github_repos'));
-$field->setNotice($addon->i18n('config_github_repos_notice'));
-
-$form->addRawField('</div>');
-
 $form->addRawField($tooltipInitScript);
 
-$form->addRawField('
-<script>
-(function() {
-    function initKlxmIndexingSettings() {
-        // Index Source Toggle
-        var indexSourceSelect = document.getElementById("klxm-index-source-select");
-        function updateIndexSourceVisibility() {
-            if (!indexSourceSelect) return;
-            var value = indexSourceSelect.value;
-            var sitemapSettings = document.getElementById("index-source-sitemap-settings");
-            var structureSettings = document.getElementById("klxm-index-structure-settings");
-            var localContentSettings = document.getElementById("klxm-index-local-content-settings");
-            var isSitemapOnly = value === "sitemap";
-            var includesSitemap = value === "sitemap" || value === "structure_sitemap";
-            if (sitemapSettings) {
-                sitemapSettings.style.display = includesSitemap ? "block" : "none";
-            }
-            if (structureSettings) {
-                structureSettings.style.display = isSitemapOnly ? "none" : "block";
-            }
-            if (localContentSettings) {
-                localContentSettings.style.display = isSitemapOnly ? "none" : "block";
-            }
-            // Addon-Docs/GitHub/Provider-Indexierung (#klxm-index-addon-settings) ist eine eigene Zusatzquelle
-            // und bleibt bewusst IMMER sichtbar, unabh\u00e4ngig von index_source.
-        }
-        if (indexSourceSelect) {
-            indexSourceSelect.addEventListener("change", updateIndexSourceVisibility);
-            updateIndexSourceVisibility();
-        }
-
-        // Test Sitemap URLs (eine pro Zeile) - jede Zeile wird einzeln geprüft,
-        // damit man bei mehreren Sitemaps sofort sieht, welche davon fehlschlägt.
-        var testSitemapBtn = document.getElementById("test-sitemap-url-btn");
-        if (testSitemapBtn) {
-            testSitemapBtn.addEventListener("click", function() {
-               var input = document.getElementById("ai-chat-index-sitemap-url");
-               var raw = input ? input.value : "";
-               var urls = raw.split("\n").map(function(line) { return line.trim(); }).filter(function(line) { return line !== ""; });
-               var resultBox = document.getElementById("sitemap-test-result");
-               if (urls.length === 0) { alert("Bitte mindestens eine URL eingeben"); return; }
-
-               resultBox.innerHTML = "<i class=\'rex-icon fa-spinner fa-spin\'></i> Prüfe " + urls.length + " Sitemap(s)...";
-               testSitemapBtn.disabled = true;
-
-               Promise.all(urls.map(function(url) {
-                   return fetch("index.php?rex-api-call=ai_chat_index&action=test_sitemap&url=" + encodeURIComponent(url))
-                       .then(function(response) { return response.json(); })
-                       .then(function(data) { return { url: url, data: data }; })
-                       .catch(function(error) { return { url: url, data: { success: false, message: String(error) } }; });
-               })).then(function(results) {
-                   testSitemapBtn.disabled = false;
-                   resultBox.innerHTML = results.map(function(result) {
-                       var icon = result.data.success ? "fa-check" : "fa-exclamation-triangle";
-                       var cls = result.data.success ? "text-success" : "text-danger";
-                       return "<div class=\'" + cls + "\'><i class=\'rex-icon " + icon + "\'></i> " +
-                           "<strong>" + result.url + "</strong>: " + result.data.message + "</div>";
-                   }).join("");
-               });
-            });
-        }
-    }
-
-    if (typeof jQuery !== "undefined") {
-        jQuery(document).on("rex:ready", function() {
-            initKlxmIndexingSettings();
-        });
-    } else {
-        document.addEventListener("DOMContentLoaded", function() {
-            initKlxmIndexingSettings();
-        });
-    }
-})();
-</script>
-');
-
-$sidebar = $renderTipsPanel($addon, 'indexing')
-    . '<div class="panel panel-info" style="margin-bottom:20px;">'
-    . '<header class="panel-heading"><div class="panel-title"><i class="rex-icon fa-sitemap"></i> ' . $addon->i18n('config_sidebar_index_modes_title') . '</div></header>'
-    . '<div class="panel-body">'
-    . '<p><strong>' . $addon->i18n('config_index_source_structure') . ':</strong> ' . $addon->i18n('config_sidebar_index_modes_structure') . '</p>'
-    . '<p><strong>' . $addon->i18n('config_index_source_sitemap') . ':</strong> ' . $addon->i18n('config_sidebar_index_modes_sitemap') . '</p>'
-    . '<p style="margin-bottom:0;"><strong>' . $addon->i18n('config_index_source_structure_sitemap') . ':</strong> ' . $addon->i18n('config_sidebar_index_modes_structure_sitemap') . '</p>'
-    . '</div></div>';
-
-$renderSettingsPage($form, $sidebar);
+$renderSettingsPage($form, $renderTipsPanel($addon, 'indexing'));
