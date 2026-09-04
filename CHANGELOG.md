@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Behoben
+- **Indexierungs-Übersicht zeigte für YForm/Medienpool einen irreführenden
+  globalen "aktiv/deaktiviert"-Status.** Überbleibsel aus der Zeit vor der
+  Hauptprofil-Entflechtung: beide Quellen werden seitdem ausschließlich je
+  Profil gewählt, der geprüfte globale Schalter existiert im Formular gar
+  nicht mehr (oder ein Upgrade brachte einen längst bedeutungslosen alten
+  Wert mit) - ein Profil mit eigenen PDFs wurde trotzdem als "deaktiviert"
+  angezeigt. Zeigt jetzt für beide, wie viele Profile die Quelle tatsächlich
+  nutzen ("genutzt von N Profil(en)"/"von keinem Profil genutzt"), und die
+  Liste "Aktivierte Content-Provider" richtet sich nach real vorhandenem
+  Indexinhalt statt nach derselben veralteten globalen Auswahl.
 - **Chat-Antworten begannen teils mit dem sichtbaren Präfix "[Bereich: Name —
   Beschreibung]".** Diese Markierung ist nur eine interne Einordnungshilfe für
   die KI (aus welchem benannten Sitemap-/Struktur-Bereich ein Kontext-Abschnitt

@@ -247,30 +247,58 @@ if (!empty($stats)) {
     $statsColumns .= '</ul></div>';
 }
 
-if ($enabledProviderInstances !== []) {
-    $statsColumns .= '<div><h4>Aktivierte Content-Provider</h4><ul>';
-    foreach ($enabledProviderInstances as $provider) {
-        $count = 0;
-        foreach ($provider->getSupportedSourceTypes() as $sourceType) {
-            $count += (int) ($stats[$sourceType] ?? 0);
-        }
+// Bewusst ueber ALLE verfuegbaren Provider (nicht nur die global "aktivierten" - siehe
+// Kommentar bei der zweiten Liste weiter unten) und gefiltert auf tatsaechlich indexierten
+// Inhalt: die globale "index_content_providers"-Auswahl sagt fuer profil-exklusive Provider
+// (mediapool/yform) nichts mehr aus, ein bereits indexiertes Profil mit PDFs wuerde hier
+// sonst schlicht fehlen, obwohl sein Inhalt laengst durchsuchbar ist.
+$providersWithContent = [];
+foreach ($allProviders as $provider) {
+    $count = 0;
+    foreach ($provider->getSupportedSourceTypes() as $sourceType) {
+        $count += (int) ($stats[$sourceType] ?? 0);
+    }
+    if ($count > 0) {
+        $providersWithContent[] = [$provider, $count];
+    }
+}
 
+if ($providersWithContent !== []) {
+    $statsColumns .= '<div><h4>Aktivierte Content-Provider</h4><ul>';
+    foreach ($providersWithContent as [$provider, $count]) {
         $statsColumns .= '<li><span>' . rex_escape($provider->getLabel()) . '</span><strong>' . $count . '</strong></li>';
     }
     $statsColumns .= '</ul></div>';
 }
 
 if ($allProviders !== []) {
+    // "mediapool"/"yform" sind seit der Hauptprofil-Entflechtung rein profil-exklusiv
+    // (siehe settings.indexing.php, das beide bewusst aus der globalen
+    // "index_content_providers"-Auswahl ausschliesst) - ein globaler "aktiviert/
+    // deaktiviert"-Status waere hier IMMER irrefuehrend: entweder dauerhaft "deaktiviert",
+    // obwohl laengst ein Profil PDFs/YForm-Tabellen nutzt, oder (bei einem Upgrade von vor
+    // der Entflechtung) ein stehengebliebenes "aktiv" aus der alten globalen Auswahl, das
+    // schon lange nichts mehr bedeutet. Stattdessen wird hier gezaehlt, wie viele Profile
+    // die jeweilige Quelle TATSAECHLICH nutzen.
+    $profiles = (new FriendsOfRedaxo\AiChat\Profile\ProfileRepository())->getAll();
+    $mediapoolProfileCount = 0;
+    $yformProfileCount = 0;
+    foreach ($profiles as $profileForCount) {
+        if ($profileForCount->pdfMediaIds !== [] || $profileForCount->pdfCategoryIds !== []) {
+            ++$mediapoolProfileCount;
+        }
+        if ($profileForCount->yformProfileIds !== []) {
+            ++$yformProfileCount;
+        }
+    }
+
     $statsColumns .= '<div><h4>Verfügbare Content-Provider</h4><ul>';
     foreach ($allProviders as $provider) {
-        // "mediapool" hat kein Haekchen in der Content-Provider-Liste (siehe
-        // pages/settings.indexing.php) - die PDF-/Kategorie-Auswahl dort IST die
-        // Aktivierung, global wie je Profil. "aktiv" bedeutet hier deshalb: global
-        // ist mindestens eine Datei/Kategorie gewaehlt.
-        if ('mediapool' === $provider->getKey()) {
-            $hasGlobalPdfSelection = '' !== trim((string) $addon->getConfig('pdf_media_ids'))
-                || '' !== trim((string) $addon->getConfig('pdf_category_ids'));
-            $state = $hasGlobalPdfSelection ? 'aktiv' : 'deaktiviert (siehe AI Chat → Profile)';
+        if ('mediapool' === $provider->getKey() || 'yform' === $provider->getKey()) {
+            $profileCount = 'mediapool' === $provider->getKey() ? $mediapoolProfileCount : $yformProfileCount;
+            $state = $profileCount > 0
+                ? sprintf('genutzt von %d Profil%s', $profileCount, 1 === $profileCount ? '' : 'en')
+                : 'von keinem Profil genutzt';
         } else {
             $isEnabled = in_array($provider->getKey(), $enabledProviders, true);
             $state = $isEnabled ? 'aktiv' : 'deaktiviert';
