@@ -305,7 +305,7 @@ if ('add' === $func || 'edit' === $func) {
     $body .= '<template class="klxm-repeater-template">' . $renderFieldRow('__ROW__', [], $profileTable, $columnsMap, 'field') . '</template>';
     $body .= '</div>';
 
-    $body .= '<hr><h4>Bedingungen</h4><p class="help-block">Beispiel: Feld <code>news_date</code> mit Operator <code>vor jetzt</code> verhindert, dass zukünftige News indexiert werden.</p>';
+    $body .= '<hr><h4>Bedingungen</h4><p class="help-block">Beispiel: Feld <code>news_date</code> mit Operator <code>vor jetzt</code> verhindert, dass zukünftige News indexiert werden. Bei den Operatoren <code>vor jetzt</code>, <code>nach jetzt</code>, <code>ist leer</code> und <code>ist nicht leer</code> wird kein Wert ausgewertet - das Feld "Wert" kann dann leer bleiben.</p>';
     $body .= '<div class="klxm-repeater" data-repeater-name="conditions">';
     $body .= '<div class="klxm-repeater-items">';
     if ($conditions === []) {
