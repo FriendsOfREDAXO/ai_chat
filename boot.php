@@ -190,24 +190,30 @@ if (rex::isBackend() && rex::getUser()) {
     // niemand das zugehoerige Log eingeschaltet hat, statt dauerhaft eine leere Auswertung zu
     // zeigen. Gleiches Muster wie MediaPlace fuer die klassische Mediapool-Seite (siehe dort).
     rex_extension::register('PAGES_PREPARED', static function () use ($addon) {
-        if ((bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
-            return;
-        }
-
         $aiChatPage = rex_be_controller::getPages()['ai_chat'] ?? null;
         if (!$aiChatPage instanceof rex_be_page) {
             return;
         }
 
-        $contentPage = $aiChatPage->getSubpage('content');
-        if (!$contentPage instanceof rex_be_page) {
+        $debugLogEnabled = (bool) $addon->getConfig('retrieval_debug_log_enabled', false);
+
+        if (!$debugLogEnabled) {
+            $contentPage = $aiChatPage->getSubpage('content');
+            $retrievalLogPage = $contentPage instanceof rex_be_page ? $contentPage->getSubpage('retrieval_log') : null;
+            if ($retrievalLogPage instanceof rex_be_page) {
+                $retrievalLogPage->setHidden(true);
+            }
+
             return;
         }
 
-        $retrievalLogPage = $contentPage->getSubpage('retrieval_log');
-        if ($retrievalLogPage instanceof rex_be_page) {
-            $retrievalLogPage->setHidden(true);
-        }
+        // Sichtbar auch ausserhalb der eigenen Unterseiten, z.B. beim Blick auf die AddOns-
+        // Liste im Hauptmenue - genau dort wuerde man sonst leicht vergessen, dass reines
+        // Debugging noch mitlaeuft. Neutral statt farbig (kein Ampel-Rot/-Orange): anders als
+        // Upkeeps Wartungsmodi sperrt dieser Schalter nichts fuer Besucher, es ist reine
+        // Diagnose (gleiche Unterscheidung, die Upkeep selbst zwischen seinen eigenen
+        // Indikatoren trifft, siehe upkeep/lib/Upkeep.php::setStatusIndicator()).
+        $aiChatPage->setTitle($aiChatPage->getTitle() . ' <span class="ai-chat-nav-indicator" title="Retrieval-Debug-Log ist aktiv">D</span>');
     });
 }
 

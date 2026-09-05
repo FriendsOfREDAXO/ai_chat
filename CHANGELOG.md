@@ -17,7 +17,12 @@
   sich selbst aus, solange das Log deaktiviert ist (sonst nur eine dauerhaft
   leere Auswertung), und die Indexierungs-Übersicht zeigt umgekehrt einen
   auffälligen gelben Hinweis in der Sidebar, solange es AKTIV ist - reines
-  Debugging soll nicht unbemerkt weiterlaufen.
+  Debugging soll nicht unbemerkt weiterlaufen. Zusätzlich ein neutrales
+  "D"-Badge direkt am "AI Chat"-Eintrag im Backend-Hauptmenü (AddOns-Liste),
+  nach demselben Muster wie Upkeeps eigene Statusindikatoren - fällt so auch
+  auf, wenn man sich gar nicht auf einer AI-Chat-Unterseite befindet. Bewusst
+  neutral/grau statt farbig, da anders als Upkeeps Wartungsmodi hier nichts
+  für Besucher gesperrt wird.
 - **Einstellungen → "Systemcheck" umbenannt in "Check & Debug".** Der
   Retrieval-Debug-Log-Schalter (siehe oben) gehört inhaltlich nicht zu
   "Chunking & Cache" (das sind Qualitäts-/Verhaltens-Hebel, keine Diagnose)
