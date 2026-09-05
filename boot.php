@@ -209,10 +209,11 @@ if (rex::isBackend() && rex::getUser()) {
 
         // Sichtbar auch ausserhalb der eigenen Unterseiten, z.B. beim Blick auf die AddOns-
         // Liste im Hauptmenue - genau dort wuerde man sonst leicht vergessen, dass reines
-        // Debugging noch mitlaeuft. Neutral statt farbig (kein Ampel-Rot/-Orange): anders als
-        // Upkeeps Wartungsmodi sperrt dieser Schalter nichts fuer Besucher, es ist reine
-        // Diagnose (gleiche Unterscheidung, die Upkeep selbst zwischen seinen eigenen
-        // Indikatoren trifft, siehe upkeep/lib/Upkeep.php::setStatusIndicator()).
+        // Debugging noch mitlaeuft. Erst neutral/grau gehalten (siehe Upkeeps eigene,
+        // rein informative Indikatoren, upkeep/lib/Upkeep.php::setStatusIndicator()) - auf
+        // Nutzer-Wunsch aber bewusst auffaelliger gemacht (siehe CSS: pulsierender Punkt in
+        // der Auge-Kernfarbe aus dem Indexierungs-Kopfbereich), da ein reiner Farbunterschied
+        // im Menue leicht uebersehen wird.
         $aiChatPage->setTitle($aiChatPage->getTitle() . ' <span class="ai-chat-nav-indicator" title="Retrieval-Debug-Log ist aktiv">D</span>');
     });
 }

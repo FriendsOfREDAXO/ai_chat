@@ -3,26 +3,58 @@
  * Support for REDAXO Light, Dark and Auto themes
  */
 
-/* Statusindikator im Backend-Hauptmenue (boot.php PAGES_PREPARED): rein informativ
-   ("Retrieval-Debug-Log laeuft"), kein Ampel-Rot/-Orange - anders als z.B. Upkeeps
-   Wartungsmodi sperrt dieser Schalter nichts fuer Besucher. Gleiches neutrale Muster wie
-   Upkeeps eigener .upkeep-nav-indicator. */
+/* Eigenes Nav-/Seitenkopf-Icon statt des generischen REDAXO-Default-Icons
+   (rex-icon-package-addon) - Sprechblase + Lupe, steht fuer Chat UND Suche gleichermassen.
+   Gleiches Einbinde-Muster wie cke5s eigenes Icon (package.yml page.icon -> eigene CSS-Klasse
+   mit Bild-Hintergrund, siehe cke5/assets/css/cke5.css .cke5-icon-logo). Die "rex-icon"-Klasse
+   MUSS Teil des package.yml-Werts bleiben (siehe dortiger Kommentar) - erst dadurch greift
+   REDAXOs eigene Positionierungsregel .rex-nav-main-list>li.rex-has-icon>a>.rex-icon (Ausgleich
+   des von .rex-nav-main-list>li>a reservierten Icon-Platzes per negativem margin-left) -
+   ohne sie sitzt das Icon versetzt zu allen anderen Menuepunkten. Groesse bewusst ueber dem
+   Standard-20px-Raster (!important, da genau diese Regel dieselbe Spezifitaet hat und sonst
+   je nach Ladereihenfolge gewinnen kann).*/
+.ai-chat-icon-logo {
+    display: inline-block !important;
+    width: 26px !important;
+    height: 26px !important;
+    background: url(images/ai-chat-icon.svg) no-repeat center;
+    background-size: 26px 26px;
+    vertical-align: middle;
+}
+
+/* Statusindikator im Backend-Hauptmenue (boot.php PAGES_PREPARED): "Retrieval-Debug-Log
+   laeuft". Erst neutral/grau gehalten (wie Upkeeps eigene, rein informative Indikatoren) -
+   sollte auf Nutzer-Wunsch aber staerker auffallen, deshalb jetzt ein pulsierender Punkt in
+   der Auge-Kernfarbe aus dem Indexierungs-Kopfbereich (siehe ai-chat-indexing-backend.css)
+   statt einer stillen Umrandung. Eigenes Keyframe statt eines Imports, weil diese Datei
+   (anders als die Indexierungs-CSS) auf JEDER Backend-Seite laedt - die Animation muss
+   unabhaengig von der anderen Datei funktionieren.*/
 .rex-nav-main .ai-chat-nav-indicator {
     display: inline-block;
     float: right;
-    margin-top: 2px;
+    margin-top: 3px;
     margin-left: 4px;
-    padding: 0 5px;
-    min-width: 16px;
-    font-size: 11px;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 16px;
     text-align: center;
-    color: inherit;
-    background-color: transparent;
-    border: 1px solid currentColor;
-    border-radius: 3px;
-    opacity: 0.75;
+    color: #2b1a10;
+    background-color: #ff8a4c;
+    border-radius: 50%;
+    animation: aiChatNavIndicatorPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes aiChatNavIndicatorPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 138, 76, 0.55); }
+    50% { transform: scale(1.15); box-shadow: 0 0 0 5px rgba(255, 138, 76, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rex-nav-main .ai-chat-nav-indicator {
+        animation: none;
+    }
 }
 
 /* --- Dark Mode Overrides (Explicit) --- */

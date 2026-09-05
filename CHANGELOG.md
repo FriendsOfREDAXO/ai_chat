@@ -17,12 +17,20 @@
   sich selbst aus, solange das Log deaktiviert ist (sonst nur eine dauerhaft
   leere Auswertung), und die Indexierungs-Übersicht zeigt umgekehrt einen
   auffälligen gelben Hinweis in der Sidebar, solange es AKTIV ist - reines
-  Debugging soll nicht unbemerkt weiterlaufen. Zusätzlich ein neutrales
-  "D"-Badge direkt am "AI Chat"-Eintrag im Backend-Hauptmenü (AddOns-Liste),
-  nach demselben Muster wie Upkeeps eigene Statusindikatoren - fällt so auch
-  auf, wenn man sich gar nicht auf einer AI-Chat-Unterseite befindet. Bewusst
-  neutral/grau statt farbig, da anders als Upkeeps Wartungsmodi hier nichts
-  für Besucher gesperrt wird.
+  Debugging soll nicht unbemerkt weiterlaufen. Zusätzlich ein pulsierender
+  Punkt direkt am "AI Chat"-Eintrag im Backend-Hauptmenü (AddOns-Liste), nach
+  demselben Grundmuster wie Upkeeps eigene Statusindikatoren (eigener
+  Buchstabe im Menü) - fällt so auch auf, wenn man sich gar nicht auf einer
+  AI-Chat-Unterseite befindet. Bewusst in der Auge-Kernfarbe aus dem
+  Indexierungs-Kopfbereich statt neutral/grau, damit es tatsächlich auffällt.
+- **Eigenes Icon für das Addon.** Ersetzt das generische REDAXO-Default-Icon
+  (Lesezeichen) im Hauptmenü durch eine Sprechblase mit Lupe (steht für Chat
+  UND Suche) - gleiches Einbinde-Muster wie bei CKEditor 5 (`package.yml`s
+  `page.icon` verweist auf eine eigene CSS-Klasse mit Bild-Hintergrund statt
+  eines Font-Awesome-Namens). Der Wert muss zusätzlich die Klasse `rex-icon`
+  enthalten, sonst greift REDAXOs eigene Positionierungsregel für Menü-Icons
+  nicht und das Icon sitzt versetzt zu allen anderen Einträgen. Größe bewusst
+  über dem Standard-Raster, damit es auffällt.
 - **Einstellungen → "Systemcheck" umbenannt in "Check & Debug".** Der
   Retrieval-Debug-Log-Schalter (siehe oben) gehört inhaltlich nicht zu
   "Chunking & Cache" (das sind Qualitäts-/Verhaltens-Hebel, keine Diagnose)

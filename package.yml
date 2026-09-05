@@ -9,6 +9,7 @@ requires:
 
 page:
     title: 'AI Chat'
+    icon: rex-icon ai-chat-icon-logo
     perm: 'ai_chat[]'
     subpages:
         profiles: { title: 'Profile', perm: 'ai_chat[chatadmin]' }
@@ -30,8 +31,8 @@ page:
             itemClass: 'pull-left'
             subpages:
                 simple: { title: 'Übersicht' }
-                provider: { title: 'KI-Provider & Parameter' }
-                indexing: { title: 'Indexierungs-Quellen' }
+                provider: { title: 'Provider & Parameter' }
+                indexing: { title: 'Quellen' }
                 behavior: { title: 'Verhalten & Antworten' }
                 search: { title: 'Suche' }
                 access: { title: 'Zugriff & Sicherheit' }
