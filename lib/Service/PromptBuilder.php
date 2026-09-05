@@ -54,6 +54,7 @@ class PromptBuilder
         $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
         $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt. Diese Markierung ist nur eine interne Einordnungshilfe für dich - übernimm sie niemals wörtlich in deine Antwort.";
         $systemPrompt .= "\n- Ein Kontext-Abschnitt kann eigene Metadaten-Zeilen am Anfang enthalten, z.B. \"Kategorie: ...\", \"Kontext-Hinweis: ...\", \"Zusätzliche Keywords: ...\" oder \"Wichtige Fakten: ...\". Das sind interne Einordnungs-/Priorisierungshilfen NUR für dich, keine Inhalte der Website. Erwähne, zitiere oder paraphrasiere diese Zeilen oder ihren Inhalt NIEMALS gegenüber dem Nutzer - auch nicht als eigene Anmerkung, Hinweis oder Fußnote unter deiner Antwort. Deine Antwort darf ausschließlich die eigentliche Nutzerfrage inhaltlich beantworten.";
+        $systemPrompt .= "\n- Der Kontext kann Abschnitte zu mehreren, unterschiedlichen Themen enthalten (z.B. Leistungen/Angebote, Referenzen, Stellenangebote/Praktika, News). Nutze für deine Antwort ausschließlich die Abschnitte, die zur tatsächlich gestellten Frage passen, und ignoriere alle anderen vollständig. Vermische niemals unterschiedliche Themen in einer Antwort, nur weil beide im Kontext vorkamen - z.B. gehören Praktikums-/Stellenangebote nicht in eine Antwort zu Leistungen, außer der Nutzer fragt ausdrücklich danach.";
 
         $additionalContext = (string) $addon->getConfig('frontend_additional_context');
         if ('' !== $additionalContext) {
@@ -79,7 +80,7 @@ class PromptBuilder
      */
     public static function markdownFormattingInstruction(): string
     {
-        return 'Formatiere die Antwort als sauberes Markdown: Trenne Absätze, Listen und Code-Blöcke immer durch eine Leerzeile (nicht nur einen einzelnen Zeilenumbruch). Nutze für Code-Beispiele - auch kurze oder einzeilige - immer einen Codeblock mit dreifachen Backticks und Sprachangabe (z.B. ```html ... ```), niemals nur einzelne Backticks.';
+        return 'Formatiere die Antwort als sauberes Markdown: Trenne Absätze, Listen und Code-Blöcke immer durch eine Leerzeile (nicht nur einen einzelnen Zeilenumbruch). Nutze Codeblöcke mit dreifachen Backticks und Sprachangabe (z.B. ```html ... ```) ausschließlich für echten Code, den jemand kopieren und einfügen würde (z.B. Einbindungs-/Konfigurationscode) - niemals nur einzelne Backticks dafür. Normale Aufzählungen, Beispiele oder Angebotslisten (z.B. "Beispiele für Leistungen") gehören immer als gewöhnliche Markdown-Liste (mit "-" oder Nummerierung) in den Fließtext, niemals als HTML-Codeblock.';
     }
 
     /**

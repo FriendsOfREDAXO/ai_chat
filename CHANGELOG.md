@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Behoben
+- **Antworten konnten normale Aufzählungen (z.B. "Beispiele für Leistungen")
+  als rohen HTML-Codeblock statt als lesbare Markdown-Liste ausgeben** -
+  sichtbar als grauer "HTML"-Codeblock mit Copy-Button im Chat-Fenster. Die
+  gemeinsame Markdown-Formatierungsregel (`PromptBuilder::
+  markdownFormattingInstruction()`) wies das Modell an, "auch kurze
+  Code-Beispiele" immer in einen Codeblock mit Sprachangabe zu packen - zu
+  weit gefasst, das Modell wandte das teils auch auf gewöhnliche Inhalte an.
+  Klargestellt: Codeblöcke nur für echten, kopierbaren Code; normale Listen/
+  Beispiele/Angebote immer als Markdown-Liste im Fließtext.
+- **Antworten konnten Themen aus unterschiedlichen, im Kontext gleichzeitig
+  enthaltenen Seiten vermischen** (z.B. Stellenangebote/Praktika in eine
+  Antwort zu Leistungen einweben), wenn beide Themen zufällig in denselben
+  RAG-Kandidaten landeten. Neue Systemprompt-Regel in allen vier
+  Provider-Implementierungen: nur die tatsächlich zur Frage passenden
+  Kontext-Abschnitte verwenden, alle anderen vollständig ignorieren.
+
 ## [2.0.0-beta3] - 2026-09-06
 
 ### Geändert
