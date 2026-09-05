@@ -1,90 +1,33 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0-beta2] - 2026-09-05
+
+Kleinere Runde: bessere Retrieval-Qualität, ein paar handfeste Bugfixes,
+deutlich mehr Doku.
 
 ### Neu
-- **README: Ablauf-Diagramme.** Neuer Abschnitt „Ablauf im Überblick" mit
-  zwei ASCII-Diagrammen (bewusst kein Mermaid - die REDAXO-Hilfe-Seite
-  rendert `README.md` über `rex_markdown`, das keine Mermaid-Diagramme
-  darstellen kann, nur GitHub täte das) - Indexierung (Quelle → Bereinigung
-  → Kontext-Anreicherung → Chunking → Embedding) und Abruf & Antwort
-  (Datenschutz-Guard → Retrieval-Anfrage → Vektorsuche → Stichwort-Fallback
-  → Re-Ranking → Prompt → KI-Antwort).
-
-### Geändert
-- **README bereinigt**: verbliebene Erwähnungen von Hauptprofil und
-  Backend-/Developer-Chat entfernt - beide Features sind seit 2.0.0 Geschichte,
-  die README beschreibt jetzt durchgängig nur noch den aktuellen Stand statt
-  „X gibt es nicht mehr"/„vorher war Y"-Vergleichen mit der alten Architektur.
+- **Re-Ranking**: Kandidaten werden vor der finalen Auswahl zusätzlich nach
+  Stichwort-Überdeckung mit der Frage neu sortiert - kein zusätzlicher
+  KI-Aufruf, korrigiert aber einige "warum findet er das nicht"-Fälle.
+- **Kategorie-Pfad & eigene Metainfo-Felder** fließen jetzt zusätzlich ins
+  Embedding ein (echte REDAXO-Kategorie bei Struktur-Inhalten, URL-Struktur
+  als Fallback sonst).
+- **JSON-LD-Auswertung erweitert** um `BreadcrumbList`, `FAQPage` und
+  Öffnungszeiten (zusätzlich zu Person/Organization/ContactPoint/
+  LocalBusiness).
 
 ### Behoben
-- **„yrewrite-SEO-Einstellungen respektieren" hatte keine Wirkung.** Die
-  Einstellung (Standard: an) versprach laut eigenem Hinweistext, einen
-  Artikel zu überspringen, den yrewrite als „nicht indexieren" markiert -
-  tatsächlich wurde das Metainfo-Feld `yrewrite_index` nirgends ausgewertet.
-  `IndexerService::indexArticle()` überspringt einen Artikel jetzt, wenn
-  yrewrite ihn explizit auf „noindex" gesetzt hat (Werte `-1` und `2` - das
-  Feld kennt vier Stufen, beide bedeuten "nicht indexieren"). Keine
-  Vererbung von einer Kategorie auf ihre Artikel, weil yrewrite selbst
-  keine kennt (`rex_yrewrite_seo::getTags()` liest nur den Wert des
-  jeweils aktuellen Artikels). Bewusst NICHT betroffen: der Online-/
-  Offline-Status - ein Struktur-Bereich indexiert weiterhin absichtlich
-  unabhängig davon (siehe `updateArticleIndex()`).
+- yrewrites "noindex" wurde beim Indexieren komplett ignoriert - wirkt jetzt.
+- Ein interner "[Bereich: ...]"-Hinweis für die KI landete manchmal sichtbar
+  in der Antwort.
+- Die Indexierungs-Übersicht zeigte für YForm/Medienpool einen falschen
+  globalen Status statt der tatsächlichen Profil-Nutzung.
 
-### Geändert
-- **README erheblich erweitert**: die neuen Retrieval-Features (Re-Ranking,
-  Kategorie-Pfad, Metainfo-Felder, erweitertes JSON-LD) dokumentiert, dazu
-  drei neue Abschnitte - "Best Practices" (Chunk-Größe, Reindex-Zeitpunkte,
-  Provider-Wechsel, …), "FAQ" (häufige Stolperfallen) und "Datenschutz und
-  Besucherschutz" (welche Daten an welchen KI-Provider gehen, der bestehende
-  Eingabe-Schutz gegen sensible Daten, was serverseitig gespeichert wird,
-  Empfehlungen für sensible Website-Inhalte).
-
-### Neu
-- **Re-Ranking**: die Top-Kandidaten der Ähnlichkeitssuche (Standard: 20)
-  werden vor der finalen Auswahl zusätzlich nach Stichwort-Überdeckung mit
-  der Frage neu sortiert - korrigiert Fälle, in denen die reine
-  Cosine-Similarity einen thematisch zufälligen, aber embedding-technisch
-  naheliegenden Treffer vor eine tatsächlich passendere Seite stellt. Ohne
-  zusätzlichen KI-Aufruf, keine spürbare Verzögerung. Einstellbar unter
-  "Chunking & Cache" (an/aus, Kandidatenzahl).
-- **Kategorie-Pfad als Embedding-Metadaten**: jeder Kontext-Abschnitt bekommt
-  vor dem Embedding jetzt zusätzlich seine Einordnung mitgegeben - bei
-  Struktur-Inhalten die echte REDAXO-Kategorie-Hierarchie (z.B. "Agentur >
-  Leistungen > Webentwicklung"), bei Sitemap-/YForm-/Provider-Inhalten ohne
-  REDAXO-Kategorie ersatzweise die Ordnerstruktur aus der URL. Abschaltbar,
-  Standard: an. Wirkt erst nach einer erneuten Indexierung.
-- **Konfigurierbare Metainfo-Felder als Zusatzkontext**: eigene Metainfo-Felder
-  (z.B. eine "Meta-Keywords"-Spalte) können jetzt als zusätzlicher
-  Kontext-Hinweis vor dem Embedding jedes Artikels eingefügt werden - Feldnamen
-  sind pro Installation frei vergeben, deshalb konfigurierbar statt fest
-  verdrahtet. Nur für Struktur-Inhalte wirksam.
-- **JSON-LD-Extraktion erweitert**: neben `Person`/`Organization`/
-  `ContactPoint`/`LocalBusiness` (bereits vorhanden) werden jetzt auch
-  `BreadcrumbList` (Kategorie-Pfad aus echten Schema.org-Daten, zuverlässiger
-  als geratene URL-Segmente), `FAQPage` (Frage/Antwort-Paare als einzelne
-  Fakten) und `openingHours`/`OpeningHoursSpecification` ausgewertet.
-
-### Behoben
-- **Indexierungs-Übersicht zeigte für YForm/Medienpool einen irreführenden
-  globalen "aktiv/deaktiviert"-Status.** Überbleibsel aus der Zeit vor der
-  Hauptprofil-Entflechtung: beide Quellen werden seitdem ausschließlich je
-  Profil gewählt, der geprüfte globale Schalter existiert im Formular gar
-  nicht mehr (oder ein Upgrade brachte einen längst bedeutungslosen alten
-  Wert mit) - ein Profil mit eigenen PDFs wurde trotzdem als "deaktiviert"
-  angezeigt. Zeigt jetzt für beide, wie viele Profile die Quelle tatsächlich
-  nutzen ("genutzt von N Profil(en)"/"von keinem Profil genutzt"), und die
-  Liste "Aktivierte Content-Provider" richtet sich nach real vorhandenem
-  Indexinhalt statt nach derselben veralteten globalen Auswahl.
-- **Chat-Antworten begannen teils mit dem sichtbaren Präfix "[Bereich: Name —
-  Beschreibung]".** Diese Markierung ist nur eine interne Einordnungshilfe für
-  die KI (aus welchem benannten Sitemap-/Struktur-Bereich ein Kontext-Abschnitt
-  stammt) und soll nie in der Antwort selbst auftauchen - seit Profile eigene
-  Bereiche benennen/beschreiben können, steht sie vor praktisch jedem
-  Kontext-Abschnitt und wurde von manchen Modellen wörtlich übernommen. Der
-  System-Prompt weist jetzt ausdrücklich darauf hin, sie nicht zu wiederholen,
-  zusätzlich wird ein versehentlich übernommenes Präfix am Anfang der Antwort
-  serverseitig entfernt.
+### Sonstiges
+- README deutlich ausgebaut: Best Practices, FAQ, ein eigener
+  Datenschutz-Abschnitt und zwei Ablauf-Diagramme (bewusst als ASCII, damit
+  sie auch in der REDAXO-Hilfe lesbar sind, nicht nur auf GitHub). Reste von
+  Hauptprofil/Developer-Chat aus den Texten entfernt.
 
 ## [2.0.0-beta1] - 2026-09-04
 
