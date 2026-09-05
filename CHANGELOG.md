@@ -16,6 +16,14 @@
   Einträge werden automatisch nach 7 Tagen bereinigt.
 
 ### Behoben
+- **"[Bereich: ...]"-Label tauchte manchmal mehrfach in der sichtbaren
+  Antwort auf.** Die bisherige Absicherung (`removeLeakedContextLabel()`)
+  entfernte das interne Einordnungs-Label nur genau einmal am Anfang der
+  GESAMTEN Antwort - deckte aber nicht den Fall ab, in dem das Modell das
+  Label vor JEDEM einzelnen Absatz wiederholt (z.B. "[Bereich: Praktika] …"
+  gefolgt von einem zweiten Absatz "[Bereich: Kontakt] …"), obwohl genau
+  dieser Fall im Code-Kommentar der Funktion selbst schon beschrieben war.
+  Entfernt das Label jetzt am Anfang jedes Absatzes/jeder Zeile, beliebig oft.
 - **Live-Suchen ohne Treffer tauchten oft gar nicht in der Statistik auf.**
   Die Entprellung gegen Tastendruck-für-Tastendruck-Zwischenanfragen ("S",
   "Sl", "Slo", …) verwarf bisher jede Anfrage, die ein Präfix-Fortsatz der

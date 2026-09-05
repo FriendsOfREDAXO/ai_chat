@@ -3766,11 +3766,16 @@ class ChatQueryService
      * verbietet das Wiederholen inzwischen ausdruecklich, haelt aber nicht jedes Modell
      * zuverlaessig davon ab (v.a. wenn ein Profil seine Sitemap-/Struktur-Gruppen benennt und
      * das Bracket dadurch vor JEDEM Kontext-Abschnitt auftaucht) - wird deshalb zusaetzlich
-     * defensiv am Anfang der Antwort entfernt, unabhaengig vom Scope.
+     * defensiv entfernt, unabhaengig vom Scope. Urspruenglich nur am Anfang der GESAMTEN
+     * Antwort entfernt (ein Treffer, ^ ohne "m") - deckte aber genau den im Docblock selbst
+     * beschriebenen Fall nicht ab, in dem das Modell das Bracket vor JEDEM einzelnen Absatz
+     * wiederholt (siehe Nutzer-Report: zwei Absaetze, je mit eigenem "[Bereich: ...]"-Praefix).
+     * Jetzt am Anfang jeder Zeile/jedes Absatzes wiederholbar entfernt ("m"-Modifier, kein
+     * Treffer-Limit).
      */
     private function removeLeakedContextLabel(string $answer): string
     {
-        $cleaned = preg_replace('/^\s*\[Bereich:[^\]]*\]\s*[:\-–—]?\s*/iu', '', $answer, 1);
+        $cleaned = preg_replace('/^\s*\[Bereich:[^\]]*\]\s*[:\-–—]?\s*/imu', '', $answer);
 
         return is_string($cleaned) ? $cleaned : $answer;
     }
