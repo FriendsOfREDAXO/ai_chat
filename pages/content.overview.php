@@ -340,8 +340,8 @@ $content .= '
     </div>
     <div class="klxm-progress-card-header">
         <svg id="ai-chat-donut" class="klxm-donut" viewBox="0 0 48 48" aria-hidden="true" style="display:none;">
-            <circle class="klxm-donut-track" cx="24" cy="24" r="20" fill="none" stroke-width="4"/>
-            <circle id="ai-chat-donut-progress" class="klxm-donut-progress" cx="24" cy="24" r="20" fill="none" stroke-width="4" transform="rotate(-90 24 24)"/>
+            <circle class="klxm-donut-ring-outer" cx="24" cy="24" r="20" fill="none" stroke-width="4"/>
+            <circle class="klxm-donut-ring-inner" cx="24" cy="24" r="20" fill="none" stroke-width="4"/>
             <circle cx="24" cy="24" r="13" fill="#0b1210" stroke="#3d4b47" stroke-width="1.5"/>
             <circle cx="24" cy="24" r="9" fill="none" stroke="#5B6D69" stroke-width="1" opacity="0.6"/>
             <circle class="ai-chat-index-eye-core" cx="24" cy="24" r="5" fill="#ff8a4c"/>

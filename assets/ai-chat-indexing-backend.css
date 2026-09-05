@@ -355,15 +355,15 @@ body.rex-theme-dark .ai-chat-index-github-box {
     opacity: 0.8;
 }
 
-/* Dasselbe Augen-Motiv wie im Kopfbereich (siehe oben), hier umgeben von
-   einem ECHTEN Fortschritts-Ring statt der frueheren zwei rein dekorativen,
-   immer gleich schnell drehenden Ringe (die den tatsaechlichen Prozentwert
-   komplett ignorierten - der stand nur als Text/Balken darunter). JS setzt
-   stroke-dashoffset auf #ai-chat-donut-progress synchron mit dem
-   Fortschrittsbalken (siehe updateProgress() in ai-chat-indexer.js). Die
-   Statusfarben (laufend/fertig/Fehler/...) kommen ueber die ohnehin schon
-   von JS gesetzte Zustandsklasse auf #ai-chat-progress-container - Ring und
-   Auge brauchen dafuer keine eigene JS-Logik. */
+/* Dasselbe Augen-Motiv wie im Kopfbereich (siehe oben) im Zentrum, umgeben
+   von zwei gegenlaeufig schnell drehenden Ring-Segmenten - Ruecksprung zur
+   fruaheren, rein dekorativen Spinner-Mechanik (die kam besser an als der
+   kurzzeitige Versuch mit einem an den echten Prozentwert gebundenen
+   Fuell-Ring), diesmal aber in denselben Farben wie das Auge statt des
+   alten Grau/Blau. Die Statusfarben (laufend/fertig/Fehler/...) kommen
+   ueber die ohnehin schon von JS gesetzte Zustandsklasse auf
+   #ai-chat-progress-container - Ring und Auge brauchen dafuer keine eigene
+   JS-Logik. */
 .klxm-donut {
     width: 48px;
     height: 48px;
@@ -371,23 +371,35 @@ body.rex-theme-dark .ai-chat-index-github-box {
     display: none;
     overflow: visible;
 }
-.klxm-donut-track {
-    stroke: rgba(91, 109, 105, 0.3);
+.klxm-donut-ring-outer,
+.klxm-donut-ring-inner {
+    transform-origin: 24px 24px;
 }
-.klxm-donut-progress {
-    stroke: #7fd8c8;
-    stroke-linecap: round;
-    stroke-dasharray: 125.66;
-    stroke-dashoffset: 125.66;
-    transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
+.klxm-donut-ring-outer {
+    stroke: #7a938d;
+    stroke-dasharray: 63 63;
+    opacity: 0.85;
+    animation: klxmDonutSpin 2.2s linear infinite;
 }
-#ai-chat-progress-container.klxm-progress-card--running .klxm-donut-progress { stroke: #38bdf8; }
+.klxm-donut-ring-inner {
+    stroke: #ff8a4c;
+    stroke-dasharray: 47 79;
+    animation: klxmDonutSpin 1s linear infinite;
+}
+@keyframes klxmDonutSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+#ai-chat-progress-container.klxm-progress-card--running .klxm-donut-ring-inner { stroke: #38bdf8; }
 #ai-chat-progress-container.klxm-progress-card--running .ai-chat-index-eye-core { fill: #ff8a4c; }
-#ai-chat-progress-container.klxm-progress-card--success .klxm-donut-progress { stroke: #3fb87f; }
+#ai-chat-progress-container.klxm-progress-card--success .klxm-donut-ring-outer,
+#ai-chat-progress-container.klxm-progress-card--success .klxm-donut-ring-inner { stroke: #3fb87f; }
 #ai-chat-progress-container.klxm-progress-card--success .ai-chat-index-eye-core { fill: #3fb87f; }
-#ai-chat-progress-container.klxm-progress-card--warning .klxm-donut-progress { stroke: #e0a63e; }
+#ai-chat-progress-container.klxm-progress-card--warning .klxm-donut-ring-outer,
+#ai-chat-progress-container.klxm-progress-card--warning .klxm-donut-ring-inner { stroke: #e0a63e; }
 #ai-chat-progress-container.klxm-progress-card--warning .ai-chat-index-eye-core { fill: #e0a63e; }
-#ai-chat-progress-container.klxm-progress-card--error .klxm-donut-progress { stroke: #e0574a; }
+#ai-chat-progress-container.klxm-progress-card--error .klxm-donut-ring-outer,
+#ai-chat-progress-container.klxm-progress-card--error .klxm-donut-ring-inner { stroke: #e0574a; }
 #ai-chat-progress-container.klxm-progress-card--error .ai-chat-index-eye-core { fill: #e0574a; }
 
 /* Kurzes "Aufblitzen" bei Zahlen, die sich live aktualisieren (Index-

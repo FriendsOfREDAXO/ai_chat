@@ -127,24 +127,12 @@
         success.style.display = 'flex';
     }
 
-    // Umfang des Fortschritts-Rings im "Auge" (r=20, siehe .klxm-donut-progress
-    // in ai-chat-indexing-backend.css) - 2 * PI * 20, als Konstante statt bei
-    // jedem Aufruf neu berechnet.
-    const DONUT_RING_CIRCUMFERENCE = 125.66;
-
     function updateProgress(percent) {
         const bar = el('ai-chat-progress-bar');
-        if (bar) {
-            bar.style.width = percent + '%';
-            bar.textContent = percent + '%';
-            bar.setAttribute('aria-valuenow', percent);
-        }
-
-        const ring = el('ai-chat-donut-progress');
-        if (ring) {
-            const clamped = Math.max(0, Math.min(100, percent));
-            ring.style.strokeDashoffset = String(DONUT_RING_CIRCUMFERENCE * (1 - clamped / 100));
-        }
+        if (!bar) return;
+        bar.style.width = percent + '%';
+        bar.textContent = percent + '%';
+        bar.setAttribute('aria-valuenow', percent);
     }
 
     function setStatus(msg, type) {

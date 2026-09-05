@@ -14,15 +14,16 @@
   keine.
 
 ### Geändert
-- **Fortschritts-Anzeige beim Indexieren zeigt jetzt echten Fortschritt.**
-  Die beiden Ringe im laufenden Fortschritts-Kärtchen drehten sich bisher
-  rein dekorativ mit fester Geschwindigkeit, unabhängig vom tatsächlichen
-  Prozentwert (der nur als Text/Balken darunter zu sehen war). Ersetzt durch
-  dasselbe Augen-Motiv wie im Kopfbereich, jetzt umgeben von einem echten
-  Fortschritts-Ring (füllt sich mit dem tatsächlichen Prozentwert) - das
-  "Atmen" des Auges bleibt als eigene, unabhängige Animation erhalten. Die
-  Ring-/Augenfarbe wechselt außerdem automatisch mit dem Status (laufend/
-  fertig/Fehler), ohne dass dafür eigene JS-Logik nötig war - beides nutzt
+- **Fortschritts-Kärtchen beim Indexieren: Ringe jetzt auf das Augen-Motiv
+  abgestimmt.** Ein erster Anlauf hatte die beiden sich drehenden Ringe durch
+  einen sich füllenden Fortschritts-Ring ersetzt (echter Prozentwert statt
+  Deko) - im direkten Vergleich wirkte die ursprüngliche Dreh-Mechanik aber
+  lebendiger. Dabei geblieben: beide Ringe drehen weiter wie zuvor, jetzt
+  aber im selben Auge-Motiv wie im Kopfbereich zentriert und farblich darauf
+  abgestimmt (gedämpftes Teal außen, warmes Orange innen statt der alten
+  Grau-/Blautöne). Das "Atmen" des Augenkerns bleibt als eigene, unabhängige
+  Animation erhalten. Ring-/Augenfarbe wechseln automatisch mit dem Status
+  (laufend/fertig/Warnung/Fehler), ohne eigene JS-Logik - beides nutzt
   dieselbe Zustandsklasse, die ohnehin schon für den Kartenrahmen gesetzt
   wird.
 - **Indexierungs-Seite: Kopfbereich neu gestaltet.** Zwei Anläufe verworfen
