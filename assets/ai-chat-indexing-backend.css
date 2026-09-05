@@ -120,9 +120,13 @@
     height: 100%;
 }
 
-.ai-chat-index-header .header-icon .ai-chat-index-eye-core {
+/* Nicht auf den Kopfbereich beschraenkt - dieselbe Klasse/Animation traegt
+   auch das Auge im Fortschritts-Ring weiter unten (klxm-donut), damit beide
+   sichtbar "zusammengehoeren" statt zwei unabhaengige Elemente zu sein. */
+.ai-chat-index-eye-core {
     animation: aiChatIndexEyePulse 3.4s ease-in-out infinite;
     transform-origin: center;
+    transition: fill 0.4s ease;
 }
 
 @keyframes aiChatIndexEyePulse {
@@ -181,7 +185,7 @@
     .ai-chat-index-header::before,
     .ai-chat-index-header .ai-chat-index-particle,
     .ai-chat-index-header .header-icon,
-    .ai-chat-index-header .ai-chat-index-eye-core,
+    .ai-chat-index-eye-core,
     .ai-chat-index-header h1 {
         animation: none;
     }
@@ -351,39 +355,40 @@ body.rex-theme-dark .ai-chat-index-github-box {
     opacity: 0.8;
 }
 
-/* Zwei gegenlaeufig rotierende Ringe statt des winzigen drehenden Icons im
-   Badge zuvor - dasselbe Grundprinzip wie REDAXOs eigener PJAX-Ladeindikator
-   (be_style .rex-ajax-loader-element), nur als eigenstaendiges Element
-   innerhalb der Karte statt vollflaechig ueber die Seite gelegt. */
+/* Dasselbe Augen-Motiv wie im Kopfbereich (siehe oben), hier umgeben von
+   einem ECHTEN Fortschritts-Ring statt der frueheren zwei rein dekorativen,
+   immer gleich schnell drehenden Ringe (die den tatsaechlichen Prozentwert
+   komplett ignorierten - der stand nur als Text/Balken darunter). JS setzt
+   stroke-dashoffset auf #ai-chat-donut-progress synchron mit dem
+   Fortschrittsbalken (siehe updateProgress() in ai-chat-indexer.js). Die
+   Statusfarben (laufend/fertig/Fehler/...) kommen ueber die ohnehin schon
+   von JS gesetzte Zustandsklasse auf #ai-chat-progress-container - Ring und
+   Auge brauchen dafuer keine eigene JS-Logik. */
 .klxm-donut {
-    position: relative;
     width: 48px;
     height: 48px;
     flex: 0 0 auto;
     display: none;
+    overflow: visible;
 }
-.klxm-donut::before,
-.klxm-donut::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
-    border-radius: 50%;
-    border: 4px solid transparent;
+.klxm-donut-track {
+    stroke: rgba(91, 109, 105, 0.3);
 }
-.klxm-donut::before {
-    border-top-color: #324050;
-    border-right-color: #324050;
-    animation: klxmDonutSpin 2.2s linear infinite;
-    opacity: 0.85;
+.klxm-donut-progress {
+    stroke: #7fd8c8;
+    stroke-linecap: round;
+    stroke-dasharray: 125.66;
+    stroke-dashoffset: 125.66;
+    transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
 }
-.klxm-donut::after {
-    border-top-color: #4b9ad9;
-    animation: klxmDonutSpin 1s linear infinite;
-}
-@keyframes klxmDonutSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
+#ai-chat-progress-container.klxm-progress-card--running .klxm-donut-progress { stroke: #38bdf8; }
+#ai-chat-progress-container.klxm-progress-card--running .ai-chat-index-eye-core { fill: #ff8a4c; }
+#ai-chat-progress-container.klxm-progress-card--success .klxm-donut-progress { stroke: #3fb87f; }
+#ai-chat-progress-container.klxm-progress-card--success .ai-chat-index-eye-core { fill: #3fb87f; }
+#ai-chat-progress-container.klxm-progress-card--warning .klxm-donut-progress { stroke: #e0a63e; }
+#ai-chat-progress-container.klxm-progress-card--warning .ai-chat-index-eye-core { fill: #e0a63e; }
+#ai-chat-progress-container.klxm-progress-card--error .klxm-donut-progress { stroke: #e0574a; }
+#ai-chat-progress-container.klxm-progress-card--error .ai-chat-index-eye-core { fill: #e0574a; }
 
 /* Kurzes "Aufblitzen" bei Zahlen, die sich live aktualisieren (Index-
    groesse, Fortschritt) - macht sichtbar, dass gerade wirklich etwas
@@ -420,14 +425,6 @@ body.rex-theme-dark .klxm-progress-card--error {
     border-color: rgba(128, 25, 25, 0.55);
     background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
 }
-body.rex-theme-dark .klxm-donut::before {
-    border-top-color: #151c22;
-    border-right-color: #151c22;
-}
-body.rex-theme-dark .klxm-donut::after {
-    border-top-color: #409be4;
-}
-
 @media (prefers-color-scheme: dark) {
     body:not(.rex-theme-light) .klxm-progress-card {
         border-color: rgba(75, 154, 217, 0.22);
@@ -444,13 +441,6 @@ body.rex-theme-dark .klxm-donut::after {
     body:not(.rex-theme-light) .klxm-progress-card--error {
         border-color: rgba(128, 25, 25, 0.55);
         background: linear-gradient(135deg, rgba(128, 25, 25, 0.24), rgba(21, 28, 34, 0.4));
-    }
-    body:not(.rex-theme-light) .klxm-donut::before {
-        border-top-color: #151c22;
-        border-right-color: #151c22;
-    }
-    body:not(.rex-theme-light) .klxm-donut::after {
-        border-top-color: #409be4;
     }
 }
 

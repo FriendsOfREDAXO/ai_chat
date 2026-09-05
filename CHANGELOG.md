@@ -14,6 +14,17 @@
   keine.
 
 ### Geändert
+- **Fortschritts-Anzeige beim Indexieren zeigt jetzt echten Fortschritt.**
+  Die beiden Ringe im laufenden Fortschritts-Kärtchen drehten sich bisher
+  rein dekorativ mit fester Geschwindigkeit, unabhängig vom tatsächlichen
+  Prozentwert (der nur als Text/Balken darunter zu sehen war). Ersetzt durch
+  dasselbe Augen-Motiv wie im Kopfbereich, jetzt umgeben von einem echten
+  Fortschritts-Ring (füllt sich mit dem tatsächlichen Prozentwert) - das
+  "Atmen" des Auges bleibt als eigene, unabhängige Animation erhalten. Die
+  Ring-/Augenfarbe wechselt außerdem automatisch mit dem Status (laufend/
+  fertig/Fehler), ohne dass dafür eigene JS-Logik nötig war - beides nutzt
+  dieselbe Zustandsklasse, die ohnehin schon für den Kartenrahmen gesetzt
+  wird.
 - **Indexierungs-Seite: Kopfbereich neu gestaltet.** Zwei Anläufe verworfen
   (Aurora-Farbflächen ohne Bezug zur Indexierung, danach ein "Digital
   Rain"-Streifenmuster, das nicht überzeugte) - jetzt fliegen kleine
