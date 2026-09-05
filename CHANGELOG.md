@@ -8,9 +8,13 @@
   Artikel zu überspringen, den yrewrite als „nicht indexieren" markiert -
   tatsächlich wurde das Metainfo-Feld `yrewrite_index` nirgends ausgewertet.
   `IndexerService::indexArticle()` überspringt einen Artikel jetzt, wenn
-  yrewrite ihn explizit auf „noindex" gesetzt hat (Wert `2`). Bewusst NICHT
-  betroffen: der Online-/Offline-Status - ein Struktur-Bereich indexiert
-  weiterhin absichtlich unabhängig davon (siehe `updateArticleIndex()`).
+  yrewrite ihn explizit auf „noindex" gesetzt hat (Werte `-1` und `2` - das
+  Feld kennt vier Stufen, beide bedeuten "nicht indexieren"). Keine
+  Vererbung von einer Kategorie auf ihre Artikel, weil yrewrite selbst
+  keine kennt (`rex_yrewrite_seo::getTags()` liest nur den Wert des
+  jeweils aktuellen Artikels). Bewusst NICHT betroffen: der Online-/
+  Offline-Status - ein Struktur-Bereich indexiert weiterhin absichtlich
+  unabhängig davon (siehe `updateArticleIndex()`).
 
 ### Geändert
 - **README erheblich erweitert**: die neuen Retrieval-Features (Re-Ranking,

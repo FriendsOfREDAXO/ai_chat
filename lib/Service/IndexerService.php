@@ -1475,13 +1475,25 @@ class IndexerService
     /**
      * Respektiert eine EXPLIZITE "noindex"-Markierung eines Artikels ueber yrewrites
      * Metainfo-Feld "yrewrite_index" (rex_yrewrite_seo::$meta_index_field), wenn der Schalter
-     * "yrewrite-SEO-Einstellungen respektieren" aktiv ist (Standard: an). Wert `2` = explizit
-     * "noindex, follow" (siehe rex_yrewrite_seo::getTags()) - das ist die einzige Stufe, die
-     * hier geprueft wird. Der Online/Offline-Status (Wert `0`/leer = Standard, dort zusaetzlich
-     * von isOnline() abhaengig) bleibt bewusst AUSSEN VOR: ein Mountpoint ist eine bewusste,
-     * enge Auswahl, die unabhaengig vom Online/Offline-Filter indexiert wird (siehe
-     * updateArticleIndex()) - dieses Verhalten soll sich durch diesen Schalter nicht aendern,
-     * nur eine explizite Redakteurs-Entscheidung "diese Seite nicht indexieren" soll wirken.
+     * "yrewrite-SEO-Einstellungen respektieren" aktiv ist (Standard: an). Das Feld kennt vier
+     * Werte (siehe pages/content.yrewrite_seo.php im yrewrite-Addon): `0`/leer = "je nach
+     * Status" (Standard), `1` = "Indexierung erlauben", `-1` = "Indexierung verbieten" und `2`
+     * = "Indexierung verbieten, Links folgen" - `-1` UND `2` bedeuten beide "nicht indexieren",
+     * nur `2` erlaubt zusaetzlich das Folgen von Links (fuer die reine KI-Indexierung hier ohne
+     * Bedeutung, deshalb werden beide gleich behandelt).
+     *
+     * Keine Vererbung von einer Kategorie auf ihre Artikel: yrewrite speichert dieses Feld pro
+     * Artikel-Zeile (auch eine Kategorie ist intern ein Artikel, ihre Start-Seite) und liest in
+     * rex_yrewrite_seo::getTags() ausschliesslich den Wert DES JEWEILS AKTUELLEN Artikels, ohne
+     * die Elternkette zu pruefen - ein als "noindex" markierter Kategorie-Wurzelartikel wirkt
+     * sich dort NICHT auf seine Unterartikel aus. Diese Methode bildet exakt dasselbe
+     * Pro-Artikel-Verhalten nach, keine eigene, davon abweichende Vererbungslogik.
+     *
+     * Der Online/Offline-Status (Wert `0`/leer, dort zusaetzlich von isOnline() abhaengig)
+     * bleibt bewusst AUSSEN VOR: ein Mountpoint ist eine bewusste, enge Auswahl, die
+     * unabhaengig vom Online/Offline-Filter indexiert wird (siehe updateArticleIndex()) -
+     * dieses Verhalten soll sich durch diesen Schalter nicht aendern, nur eine explizite
+     * Redakteurs-Entscheidung "diese Seite nicht indexieren" soll wirken.
      */
     private function isExcludedByYrewriteSeo(rex_article $article): bool
     {
@@ -1493,7 +1505,9 @@ class IndexerService
             return false;
         }
 
-        return 2 === (int) $article->getValue('yrewrite_index');
+        $index = (int) $article->getValue('yrewrite_index');
+
+        return -1 === $index || 2 === $index;
     }
 
     /**
