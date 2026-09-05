@@ -168,10 +168,9 @@ $buildOverviewChartOptions = static function (array $scopeSummary, string $title
 // verloren gehen und REDAXO mangels erkanntem "page"-Parameter auf der
 // Standardseite (Struktur) landen, statt auf dieser Seite zu bleiben.
 $currentStatsPage = rex_url::backendPage('ai_chat/statistics');
-$periodHtml = '<div class="pull-right" style="margin-bottom: 12px;">'
-    . '<form id="klxmchat-stats-period-form" method="get" action="' . $currentStatsPage . '" class="form-inline" style="margin: 0;">'
+$periodHtml = '<form id="klxmchat-stats-period-form" method="get" action="' . $currentStatsPage . '" class="form-inline" style="display:inline-block; margin:0; vertical-align:top;">'
     . '<input type="hidden" name="page" value="ai_chat/statistics">'
-    . '<label for="profile" style="margin: 0 8px 0 0;">Profil</label>'
+    . '<div class="form-group" style="margin-right:15px;"><label for="profile" style="margin-right:6px;">Profil</label>'
     . '<select id="profile" name="profile" class="form-control selectpicker" data-width="auto" data-style="btn-default btn-sm" onchange="this.form.submit()">'
     . '<option value=""' . ('' === $profileFilterRaw ? ' selected' : '') . '>Alle Profile</option>'
     . '<option value="0"' . ('0' === $profileFilterRaw ? ' selected' : '') . '>Kein Profil (global)</option>';
@@ -179,26 +178,23 @@ foreach ($allProfiles as $profileEntry) {
     $selected = $profileFilterRaw === (string) $profileEntry->id ? ' selected' : '';
     $periodHtml .= '<option value="' . $profileEntry->id . '"' . $selected . '>' . rex_escape($profileEntry->name) . '</option>';
 }
-$periodHtml .= '</select>'
-    . '<label for="days" style="margin: 0 8px 0 16px;">Zeitraum</label>'
+$periodHtml .= '</select></div>'
+    . '<div class="form-group"><label for="days" style="margin-right:6px;">Zeitraum</label>'
     . '<select id="days" name="days" class="form-control selectpicker" data-width="auto" data-style="btn-default btn-sm" onchange="this.form.submit()">';
 foreach ($periodOptions as $value => $label) {
     $selected = $days === (int) $value ? ' selected' : '';
     $periodHtml .= '<option value="' . (int) $value . '"' . $selected . '>' . rex_escape($label) . '</option>';
 }
-$periodHtml .= '</select>'
-    . '</form>'
-    . '</div>';
+$periodHtml .= '</select></div>'
+    . '</form>';
 
-$resetHtml = '<div class="pull-right" style="margin: 0 10px 12px 0;">'
-    . '<form method="post" style="margin: 0;">'
+$resetHtml = '<form method="post" style="display:inline-block; margin:0 0 0 15px; vertical-align:top;">'
     . $resetToken->getHiddenField()
     . '<button type="submit" name="reset_stats" value="1" class="btn btn-danger btn-sm" onclick="return confirm(\'Die gesamte Statistik wirklich zurücksetzen?\');">Statistik zurücksetzen</button>'
-    . '</form>'
-    . '</div>';
+    . '</form>';
 
 echo '<div class="klxmchat-statistics-shell">';
-echo '<div class="klxmchat-statistics-toolbar" style="margin-bottom: 12px;">' . $resetHtml . $periodHtml . '<div class="clearfix"></div></div>';
+echo '<div class="klxmchat-statistics-toolbar">' . $periodHtml . $resetHtml . '</div>';
 
 $panel = new rex_fragment();
 $panel->setVar('title', 'Such- und Chat-Statistiken');

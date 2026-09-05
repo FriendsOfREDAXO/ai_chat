@@ -31,6 +31,7 @@ if (!(bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
     );
 }
 
+
 $func = rex_request('func', 'string', '');
 $id = rex_request('id', 'int', 0);
 $profileFilter = rex_request('profile_id', 'int', 0);
@@ -103,25 +104,25 @@ $summarySql = rex_sql::factory();
 $summarySql->setQuery('SELECT COUNT(*) AS total FROM ' . $table);
 $totalCount = (int) $summarySql->getValue('total');
 
-$filterForm = '<form class="form-inline" method="get" action="' . rex_url::currentBackendPage() . '" style="margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">';
+$filterForm = '<form class="form-inline" method="get" action="' . rex_url::currentBackendPage() . '" style="display:inline-block; margin-bottom:15px; margin-right:15px; vertical-align:top;">';
 $filterForm .= '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">';
-$filterForm .= '<div class="form-group"><label for="klxm-retrieval-log-profile-filter" style="display:block;">Profil</label><select id="klxm-retrieval-log-profile-filter" class="form-control selectpicker" data-width="auto" data-style="btn-default" name="profile_id">';
+$filterForm .= '<div class="form-group" style="margin-right:15px;"><label for="klxm-retrieval-log-profile-filter" style="margin-right:6px;">Profil</label><select id="klxm-retrieval-log-profile-filter" class="form-control selectpicker" data-width="auto" data-style="btn-default" name="profile_id">';
 $filterForm .= '<option value="0"' . (0 === $profileFilter ? ' selected' : '') . '>Alle Profile</option>';
 foreach ($profiles as $filterProfile) {
     $selected = $profileFilter === $filterProfile->id ? ' selected' : '';
     $filterForm .= '<option value="' . $filterProfile->id . '"' . $selected . '>' . rex_escape($filterProfile->name) . '</option>';
 }
 $filterForm .= '</select></div>';
-$filterForm .= '<div class="form-group"><div class="btn-group" role="group"><button class="btn btn-primary" type="submit">Filtern</button> <a class="btn btn-default" href="' . rex_url::currentBackendPage() . '">Zurücksetzen</a></div></div>';
+$filterForm .= '<div class="btn-group" role="group"><button class="btn btn-primary" type="submit">Filtern</button> <a class="btn btn-default" href="' . rex_url::currentBackendPage() . '">Zurücksetzen</a></div>';
 $filterForm .= '</form>';
 
-$resetForm = '<form method="post" action="' . rex_url::currentBackendPage() . '" style="margin-bottom:15px;" onsubmit="return confirm(\'Das komplette Retrieval-Log wirklich leeren?\');">';
+$resetForm = '<form method="post" action="' . rex_url::currentBackendPage() . '" style="display:inline-block; margin-bottom:15px; vertical-align:top;" onsubmit="return confirm(\'Das komplette Retrieval-Log wirklich leeren?\');">';
 $resetForm .= $resetToken->getHiddenField();
 $resetForm .= '<input type="hidden" name="reset_log" value="1">';
 $resetForm .= '<button type="submit" class="btn btn-default"><i class="rex-icon rex-icon-delete"></i> Log leeren</button>';
 $resetForm .= '</form>';
 
-$summary = '<div class="alert alert-info" style="margin-bottom:15px;"><strong>Überblick:</strong> ' . $totalCount . ' protokollierte Anfragen (automatisch nach 7 Tagen bereinigt).</div>';
+$summary = rex_view::info('<strong>Überblick:</strong> ' . $totalCount . ' protokollierte Anfragen (automatisch nach 7 Tagen bereinigt).');
 
 $where = [];
 if ($profileFilter > 0) {
@@ -136,7 +137,7 @@ if ($where !== []) {
 $query .= ' ORDER BY created_at DESC, id DESC';
 
 $list = rex_list::factory($query);
-$list->addTableAttribute('class', 'table-striped table-hover');
+$list->addTableAttribute('class', 'table-striped');
 
 $viewColumn = '<i class="rex-icon rex-icon-view"></i>';
 $list->addColumn('view', $viewColumn, 0, ['<th class="rex-table-icon"></th>', '<td class="rex-table-icon">###VALUE###</td>']);
