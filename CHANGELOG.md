@@ -55,16 +55,19 @@
   Zeitstempel/Sprache/URL/Zusätzliche Felder/Bedingungen) statt einer langen,
   unstrukturierten Feldfolge.
 - **Cache-Fragen und Retrieval-Log folgten strukturell nicht demselben Aufbau
-  wie die anderen Listen-Seiten (z.B. YForm-Mappings).** Statuszeile jetzt per
-  `rex_view::info()` (REDAXO-Standard-Hinweisbox) statt einer eigenen
-  `alert-info`-Box; Filterformular ohne manuelles Flex-CSS, nur noch Bootstrap
-  `form-inline`; Tabellenklasse auf `table-striped` vereinheitlicht (vorher
-  zusätzlich `table-hover`). Auf Retrieval-Log stand "Log leeren" bisher als
-  eigene Zeile unterhalb des Filters - steht jetzt in derselben Zeile wie
-  "Filtern"/"Zurücksetzen". Auf der Statistik-Seite stand "Statistik
-  zurücksetzen" durch `justify-content: space-between` am gegenüberliegenden
-  Rand der Toolbar, optisch getrennt von Profil-/Zeitraum-Filter - jetzt eine
-  gemeinsame Gruppe.
+  wie die anderen Listen-Seiten (z.B. YForm-Mappings) bzw. REDAXOs eigener
+  Modul-Liste (`modules/modules`).** Statuszeile/Filter/Zusatzaktionen standen
+  bisher INNERHALB des Panels mit der Listen-Überschrift - jetzt wie im
+  Kern-Muster üblich außerhalb, das Panel umschließt ausschließlich die
+  Tabelle selbst. Statuszeile jetzt per `rex_view::info()`
+  (REDAXO-Standard-Hinweisbox) statt einer eigenen `alert-info`-Box;
+  Filterformular ohne manuelles Flex-CSS, nur noch Bootstrap `form-inline`.
+  Auf Retrieval-Log stand "Log leeren" bisher als eigene Zeile unterhalb des
+  Filters - steht jetzt in derselben Zeile wie "Filtern"/"Zurücksetzen". Auf
+  der Statistik-Seite stand "Statistik zurücksetzen" durch
+  `justify-content: space-between` am gegenüberliegenden Rand der Toolbar,
+  optisch getrennt von Profil-/Zeitraum-Filter - jetzt eine gemeinsame
+  Gruppe.
 
 ### Behoben
 - **Native, unstyled `<select>`-Dropdowns auf mehreren Seiten.** Retrieval-Log,

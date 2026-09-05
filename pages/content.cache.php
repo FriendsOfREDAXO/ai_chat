@@ -198,7 +198,10 @@ $list->addColumn('delete', '<i class="rex-icon rex-icon-delete"></i> Löschen', 
 $list->setColumnParams('delete', ['func' => 'delete', 'id' => '###id###', 'profile_id' => $profileFilter, 'q' => $searchTerm] + $csrf->getUrlParams());
 $list->addLinkAttribute('delete', 'data-confirm', 'Diesen Cache-Eintrag wirklich löschen?');
 
-$listContent = $summary . $filterForm . $list->get();
+echo $summary;
+echo $filterForm;
+
+$listContent = $list->get();
 
 $fragment = new rex_fragment();
 $fragment->setVar('title', 'Cache-Fragen');

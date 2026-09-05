@@ -164,7 +164,11 @@ $list->setColumnFormat('rerank_enabled', 'custom', static function (array $param
     return (int) $params['list']->getValue('rerank_enabled') === 1 ? 'Ja' : 'Nein';
 });
 
-$listContent = $summary . $filterForm . $resetForm . $list->get();
+echo $summary;
+echo $filterForm;
+echo $resetForm;
+
+$listContent = $list->get();
 
 $fragment = new rex_fragment();
 $fragment->setVar('title', 'Retrieval-Log');
