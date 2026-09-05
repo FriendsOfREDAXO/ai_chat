@@ -73,7 +73,10 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 - Inkrementelle und vollständige Neuindizierung, wahlweise als Hintergrund-Job (Button „Im Hintergrund indexieren" oder `php redaxo/bin/console ai_chat:reindex`) – läuft serverseitig weiter, auch wenn der Browser-Tab geschlossen wird
 - Chunking mit konfigurierbarer Größe (Standard 1000 Zeichen) und Überlappung (Standard 200 Zeichen), damit zusammengehörige Informationen nicht mitten durchgeschnitten werden
 - RAG-Kandidatenfenster (`rag_candidate_limit`): bestimmt, wie viele Chunks vor dem Ähnlichkeitsvergleich geladen werden. Bei nativem Vektor-Retrieval (siehe unten) unkritisch, da die Datenbank ohnehin über den gesamten gefilterten Index sortiert; ohne natives Vektor-Retrieval sollte der Wert größer als die Gesamtzahl indexierter Chunks sein, sonst bleiben manche Inhalte beim Vergleich unberücksichtigt. Ein Button „RAG-Kandidatenfenster automatisch optimieren" schlägt einen passenden Wert vor.
-- Optionale Embedding-Kontext-Hinweise und Fokus-Regeln (Format `Label|Begriff1|Begriff2`), um bestimmten Themen zusätzliches Gewicht zu geben, sowie automatische Auswertung von JSON-LD (`Person`, `Organization`, `ContactPoint`, `LocalBusiness`) als strukturierte, eindeutige Faktenquelle – hilfreich, damit der Chat Zuständigkeiten/Ansprechpartner nicht versehentlich verwechselt oder kombiniert
+- Optionale Embedding-Kontext-Hinweise und Fokus-Regeln (Format `Label|Begriff1|Begriff2`), um bestimmten Themen zusätzliches Gewicht zu geben, sowie automatische Auswertung von JSON-LD (`Person`, `Organization`, `ContactPoint`, `LocalBusiness`, `BreadcrumbList`, `FAQPage`, Öffnungszeiten) als strukturierte, eindeutige Faktenquelle – hilfreich, damit der Chat Zuständigkeiten/Ansprechpartner nicht versehentlich verwechselt oder kombiniert
+- **Kategorie-Pfad als Embedding-Kontext**: jeder Textabschnitt bekommt vor dem Embedding zusätzlich seine Einordnung mitgegeben – bei Struktur-Inhalten die echte REDAXO-Kategorie-Hierarchie (z. B. „Agentur > Leistungen > Webentwicklung"), bei Sitemap-/YForm-/Provider-Inhalten ohne REDAXO-Kategorie ersatzweise die aus der URL abgeleitete Ordnerstruktur. Abschaltbar, Standard: an.
+- **Konfigurierbare Metainfo-Felder**: eigene Metainfo-Spalten (z. B. eine „Meta-Keywords"-Spalte) lassen sich als zusätzlicher Kontext-Hinweis vor dem Embedding jedes Artikels einbeziehen – Feldnamen sind pro Installation frei vergeben, deshalb konfigurierbar statt fest verdrahtet.
+- **Re-Ranking**: die Top-Kandidaten der Ähnlichkeitssuche (Standard: 20) werden vor der finalen Auswahl zusätzlich nach Stichwort-Überdeckung mit der Frage neu sortiert – korrigiert Fälle, in denen die reine Vektor-Ähnlichkeit einen thematisch zufälligen, aber embedding-technisch naheliegenden Treffer vor eine tatsächlich passendere Seite stellt. Ohne zusätzlichen KI-Aufruf, keine spürbare Verzögerung.
 - Cache-Warmup für häufig gestellte Fragen (siehe FAQ-Vorcaching), je Profil mit eigener Fragenliste
 
 ### Natives Vektor-Retrieval
@@ -170,9 +173,25 @@ Die Backend-Navigation kennt kein „Hauptprofil" mehr, auf das ein Profil bei l
 - **KI-Provider & Parameter**: Provider-Auswahl/Zugangsdaten, Verbindungstest, Timeout/Temperature/Token-Limit sowie das (rein globale) SSE-Streaming.
 - **Indexierungs-Quellen**: seit der Profil-Entflechtung deutlich kleiner – nur noch die Vektor-Retrieval-Statusbox (samt „Neu prüfen"), ein Schalter für Live-Reindexierung, ein Schalter zur Respektierung der yrewrite-SEO-Einstellungen sowie die Aktivierung optionaler, profilunabhängiger Content-Provider (aktuell „forcal" für Kalendereinträge) inklusive dessen forcal-spezifischer Felder. Die eigentliche Wissensauswahl (Sitemap, Struktur, YForm, PDFs) erfolgt ausschließlich je Profil (siehe oben) – es gibt keine globale Struktur-/Sitemap-/PDF-Indexierung mehr.
 - **Systemcheck**: Server-/Voraussetzungs-Diagnose (PHP-/REDAXO-Version, PDF-Extraktion, Hintergrund-Indexierung, native Vektorsuche, KI-Provider) an einer Stelle statt verstreuter Fehlermeldungen.
-- **Chunking & Cache**: Chunking-Größe/Overlap, RAG-Kandidatenfenster, Antwort-Cache – gilt für alle Quellen und Profile gleichermaßen. FAQ-Vorcaching ist keine Einstellung mehr auf dieser Seite, sondern reine Profil-Sache (siehe oben).
+- **Chunking & Cache**: Chunking-Größe/Overlap, Kontext-Anreicherung (Kategorie-Pfad, Metainfo-Felder – siehe Einzelfeature „Indexierung" oben), RAG-Kandidatenfenster, Re-Ranking (an/aus, Kandidatenzahl), Antwort-Cache – gilt für alle Quellen und Profile gleichermaßen. FAQ-Vorcaching ist keine Einstellung mehr auf dieser Seite, sondern reine Profil-Sache (siehe oben).
 
 „Indexierung" hat außerdem eigene Unterseiten bekommen: **Übersicht** (Status/Reindex-Steuerung, wie bisher), **YForm-Tabellen** (Mappings, vorher unter Einstellungen), **Trigger & Antworten** (vorher eigener Menüpunkt) und **Cache-Fragen** (vorher eigener Menüpunkt) – beide inzwischen mit optionalem Profil-Bezug: ein Trigger kann auf ein einzelnes Profil eingeschränkt werden (leer = gilt weiterhin für alle Profile), und Cache-Einträge tragen ebenfalls eine `profile_id`, sodass zwei Profile auf dieselbe Frage unterschiedliche gecachte Antworten bekommen können.
+
+### Best Practices
+
+**Chunk-Größe passend zur Inhaltsart wählen.** 1000 Zeichen (Standard) passt für die meisten Websites. Kurze, listenartige Inhalte (FAQ-Einträge, einzelne Leistungsbeschreibungen) profitieren von kleineren Chunks (600), lange zusammenhängende Fachartikel von größeren (1500–2000) – ein zu kleiner Chunk reißt zusammengehörige Fakten auseinander, ein zu großer verwässert die Ähnlichkeitssuche mit irrelevantem Kontext derselben Seite. Die Indexierungs-Übersicht zeigt einen „Chunking-Einblick" mit konkreter Empfehlung basierend auf der tatsächlichen Chunk-Verteilung.
+
+**RAG-Kandidatenfenster größer als die Indexgröße halten** (nur relevant ohne natives Vektor-Retrieval, siehe oben) – sonst werden ältere/seltener aktualisierte Inhalte beim Ähnlichkeitsvergleich gar nicht erst berücksichtigt. Der Button „RAG-Kandidatenfenster automatisch optimieren" übernimmt das.
+
+**Kategorie-Pfad und Metainfo-Felder aktiv lassen**, wenn die Website eine sprechende URL-/Kategorie-Struktur hat (z. B. `/leistungen/webentwicklung/`) – kostet nichts außer einer minimal längeren Embedding-Anfrage, hilft aber messbar bei Fragen wie „was bietet ihr im Bereich X an", weil die thematische Einordnung nicht mehr allein aus dem Fließtext erraten werden muss.
+
+**Re-Ranking eingeschaltet lassen**, außer bei sehr kleinen Indizes (unter ca. 50 Chunks) – dort bringt eine Neusortierung kaum etwas, weil ohnehin schon fast alle Kandidaten im Kontext landen.
+
+**Nach jeder Chunking-/Kontext-Anreicherungs-Änderung neu indexieren.** Chunk-Größe, Kategorie-Pfad, Metainfo-Felder und JSON-LD-Auswertung wirken sich nur auf das Embedding aus – eine Änderung wirkt deshalb ausschließlich auf Inhalte, die *danach* (neu) indexiert werden, nie rückwirkend auf bereits gespeicherte Chunks.
+
+**Einen Provider-Wechsel vor dem Produktivbetrieb testen.** Unterschiedliche Embedding-Modelle liefern unterschiedliche Vektor-Dimensionen – nach einem Provider-Wechsel ist ein vollständiger Reindex zwingend nötig, ein halb migrierter Index liefert unbrauchbare Ähnlichkeitswerte.
+
+**Ein Profil, das nur eine einzelne Sitemap-Gruppe ohne Namen/Beschreibung nutzt, reicht für die meisten Websites** – benannte Gruppen, mehrere Profile und „Wissen teilen mit Profil(en)" lohnen sich vor allem bei mehrsprachigen Auftritten, klar getrennten Zielgruppen oder deutlich unterschiedlichen Themenbereichen auf derselben Website.
 
 ### SSE-Streaming: Server-Voraussetzungen
 
@@ -228,7 +247,37 @@ Kommen die `event: chunk`-Zeilen sichtbar nacheinander mit Pausen an, funktionie
 
 ### Sicherheit und Zugriff
 
-Es gibt keinen Backend-/Developer-Chat mehr – Chat und Suche laufen ausschließlich im Frontend, es wird nichts automatisch ins REDAXO-Backend eingebunden. Ob und für wen ein Profil überhaupt sichtbar ist, entscheidet dessen „Sichtbar für"-Einstellung (Besucher/Redakteure/Admins, siehe Einzelfeature „Profile" oben); ohne „Besucher" wirkt ein Profil damit wie ein Testmodus, sichtbar nur für eingeloggte Redakteure/Admins. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein Datenschutz-Guard verhindert, dass sensible Eingaben (E-Mail-Adressen, IBAN-/Kontonummern, Passwort-/PIN-/TAN-Kontexte) an das KI-Modell weitergegeben werden – stattdessen erscheint eine passende Warnung. Details zum weitergehenden Missbrauchsschutz (Prompt-Injection, Upkeep-Anbindung) siehe Einzelfeature oben.
+Es gibt keinen Backend-/Developer-Chat mehr – Chat und Suche laufen ausschließlich im Frontend, es wird nichts automatisch ins REDAXO-Backend eingebunden. Ob und für wen ein Profil überhaupt sichtbar ist, entscheidet dessen „Sichtbar für"-Einstellung (Besucher/Redakteure/Admins, siehe Einzelfeature „Profile" oben); ohne „Besucher" wirkt ein Profil damit wie ein Testmodus, sichtbar nur für eingeloggte Redakteure/Admins. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein IP-Testmodus (Einstellungen → Zugriff & Sicherheit) macht die gesamte Website unkompliziert nur für die eigene IP sichtbar, unabhängig von einem Login. Details zum Missbrauchsschutz (Prompt-Injection, Jailbreak-Muster, Upkeep-Anbindung) siehe Einzelfeature „Missbrauchsschutz" oben.
+
+### Datenschutz und Besucherschutz
+
+**Was verlässt die eigene Infrastruktur, und wohin?** Zwei unabhängige Kanäle senden Daten an den konfigurierten KI-Provider:
+
+1. **Beim Indexieren**: der Text jedes Chunks (siehe „Indexierung" oben) wird zum Erzeugen des Embedding-Vektors an den Provider geschickt – inklusive aller konfigurierten Kontext-Anreicherungen (Kategorie-Pfad, Metainfo-Felder, JSON-LD-Fakten). Es wird ausschließlich das indexiert, was über Sitemap-Gruppen, Struktur-Bereiche, YForm-Mappings oder PDF-Auswahl je Profil explizit konfiguriert ist – kein automatisches, unkontrolliertes Crawlen darüber hinaus.
+2. **Bei jeder Chat-/Such-Anfrage**: die Nutzerfrage, die letzten Gesprächsturns (bei einer laufenden Konversation) sowie die per RAG gefundenen Kontext-Chunks gehen an denselben Provider, um daraus eine Antwort zu generieren.
+
+Welcher Provider das ist, entscheidet die Konfiguration unter „KI-Provider & Parameter": **Google Gemini**, **Cloudflare Workers AI** und die meisten über `ai_platform` angebundenen Dienste sind kommerzielle, i. d. R. außerhalb der EU betriebene Angebote – der Website-Betreiber benötigt dafür einen Auftragsverarbeitungsvertrag (AVV) mit dem jeweiligen Anbieter und muss ihn in der eigenen Datenschutzerklärung nennen. Die Option **„OpenAI-kompatibel"** funktioniert dagegen auch mit einem selbst gehosteten oder EU-ansässigen Modell (z. B. Ollama auf eigener Hardware) – in dem Fall verlassen weder indexierte Inhalte noch Chat-Anfragen die eigene Infrastruktur. Für Websites mit hohen Datenschutzanforderungen ist das die einzige Option ganz ohne Drittanbieter-Auftragsverarbeitung.
+
+**Eingabe-Schutz (Datenschutz-Guard)**: Bevor eine Nutzereingabe überhaupt an den KI-Provider geht, prüft ein serverseitiger Filter auf typische Muster sensibler Daten:
+
+- E-Mail-Adressen, deren Domain nicht auf einer konfigurierbaren Whitelist steht (Einstellungen → Zugriff & Sicherheit → „Datenschutz: Erlaubte E-Mail-Domains") – ohne Whitelist wird jede E-Mail-Adresse blockiert
+- IBAN-ähnliche Zeichenfolgen
+- Kreditkartennummern (echte Prüfsumme/Luhn-Algorithmus, keine reine Ziffernlängen-Heuristik – vermeidet Fehlalarme bei zufällig langen Zahlen)
+- Schlüsselwörter wie „Kontonummer", „Passwort", „PIN", „TAN", „Personalausweis", „Sozialversicherungsnummer" oder „Steuer-ID" in Kombination mit einer längeren Zahlenfolge
+
+Greift der Filter, wird die Anfrage **nicht an den KI-Provider weitergegeben** – die Besucherin/der Besucher bekommt stattdessen einen Warnhinweis, ohne dass der eingegebene Text irgendwo gespeichert oder in die Statistik übernommen wird. Der Filter schützt vor versehentlichen Eingaben (z. B. Copy-Paste einer ganzen E-Mail inklusive Signatur); er ist kein Ersatz dafür, keine sensiblen Formulare über den Chat abzuwickeln.
+
+**Was serverseitig gespeichert wird**:
+
+- **Statistik** (`ai_chat_stats`): normalisierte Suchbegriffe/Fragen für die Auswertung unter „Statistik" – keine IP-Adressen, keine Nutzer-Accounts. Was Besucher tatsächlich eintippen, kann aber grundsätzlich auch personenbezogene Angaben enthalten (z. B. ein Name in einer Frage) und wird dann als Freitext mitgeloggt, sofern es nicht bereits vom Datenschutz-Guard abgefangen wurde – bei Bedarf über den Reset-Button der Statistikseite regelmäßig zurücksetzen.
+- **Antwort-Cache/FAQ-Vorcaching** (`ai_chat_cache`): Frage und generierte Antwort werden zur Wiederverwendung gespeichert, damit dieselbe (oder eine sehr ähnliche) Frage nicht jedes Mal neu an den KI-Provider geschickt werden muss.
+- **Chat-Verlauf im Browser**: die laufende Konversation liegt ausschließlich im `sessionStorage` des Browsers, nicht serverseitig – ein Tab-Neustart oder der „Verlauf löschen"-Button entfernen ihn vollständig.
+
+**Empfehlungen für sensible Inhalte auf der Website**:
+
+- Seiten mit personenbezogenen Daten über das eigentliche Impressum hinaus (z. B. eine interne Mitgliederliste) lassen sich am zuverlässigsten über die Profil-Quellenauswahl selbst ausschließen – nur explizit gewählte Sitemap-Gruppen/Struktur-Bereiche werden indexiert.
+- Ein einzelner Artikel lässt sich am einfachsten aus dem Wissens-Scope eines Profils fernhalten, indem er in keinem der von diesem Profil gewählten Struktur-Bereiche/Sitemap-Gruppen liegt – eine feingranulare Einzelartikel-Ausnahme *innerhalb* eines sonst indexierten Bereichs gibt es aktuell nicht.
+- Bei besonders hohen Anforderungen: „OpenAI-kompatibel" mit selbst gehostetem Modell wählen (siehe oben) statt eines kommerziellen Cloud-Providers.
 
 ### Server-/Docker-Anforderungen
 
@@ -482,6 +531,35 @@ fetch('/index.php?rex-api-call=ai_chat_query', {
 ```
 
 **Empfehlung**: Nur Chat → `ai-chat.js` plus `<ai-chat>`. Nur Suche → `ai-search.js` + `ai-search.css` + `window.AiSearch`. Beides → beide Assets laden und kombinieren.
+
+### FAQ
+
+**Die KI antwortet trotz vorhandenem Inhalt mit „weiß ich nicht" – woran liegt's?**
+Meist am RAG-Kandidatenfenster (siehe „Indexierung" oben): ist es kleiner als die Gesamtzahl indexierter Chunks (ohne natives Vektor-Retrieval relevant), bleiben ältere/seltener aktualisierte Inhalte beim Vergleich unberücksichtigt. Button „RAG-Kandidatenfenster automatisch optimieren" auf der Indexierungs-Übersicht nutzen. Zweithäufigste Ursache: der Inhalt liegt in keiner der Sitemap-Gruppen/Struktur-Bereiche/YForm-Mappings/PDF-Auswahlen, die das gerade aktive Profil durchsucht.
+
+**Ich habe die Chunk-Größe/Kategorie-Pfad/Metainfo-Felder geändert – warum wirkt sich das nicht auf bestehende Antworten aus?**
+Diese Einstellungen fließen nur in den Embedding-Text neu indexierter Inhalte ein, nie rückwirkend. Nach einer solchen Änderung ist ein vollständiger Reindex nötig (Button „Jetzt indexieren"/„Im Hintergrund indexieren" oder `php redaxo/bin/console ai_chat:reindex`).
+
+**Ich habe den KI-Provider gewechselt – der Chat antwortet plötzlich unsinnig oder gar nicht mehr.**
+Unterschiedliche Embedding-Modelle liefern unterschiedliche Vektor-Dimensionen – alte und neue Vektoren sind nicht miteinander vergleichbar. Nach jedem Provider-/Modellwechsel den kompletten Index leeren und neu aufbauen, kein inkrementelles Update.
+
+**Kann ich mehrere Sprachen gleichzeitig anbieten?**
+Ja, über mehrere Profile: je eines pro Sprache/Domain, mit eigener Zielgruppen-Einstellung (Domain/Sprache), eigenem `ui-language` für die Widget-Oberfläche und optional eigener Antwortsprache für die KI-Antworten selbst (unabhängig voneinander einstellbar).
+
+**Warum sehe ich als eingeloggter Redakteur/Admin ein Profil, das normale Besucher nicht sehen?**
+Entweder bewusst so konfiguriert (ein Profil ohne „Besucher" in „Sichtbar für" wirkt wie ein Testmodus, nur für eingeloggte Redakteure/Admins sichtbar), oder der IP-Testmodus ist für die eigene IP aktiv (hebt die „Sichtbar für"-Einschränkung testweise auf, siehe „Sicherheit und Zugriff" oben).
+
+**Warum liefert eine Frage nach dem eigenen Firmen-/Domainnamen sehr viele, teils themenfremde Treffer?**
+Auf einer Ein-Domain-Website enthält praktisch jede URL denselben Host – ein naiver Wortabgleich würde dadurch fast jede Seite als „relevant" durchwinken. Die Relevanzprüfung berücksichtigt den Domainnamen deshalb gezielt nicht, nur den URL-Pfad danach zählt weiterhin als Signal.
+
+**Wie ergänze ich eine Wissensquelle, die zu keinem der eingebauten Typen (Struktur, Sitemap, YForm, PDF) passt?**
+Über den Extension Point `AI_CHAT_CONTENT_PROVIDERS` (siehe „Erweiterbarkeit" unten) – der vorgesehene Weg für alles, was kein Core-Feature ist, z. B. eine Anbindung an ein externes System.
+
+**Der Chat-Verlauf verschwindet beim Neuladen der Seite – ist das ein Bug?**
+Nein, gewolltes Verhalten: der Verlauf liegt ausschließlich im `sessionStorage` des Browsers (siehe „Datenschutz und Besucherschutz" oben), nicht serverseitig. Ein neuer Tab oder eine neue Sitzung startet deshalb immer mit einem leeren Verlauf.
+
+**Ist der Einsatz mit ChatGPT/OpenAI direkt möglich, ohne Cloudflare/Gemini?**
+Ja, über „OpenAI-kompatibel" mit der offiziellen OpenAI-API als Base-URL – funktioniert genauso mit jedem anderen OpenAI-kompatiblen Dienst (Ollama, OpenWebUI, LM Studio, selbst gehostete Modelle). Für Datenschutzaspekte je nach gewähltem Dienst siehe „Datenschutz und Besucherschutz" oben.
 
 ### Erweiterbarkeit
 

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Geändert
+- **README erheblich erweitert**: die neuen Retrieval-Features (Re-Ranking,
+  Kategorie-Pfad, Metainfo-Felder, erweitertes JSON-LD) dokumentiert, dazu
+  drei neue Abschnitte - "Best Practices" (Chunk-Größe, Reindex-Zeitpunkte,
+  Provider-Wechsel, …), "FAQ" (häufige Stolperfallen) und "Datenschutz und
+  Besucherschutz" (welche Daten an welchen KI-Provider gehen, der bestehende
+  Eingabe-Schutz gegen sensible Daten, was serverseitig gespeichert wird,
+  Empfehlungen für sensible Website-Inhalte).
+
 ### Neu
 - **Re-Ranking**: die Top-Kandidaten der Ähnlichkeitssuche (Standard: 20)
   werden vor der finalen Auswahl zusätzlich nach Stichwort-Überdeckung mit
