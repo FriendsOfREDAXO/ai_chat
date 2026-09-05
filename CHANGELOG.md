@@ -11,13 +11,20 @@
   jetzt pro Chat-Anfrage fest (Query, Profil, Scope, ausgewählte Chunks samt
   Similarity/Quelle, ob Re-Ranking aktiv war, ob der Kontext als ausreichend
   galt) - einsehbar unter Index → Retrieval-Log, mit Detailansicht pro
-  Anfrage. Standardmäßig deaktiviert (Toggle unter Einstellungen → Chunking &
-  Cache → Debugging), da es laufend zusätzliche Zeilen erzeugt - alte
+  Anfrage. Standardmäßig deaktiviert (Toggle unter Einstellungen → Check &
+  Debug → Debugging), da es laufend zusätzliche Zeilen erzeugt - alte
   Einträge werden automatisch nach 7 Tagen bereinigt. Die Menüseite blendet
   sich selbst aus, solange das Log deaktiviert ist (sonst nur eine dauerhaft
   leere Auswertung), und die Indexierungs-Übersicht zeigt umgekehrt einen
   auffälligen gelben Hinweis in der Sidebar, solange es AKTIV ist - reines
   Debugging soll nicht unbemerkt weiterlaufen.
+- **Einstellungen → "Systemcheck" umbenannt in "Check & Debug".** Der
+  Retrieval-Debug-Log-Schalter (siehe oben) gehört inhaltlich nicht zu
+  "Chunking & Cache" (das sind Qualitäts-/Verhaltens-Hebel, keine Diagnose)
+  und zieht deshalb auf die Systemcheck-Seite um - der neue Name spiegelt
+  wider, dass dort jetzt sowohl Diagnose (Server-Voraussetzungen,
+  Hintergrund-Selbstaufruf-Test) als auch Debugging-Schalter zusammen
+  stehen.
 
 ### Behoben
 - **"[Bereich: ...]"-Label tauchte manchmal mehrfach in der sichtbaren

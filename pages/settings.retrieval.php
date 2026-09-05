@@ -174,15 +174,6 @@ $form->addRawField('<p class="help-block">FAQ-Vorcaching (welche Fragen vorab be
 
 $form->addRawField('</div>');
 
-// Debugging: eigener, bewusst zurueckhaltender Bereich - anders als die Felder oben hier kein
-// Qualitaets-Hebel, sondern reine Diagnose (siehe pages/content.retrieval_log.php).
-$form->addRawField('<div id="klxm-retrieval-debug-settings" class="ai-chat-settings-box">');
-$form->addRawField('<p class="ai-chat-settings-box-title">Debugging</p>');
-
-$addBoolSelectField($form, 'retrieval_debug_log_enabled', $addon->i18n('config_retrieval_debug_log_enabled'), $addon->i18n('config_retrieval_debug_log_enabled_notice'), false);
-
-$form->addRawField('</div>');
-
 $form->addRawField($tooltipInitScript);
 
 $sidebar = $renderTipsPanel($addon, 'retrieval')

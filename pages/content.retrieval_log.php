@@ -27,7 +27,7 @@ if (rex_request('reset_log', 'string', '') !== '') {
 if (!(bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
     $message .= rex_view::info(
         'Das Retrieval-Debug-Log ist aktuell deaktiviert - hier erscheinen keine neuen Einträge. '
-        . 'Einschalten unter <a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Einstellungen → Chunking & Cache → Debugging</a>.',
+        . 'Einschalten unter <a href="' . rex_url::backendPage('ai_chat/settings/systemcheck') . '">Einstellungen → Check &amp; Debug → Debugging</a>.',
     );
 }
 

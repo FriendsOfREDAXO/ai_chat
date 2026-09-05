@@ -2,6 +2,16 @@
 
 use FriendsOfRedaxo\AiChat\Service\SystemCheckService;
 
+require __DIR__ . '/settings.shared.php';
+
+/**
+ * Von settings.shared.php per require in diesen Scope injiziert - PHPStan kann require-
+ * Variablenfluss nicht ueber Dateigrenzen hinweg verfolgen, daher hier explizit annotiert.
+ *
+ * @var rex_addon_interface $addon
+ * @var Closure(rex_form_base, string, string, string, bool): rex_form_select_element $addBoolSelectField
+ */
+
 // Vorher Teil der Statistiken-Seite (siehe Git-Historie) - dort standen Server-/
 // Voraussetzungs-Diagnose und Nutzungsstatistik nebeneinander, obwohl das zwei
 // verschiedene Fragen sind ("laeuft die Umgebung korrekt?" vs. "wie wird der Chat
@@ -133,3 +143,15 @@ echo '
     }
 })();
 </script>';
+
+// Retrieval-Debug-Log: gehoert inhaltlich hierher statt zu "Chunking & Cache" - es ist kein
+// Qualitaets-/Verhaltens-Hebel wie die Felder dort, sondern reine Diagnose (siehe
+// ChatQueryService::logRetrievalDebug(), Auswertung unter Index -> Retrieval-Log, nur
+// sichtbar solange dieser Schalter an ist - siehe boot.php PAGES_PREPARED).
+$debugForm = rex_config_form::factory('ai_chat');
+$addBoolSelectField($debugForm, 'retrieval_debug_log_enabled', $addon->i18n('config_retrieval_debug_log_enabled'), $addon->i18n('config_retrieval_debug_log_enabled_notice'), false);
+
+$debugFormFragment = new rex_fragment();
+$debugFormFragment->setVar('title', 'Debugging', false);
+$debugFormFragment->setVar('body', $debugForm->get(), false);
+echo $debugFormFragment->parse('core/page/section.php');

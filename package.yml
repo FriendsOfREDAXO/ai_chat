@@ -36,7 +36,7 @@ page:
                 search: { title: 'Suche' }
                 access: { title: 'Zugriff & Sicherheit' }
                 retrieval: { title: 'Chunking & Cache' }
-                systemcheck: { title: 'Systemcheck' }
+                systemcheck: { title: 'Check & Debug' }
         help: { title: 'Hilfe', subPath: README.md, itemClass: 'pull-right' }
 
 console_commands:

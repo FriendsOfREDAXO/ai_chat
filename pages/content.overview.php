@@ -200,7 +200,7 @@ $sidebar .= $renderSidebarPanel('Provider-Wechsel', 'fa-exchange', $addon->i18n(
 if ((bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
     $debugLogBody = '<p>Jede Chat-Anfrage wird aktuell zusätzlich protokolliert (Chunks, Similarity, Re-Ranking).</p>'
         . '<a href="' . rex_url::backendPage('ai_chat/content/retrieval_log') . '">Retrieval-Log ansehen</a>'
-        . ' · <a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Abschalten</a>';
+        . ' · <a href="' . rex_url::backendPage('ai_chat/settings/systemcheck') . '">Abschalten</a>';
     $sidebar .= $renderSidebarPanel('Debug-Log aktiv', 'fa-bug', $debugLogBody, 'panel-warning');
 }
 
