@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Neu
+- **README: Ablauf-Diagramme.** Neuer Abschnitt „Ablauf im Überblick" mit zwei
+  Mermaid-Diagrammen - Indexierung (Quelle → Bereinigung → Kontext-
+  Anreicherung → Chunking → Embedding) und Abruf & Antwort (Datenschutz-Guard
+  → Retrieval-Anfrage → Vektorsuche → Stichwort-Fallback → Re-Ranking →
+  Prompt → KI-Antwort).
+
 ### Geändert
 - **README bereinigt**: verbliebene Erwähnungen von Hauptprofil und
   Backend-/Developer-Chat entfernt - beide Features sind seit 2.0.0 Geschichte,

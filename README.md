@@ -10,6 +10,36 @@ Kern des Addons ist eine klassische RAG-Pipeline (Retrieval-Augmented Generation
 
 Darüber hinaus bringt das Addon ein Profil-System mit, über das sich mehrere thematisch, sprachlich oder nach Zielgruppe getrennte „Instanzen" des Chats parallel betreiben lassen – inklusive eigenem Wissensausschnitt, eigenem Prompt, eigener Anrede, eigener Antwortsprache und eigenem Erscheinungsbild je Profil. Ein einzelnes Standard-Profil reicht für die meisten Installationen völlig aus; wer mehr braucht, kann beliebig viele weitere anlegen.
 
+## Ablauf im Überblick
+
+Zwei getrennte Abläufe: **Indexierung** passiert einmalig bzw. bei jeder Neuindizierung, **Abruf & Antwort** bei jeder einzelnen Chat-/Suchanfrage.
+
+```mermaid
+flowchart LR
+    A["Quelle je Profil:<br/>Struktur / Sitemap / YForm / PDF"] --> B["Text extrahieren<br/>und bereinigen"]
+    B --> C["Zusatz-Kontext anreichern:<br/>JSON-LD, Kategorie-Pfad, Metainfo-Felder"]
+    C --> D["In Chunks zerlegen<br/>(Größe/Overlap konfigurierbar)"]
+    D --> E["Embedding je Chunk<br/>erzeugen"]
+    E --> F[("Index:<br/>Vektor + Text + Metadaten")]
+```
+
+```mermaid
+flowchart TD
+    Q["Nutzerfrage"] --> P{"Datenschutz-Guard:<br/>sensible Daten erkannt?"}
+    P -- ja --> W["Warnung an Nutzer,<br/>keine KI-Anfrage"]
+    P -- nein --> R["Retrieval-Anfrage aus Frage<br/>+ letzten Gesprächsturns bilden"]
+    R --> E["Embedding der<br/>Anfrage erzeugen"]
+    E --> V["Vektorsuche im Index<br/>(Profil-Scope, Kandidatenfenster)"]
+    V --> K["Stichwort-Fallback ergänzt<br/>fehlende Kandidaten (Hybrid-Anteil)"]
+    K --> RR["Re-Ranking:<br/>Similarity + Stichwort-Überdeckung"]
+    RR --> T["Top-Kontext auswählen<br/>(RAG-Kandidatenzahl)"]
+    T --> PR["Prompt aus System-Prompt<br/>+ Kontext + Frage"]
+    PR --> LLM["KI-Provider generiert<br/>Antwort"]
+    LLM --> OUT["Antwort + Quellenangaben<br/>an Nutzer"]
+```
+
+Die reine **Suche** (ohne Chat-Antwort) überspringt die Prompt-/KI-Schritte und zeigt stattdessen direkt die gefundenen Treffer als Liste; eine optionale KI-Zusammenstellung über mehrere Bereiche hinweg läuft dort separat nachgeladen (siehe Einzelfeature „Suche" unten).
+
 ## Features
 
 - Frontend-Suche und Frontend-Chat für Website-Besucher
