@@ -387,6 +387,8 @@ Wird das Addon nicht automatisch über die REDAXO-Backend-Ausgabe eingebunden, l
 
 Das Widget kennt nur den Scope `frontend` (Standard- und einziger Wert – das Attribut lässt sich auch ganz weglassen).
 
+Bei automatischer Einbindung (Standardfall, kein manuelles Einbetten nötig) setzt `boot.php` genau diese Attribute selbst – Begrüßung, Prompt, Anrede/Personalisierung, Reset-Countdown, Folgefragen/Quellenanzeige sowie ob Chat/Suche überhaupt eingebunden werden, kommen dann aus dem aufgelösten Profil (AI Chat → Profile), Farbe/Avatar/Eckenradius aus dem dort zugewiesenen Theme (AI Chat → Themes) – nicht aus globaler Konfiguration. Bei manueller Einbindung wie oben werden diese Werte selbst gesetzt, ein Profil/Theme spielt dann keine Rolle.
+
 **Variante 2: Suche allein**
 
 ```html

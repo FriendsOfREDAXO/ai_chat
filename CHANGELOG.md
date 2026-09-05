@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Geändert
+- **Entwickler-Hinweise von der Demo-Seite in die README verschoben.** Die
+  Demo zeigte zwei Infoboxen mit Hinweisen zur getrennten Nutzung von
+  `<ai-chat>`/Suche und dazu, dass Begrüßung/Prompt/Anrede/Theme etc. im
+  echten Betrieb aus dem aufgelösten Profil/Theme statt aus den auf der
+  Demo-Seite sichtbaren Attributen kommen - gehört inhaltlich in die
+  Entwickler-Dokumentation, nicht in eine Seite, die auch Redakteuren als
+  Live-Vorschau dient. Der Profil-/Theme-Hinweis steht jetzt bei
+  „Manuelle Einbindung inkl. Assets" in der README, direkt bei den
+  Web-Component-Attributen, auf die er sich bezieht.
+
 ## [2.0.0-beta2] - 2026-09-05
 
 Kleinere Runde: bessere Retrieval-Qualität, ein paar handfeste Bugfixes,

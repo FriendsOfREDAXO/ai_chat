@@ -26,20 +26,6 @@ if (!str_starts_with($apiUrl, 'http')) {
 <div class="row">
   <div class="col-md-12">
     <p class="lead">Die Demo ist jetzt klar getrennt in Suche und Chat. Starten Sie oben mit der Inline-Suche.</p>
-    <div class="alert alert-info">
-      <strong>Hinweis für Entwickler:</strong>
-      Die Komponenten <code>&lt;ai-chat&gt;</code> und die Spotlight-Suche sind getrennt nutzbar.
-      Die Suche verwendet die API <code><?= rex_escape($apiUrl, 'html') ?></code>.
-    </div>
-    <div class="alert alert-warning">
-      <strong>Seit dem Profil-Feature:</strong> Begrüßung, Prompt, Anrede/Personalisierung, Reset-Countdown/
-      Verlauf-kopieren, Folgefragen/Quellenanzeige und ob Chat/Suche überhaupt automatisch eingebunden werden,
-      kommen im echten Betrieb aus dem aufgelösten <a href="<?= rex_url::backendPage('ai_chat/profiles') ?>">Profil</a>
-      (AI Chat → Profile), nicht mehr aus globaler Konfiguration. Farben/Avatar/Eckenradius kommen aus dem
-      Profil zugewiesenen <a href="<?= rex_url::backendPage('ai_chat/themes') ?>">Theme</a>
-      (AI Chat → Themes). Die Attribute auf dieser Demo-Seite zeigen trotzdem die Web-Component-Schnittstelle
-      selbst - dieselben Attribute setzt <code>boot.php</code> dann automatisch aus dem Profil.
-    </div>
   </div>
 </div>
 
