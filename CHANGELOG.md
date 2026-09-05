@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **Optionales Retrieval-Debug-Log.** Bisher protokollierte
+  `recordUsageStat()` nur grobe Nutzungsstatistik (Modus/Scope/Status/
+  Trefferzahl) - bei einer ausbleibenden oder unpassenden Antwort ließ sich
+  nicht nachvollziehen, welche Chunks mit welcher Ähnlichkeit tatsächlich in
+  den Kontext gewandert sind. Neue Tabelle `ai_chat_retrieval_log` hält das
+  jetzt pro Chat-Anfrage fest (Query, Profil, Scope, ausgewählte Chunks samt
+  Similarity/Quelle, ob Re-Ranking aktiv war, ob der Kontext als ausreichend
+  galt) - einsehbar unter Index → Retrieval-Log, mit Detailansicht pro
+  Anfrage. Standardmäßig deaktiviert (Toggle unter Einstellungen → Chunking &
+  Cache → Debugging), da es laufend zusätzliche Zeilen erzeugt - alte
+  Einträge werden automatisch nach 7 Tagen bereinigt.
+
 ### Behoben
 - **Live-Suchen ohne Treffer tauchten oft gar nicht in der Statistik auf.**
   Die Entprellung gegen Tastendruck-für-Tastendruck-Zwischenanfragen ("S",

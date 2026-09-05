@@ -20,6 +20,7 @@ page:
                 yform: { title: 'YForm-Tabellen' }
                 triggers: { title: 'Trigger & Antworten' }
                 cache: { title: 'Cache-Fragen' }
+                retrieval_log: { title: 'Retrieval-Log' }
         statistics: { title: 'Statistik' }
         themes: { title: 'Themes', perm: 'ai_chat[chatadmin]' }        
         demo: { title: 'Demos & Beispiele', itemClass: 'pull-right' }
@@ -57,6 +58,7 @@ default_config:
     stats_logging_enabled: true
     live_reindex_enabled: true
     index_respect_yrewrite_seo: true
+    retrieval_debug_log_enabled: false
     frontend_mode: bubble
     rate_limit: 10
     max_message_length_frontend: 2000

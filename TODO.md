@@ -33,8 +33,13 @@ umgesetzt: Re-Ranking (Heuristik statt LLM-Aufruf, siehe unten),
 Kategorie-Pfad-Metadaten (echte REDAXO-Kategorie für Struktur-Inhalte,
 geratene URL-Segmente als Fallback für Sitemap/YForm/Provider-URLs),
 konfigurierbare Metainfo-Felder als Zusatzkontext, JSON-LD-Erweiterung um
-`BreadcrumbList`/`FAQPage`/Öffnungszeiten. Einstellungen dazu unter
-"Chunking & Cache" → "Kontext-Anreicherung" bzw. "RAG-Abruf".
+`BreadcrumbList`/`FAQPage`/Öffnungszeiten, sowie ein optionales
+Retrieval-Debug-Log (`ai_chat_retrieval_log`, `ChatQueryService::
+logRetrievalDebug()`, standardmäßig aus - Toggle unter "Chunking & Cache" →
+"Debugging", Auswertung unter Index → Retrieval-Log, hält Query/Profil/
+Scope/ausgewählte Chunks samt Similarity fest, automatische 7-Tage-
+Bereinigung). Einstellungen dazu unter "Chunking & Cache" →
+"Kontext-Anreicherung" bzw. "RAG-Abruf".
 
 Noch offen:
 
@@ -48,16 +53,12 @@ Noch offen:
   "kurze, strukturierte Antwort"-Schnittstelle, die es heute noch nicht gibt
   (`AiServiceInterface` kennt nur `generateAnswer()` für vollständige
   Chat-Antworten). Tradeoff: ein zusätzlicher LLM-Roundtrip pro
-  Chatnachricht (Latenz + Kosten).
+  Chatnachricht (Latenz + Kosten). Das neue Retrieval-Log liefert jetzt die
+  Datengrundlage, um zu beurteilen, ob sich das überhaupt lohnt.
 - **Query-Rewriting/Multi-Query**: aus der ursprünglichen Checkliste weiterhin
   nicht umgesetzt - die Nutzerfrage geht unverändert (nur um die letzten 4
   Gesprächsturns ergänzt) ins Embedding, keine Umformulierung in eine
   präzisere Suchanfrage, keine mehreren Suchvarianten.
-- **Vollständiges Retrieval-Logging**: `recordUsageStat()` protokolliert nur
-  grobe Nutzungsstatistik (Modus/Scope/Status/Query/Trefferzahl), keine
-  Embeddings/Similarity-/Rerank-Scores/tatsächlich übergebenen Chunks - für
-  gezieltes Debugging künftiger Relevanz-Reports wäre ein optionales,
-  detaillierteres Debug-Log hilfreich.
 - **Token-gated Seiten-Prompts**: Idee verworfen (siehe Diskussion) - Seiten
   sollten der KI eigene Hinweise mitgeben können, nur sichtbar für den
   authentifizierten Crawler (Header-Token). Nicht weiterverfolgt, da der

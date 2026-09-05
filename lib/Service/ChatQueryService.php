@@ -596,7 +596,10 @@ class ChatQueryService
             $context = $this->ensureProviderContextByKeyword($context, $retrievalMessage, $scope, $ragResults);
             $context = $this->ensureKeywordMatchedContext($context, $retrievalMessage, $scope, $profile, $ragResults);
 
-            if ($triggerContent === '' && !$this->hasSufficientAnswerContext($context, $retrievalMessage)) {
+            $sufficientContext = $this->hasSufficientAnswerContext($context, $retrievalMessage);
+            $this->logRetrievalDebug($scope, $profile?->id, $retrievalMessage, $context, $sufficientContext);
+
+            if ($triggerContent === '' && !$sufficientContext) {
                 $answer = $this->buildInsufficientContextAnswer();
                 $answer = $this->normalizeAnswerMarkdown($answer);
                 $answerHtml = $this->parseMarkdown($answer);
@@ -2390,6 +2393,62 @@ class ChatQueryService
 
         if ($mode === 'search') {
             $this->rememberPartialTypingStat($scope, $normalized, (int) $sql->getLastId());
+        }
+    }
+
+    private function isRetrievalDebugLoggingEnabled(): bool
+    {
+        return (bool) rex_addon::get('ai_chat')->getConfig('retrieval_debug_log_enabled', false);
+    }
+
+    /**
+     * Haelt fest, welche Chunks mit welcher Similarity tatsaechlich in den Kontext einer
+     * Chat-Antwort gewandert sind (siehe TODO.md "Vollstaendiges Retrieval-Logging") - anders
+     * als recordUsageStat() (nur Modus/Status/Trefferzahl) laesst sich damit gezielt
+     * nachvollziehen, WARUM eine bestimmte Seite gefunden oder eben nicht gefunden wurde.
+     * Bewusst nur fuer den einen Aufrufer in process() gedacht, nicht fuer die Keyword-Suche
+     * (mode=search) - dort gibt es weder Embeddings noch Re-Ranking zu protokollieren.
+     *
+     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, source_label?: string}> $context
+     */
+    private function logRetrievalDebug(string $scope, ?int $profileId, string $query, array $context, bool $sufficientContext): void
+    {
+        if (!$this->isRetrievalDebugLoggingEnabled()) {
+            return;
+        }
+
+        $entries = [];
+        foreach ($context as $item) {
+            $entries[] = [
+                'source_type' => $item['source_type'],
+                'source_id' => $item['source_id'],
+                'source_label' => (string) ($item['source_label'] ?? ''),
+                'title' => $item['title'],
+                'url' => $item['url'],
+                'similarity' => round($item['similarity'], 4),
+                'snippet' => mb_substr($item['content'], 0, 200),
+            ];
+        }
+
+        $table = rex::getTable('ai_chat_retrieval_log');
+        $sql = rex_sql::factory();
+        $sql->setTable($table);
+        $sql->setValue('scope', $scope);
+        $sql->setValue('query', $query);
+        $sql->setValue('context_count', count($entries));
+        $sql->setValue('sufficient_context', $sufficientContext ? 1 : 0);
+        $sql->setValue('rerank_enabled', $this->isRerankEnabled() ? 1 : 0);
+        $sql->setValue('context_json', json_encode($entries, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $sql->setValue('profile_id', $profileId);
+        $sql->setValue('created_at', date('Y-m-d H:i:s'));
+        $sql->insert();
+
+        // Kein separater Cron/Menuepunkt fuer die Bereinigung - Debug-Log ist kurzlebig per
+        // Definition, dasselbe "gelegentlich beim Schreiben mitputzen"-Muster wie bei
+        // ai_chat_ratelimit oben in enforceRateLimit().
+        if (random_int(1, 20) === 1) {
+            $cutoff = date('Y-m-d H:i:s', time() - 7 * 86400);
+            $sql->setQuery('DELETE FROM ' . $table . ' WHERE created_at < ?', [$cutoff]);
         }
     }
 

@@ -91,6 +91,25 @@ rex_sql_table::get(rex::getTable('ai_chat_stats'))
     ->ensureIndex(new rex_sql_index('profile_id', ['profile_id']))
     ->ensure();
 
+// Optionales Debug-Log fuer den RAG-Abruf (siehe TODO.md "Vollstaendiges Retrieval-Logging") -
+// anders als ai_chat_stats (grobe Nutzungsstatistik) haelt diese Tabelle fest, WELCHE Chunks
+// mit welcher Similarity tatsaechlich in den Kontext einer Chat-Antwort gewandert sind. Bewusst
+// per Default aus (siehe ChatQueryService::isRetrievalDebugLoggingEnabled()) und mit kurzer
+// Aufbewahrung (siehe ChatQueryService::logRetrievalDebug()), da context_json pro Zeile deutlich
+// groesser ist als eine ai_chat_stats-Zeile.
+rex_sql_table::get(rex::getTable('ai_chat_retrieval_log'))
+    ->ensurePrimaryIdColumn()
+    ->ensureColumn(new rex_sql_column('scope', 'varchar(20)'))
+    ->ensureColumn(new rex_sql_column('query', 'text'))
+    ->ensureColumn(new rex_sql_column('context_count', 'int', false, '0'))
+    ->ensureColumn(new rex_sql_column('sufficient_context', 'tinyint(1)', false, '0'))
+    ->ensureColumn(new rex_sql_column('rerank_enabled', 'tinyint(1)', false, '0'))
+    ->ensureColumn(new rex_sql_column('context_json', 'mediumtext', true))
+    ->ensureColumn(new rex_sql_column('profile_id', 'int(10) unsigned', true))
+    ->ensureColumn(new rex_sql_column('created_at', 'datetime'))
+    ->ensureIndex(new rex_sql_index('profile_id_created', ['profile_id', 'created_at']))
+    ->ensure();
+
 // Profile/Scope-Editor: mehrere Chat-"Profile" mit eigenem Wissensstand,
 // Zielgruppe (Domain/Sprache/individuell), Sichtbarkeit und Prompt - siehe
 // FriendsOfRedaxo\AiChat\Profile\ChatProfile fuer die Feldbedeutung im Detail.
