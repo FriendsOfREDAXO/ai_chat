@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Behoben
+- **Interne Metadaten-Zeilen (z.B. "Kontext-Hinweis: ...") konnten als
+  scheinbar eigener Hinweis/Fußnote in der sichtbaren Antwort auftauchen.**
+  `IndexerService::prepareEmbeddingText()` stellt jedem indexierten Abschnitt
+  Zeilen wie "Kategorie: ...", "Kontext-Hinweis: ...", "Zusätzliche Keywords:
+  ..." oder "Wichtige Fakten: ..." voran, rein zur Einordnung - landet aber im
+  selben `content`-Feld, das unveraendert als RAG-Kontext an das Modell geht.
+  Ohne expliziten Hinweis konnte das Modell z.B. den Inhalt von
+  `embedding_context_hint` als eigene, paraphrasierte Anmerkung unter der
+  Antwort ausgeben (siehe Nutzer-Report: "Hinweis: Referenzen sind in der
+  Übersicht auf der Startseite verfügbar, ..." - das war nie Website-Inhalt,
+  sondern reine Redaktions-Anweisung an die KI). Neue, explizite
+  Systemprompt-Regel in allen vier Provider-Implementierungen
+  (`PromptBuilder`/Gemini/Cloudflare/OpenAI-kompatibel): solche
+  Metadaten-Zeilen sind ausschließlich zur eigenen Einordnung da und dürfen
+  niemals - auch nicht paraphrasiert - gegenüber dem Nutzer erwähnt werden.
+  Zusätzlich ein regelbasiertes Sicherheitsnetz gegen den woertlichen
+  Zitat-Fall von "Kontext-Hinweis: ..." (deckt naturgemäß keine Paraphrasen
+  ab - dafür ist die Systemprompt-Regel zuständig).
 - **Cache-Fragen/Retrieval-Log zeigten immer "0 Einträge", egal wie viele es
   wirklich gab.** `rex_sql::getValue()` erwartet einen Spaltennamen aus einem
   bereits ausgeführten Query, kein rohes SQL-Statement - `$sql->getValue('SELECT

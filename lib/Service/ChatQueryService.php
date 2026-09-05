@@ -3784,8 +3784,22 @@ class ChatQueryService
     private function removeLeakedContextLabel(string $answer): string
     {
         $cleaned = preg_replace('/^\s*\[Bereich:[^\]]*\]\s*[:\-–—]?\s*/imu', '', $answer);
+        $cleaned = is_string($cleaned) ? $cleaned : $answer;
 
-        return is_string($cleaned) ? $cleaned : $answer;
+        // Zusaetzliches Sicherheitsnetz spezifisch gegen "Kontext-Hinweis: ..." (von
+        // IndexerService::prepareEmbeddingText() vor jeden Chunk gesetzt, siehe
+        // config_embedding_context_hint) - deckt nur den woertlichen Zitat-Fall ab (siehe
+        // Nutzer-Report: eine Paraphrase wie "Hinweis: Referenzen sind ... verfuegbar" statt
+        // eines woertlichen "Kontext-Hinweis: ..."-Zitats entgeht diesem Regex zwangslaeufig -
+        // dagegen hilft nur die Systemprompt-Anweisung, siehe PromptBuilder::buildSystemPrompt()).
+        // "Kategorie:"/"Wichtige Fakten:"/"Zusätzliche Keywords:" bewusst NICHT hier
+        // pauschal herausgefiltert - im Gegensatz zu "Kontext-Hinweis:" (eine sehr spezifische,
+        // nie organisch als echte Antwort vorkommende Phrase) koennten das auch legitime,
+        // korrekte Antworten sein (z.B. "Kategorie: News" auf die Frage "in welcher Kategorie
+        // ist das einsortiert?") - dort greift nur die Systemprompt-Anweisung, kein blinder Regex.
+        $cleaned = preg_replace('/^\s*Kontext-Hinweis:.*$/imu', '', $cleaned);
+
+        return is_string($cleaned) ? trim($cleaned) : $answer;
     }
 
     private function removeUnwantedGreetingPrefix(string $answer, string $scope): string
