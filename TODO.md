@@ -106,6 +106,23 @@ Noch offen:
 
 ## Ideen für später
 
+- **Feste Systemprompt-Zusatzregeln einsehbar/erweiterbar machen**: die
+  fest im Code verankerten Zusatzregeln (Markdown-Formatierung,
+  "[Bereich: ...]"-Regel, Metadaten-Zeilen-Regel, Themen-Trennungsregel -
+  siehe CHANGELOG 2026-09-06) sitzen ausschließlich in `PromptBuilder::
+  buildSystemPrompt()`/`markdownFormattingInstruction()`, identisch
+  dupliziert in `GeminiService`/`CloudflareService`/`OpenAiCompatibleService`.
+  Kein Backend-Einblick, keine Möglichkeit, sie pro Profil oder global zu
+  verfeinern/ergänzen, ohne Code zu ändern - bei der Fehlersuche zum
+  "HTML-Codeblock statt Liste"-Fall musste der komplette effektive
+  System-Prompt erst aus dem Code rekonstruiert werden. Idee: (a) eine
+  Einstellungs-/Debug-Seite, die den vollständig zusammengesetzten
+  System-Prompt für ein gewähltes Profil READ-ONLY anzeigt (Transparenz/
+  Fehlersuche), und/oder (b) ein Textfeld für zusätzliche, kuratierte
+  Zusatzregeln - additiv zum "Eigener Prompt"-Feld, nicht ersetzend -, die
+  ohne Codeänderung ergänzt werden können. Berührt dieselbe
+  4-Provider-Duplizierung wie der nächste Punkt - guter Anlass, beides
+  zusammen anzugehen.
 - **Direkte Provider (Gemini/Cloudflare/OpenAI-kompatibel) vereinheitlichen**:
   bewusst nicht Teil der letzten Entflechtung (Nutzer-Entscheidung: "Provider-
   Wahl bleibt bestehen"). Falls später doch auf `ai_platform` als einzigen
