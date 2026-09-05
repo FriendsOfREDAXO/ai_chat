@@ -26,13 +26,13 @@ Darüber hinaus bringt das Addon ein Profil-System mit, über das sich mehrere t
 
 ### Profile
 
-Ein Profil bestimmt drei Dinge gleichzeitig: **wer** den Chat/die Suche sieht, **was** er weiß und **wie** er antwortet. Profile sind ausschließlich ein Frontend-Konzept – einen Backend-Chat, den ein Profil steuern könnte, gibt es nicht (siehe „Sicherheit und Zugriff" weiter unten).
+Ein Profil bestimmt drei Dinge gleichzeitig: **wer** den Chat/die Suche sieht, **was** er weiß und **wie** er antwortet. Profile sind ausschließlich ein Frontend-Konzept (siehe „Sicherheit und Zugriff" weiter unten).
 
 - **Sichtbarkeit**: Rolle (Besucher, angemeldete Redakteure, Admins) und Zielgruppe (alle Domains/Sprachen, bestimmte Domains, bestimmte Sprachen, oder beides). Passen mehrere Profile auf dieselbe Anfrage, gewinnt die höhere Priorität.
-- **Wissens-Scope**: Es gibt keinen globalen Wissens-Pool mehr – jedes Profil ist vollständig isoliert und durchsucht ausschließlich die Quellen, die es selbst gewählt hat: benannte Sitemap-Gruppen, benannte Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur), YForm-Tabellen sowie PDFs/Medienpool-Dateien oder -Kategorien – beliebig miteinander kombinierbar. Der einzige Weg, Wissen zwischen zwei Profilen zu teilen, ist das explizite Feld „Wissen teilen mit Profil(en)" (`include_profile_ids`): zusätzlich zu den eigenen Quellen werden dann auch die Quellen der dort ausgewählten anderen Profile durchsucht.
+- **Wissens-Scope**: Jedes Profil ist vollständig isoliert und durchsucht ausschließlich die Quellen, die es selbst gewählt hat: benannte Sitemap-Gruppen, benannte Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur), YForm-Tabellen sowie PDFs/Medienpool-Dateien oder -Kategorien – beliebig miteinander kombinierbar. Der einzige Weg, Wissen zwischen zwei Profilen zu teilen, ist das explizite Feld „Wissen teilen mit Profil(en)" (`include_profile_ids`): zusätzlich zu den eigenen Quellen werden dann auch die Quellen der dort ausgewählten anderen Profile durchsucht.
 - **Prompt, Anrede, Antwortsprache**: Ein eigener System-Prompt ersetzt bei Bedarf die globale Einstellung. Anrede (Du/Sie/neutral/automatisch per Personalisierungsdialog) und Antwortsprache lassen sich je Profil festlegen – Letztere unabhängig von der Oberflächen-Sprache des Widgets, leer = weiterhin Deutsch.
-- **Theme**: statt eigener Farbfelder wählt ein Profil nur noch ein zentral unter „AI Chat → Themes" gepflegtes Theme aus einem Dropdown (siehe Einzelfeature „Zentrale Theme-Verwaltung" unten) – leer = globales Standard-Theme. Die Widget-Position (unten rechts/links) bleibt davon unabhängig und weiterhin ein eigenes Profil-Override.
-- **Folgefragen/Quellenanzeige**: „Vorgeschlagene Folgefragen anzeigen" und „Quellen/Links in Antworten anzeigen" sind eigene, verpflichtende Einstellungen je Profil – kein globaler Fallback mehr, jedes Profil legt sie eigenständig fest, z. B. um bei einem reinen FAQ-Profil Folgefragen abzuschalten, ohne andere Profile zu beeinflussen.
+- **Theme**: ein Profil wählt ein zentral unter „AI Chat → Themes" gepflegtes Theme aus einem Dropdown (siehe Einzelfeature „Zentrale Theme-Verwaltung" unten) – leer = globales Standard-Theme. Die Widget-Position (unten rechts/links) bleibt davon unabhängig und ein eigenes Profil-Override.
+- **Folgefragen/Quellenanzeige**: „Vorgeschlagene Folgefragen anzeigen" und „Quellen/Links in Antworten anzeigen" sind eigene Einstellungen je Profil – jedes Profil legt sie eigenständig fest, z. B. um bei einem reinen FAQ-Profil Folgefragen abzuschalten, ohne andere Profile zu beeinflussen.
 - **FAQ-Vorcaching**: ebenfalls eine reine Profil-Einstellung, siehe Einzelfeature „FAQ-Vorcaching" unten.
 - **Live-Vorschau**: Jede Profil-Seite zeigt ein echtes, an genau dieses Profil gebundenes Test-Widget mit dem aktuell gespeicherten Stand (Theme, Prompt, Begrüßung, …).
 
@@ -68,7 +68,7 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 
 ### Indexierung
 
-- Artikel-/Content-Indexierung für REDAXO (über Struktur-Bereiche), Sitemaps, YForm-Tabellen, PDFs/Medienpool sowie weitere Provider per Extension Point – Quellen werden ausschließlich je Profil gewählt und beliebig kombiniert, kein globaler Wissens-Pool
+- Artikel-/Content-Indexierung für REDAXO (über Struktur-Bereiche), Sitemaps, YForm-Tabellen, PDFs/Medienpool sowie weitere Provider per Extension Point – Quellen werden ausschließlich je Profil gewählt und beliebig kombiniert
 - Zwei Indexierungs-Methoden für Artikel: **Intern** (Standard, schnell, nutzt REDAXOs eigenen Renderer) oder **HTTP Crawler** (ruft die Artikel-URL wie ein Browser ab – sinnvoll, wenn Cache/Proxy/Ausgabelogik den finalen Frontend-Inhalt gegenüber dem internen Renderer verändern). Für den HTTP Crawler lassen sich ein CSS-Hauptselektor (Standard `body`, mehrere durch Komma möglich) sowie Ausschluss-Selektoren (z. B. `nav, footer, .cookie-banner`) konfigurieren, um wiederkehrende Navigations-/Footer-Texte draußen zu halten.
 - Inkrementelle und vollständige Neuindizierung, wahlweise als Hintergrund-Job (Button „Im Hintergrund indexieren" oder `php redaxo/bin/console ai_chat:reindex`) – läuft serverseitig weiter, auch wenn der Browser-Tab geschlossen wird
 - Chunking mit konfigurierbarer Größe (Standard 1000 Zeichen) und Überlappung (Standard 200 Zeichen), damit zusammengehörige Informationen nicht mitten durchgeschnitten werden
@@ -85,7 +85,7 @@ Ab MariaDB 11.7 (Preview) bzw. 11.8 (GA/LTS) nutzt das Addon automatisch die nat
 
 ### Benannte Sitemap- und Struktur-Bereiche
 
-Zusätzliche Sitemaps und Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur) lassen sich je Profil jeweils in mehrere benannte Gruppen aufteilen statt in einer einzigen Liste (z. B. „Allgemein" und „News" mit jeweils eigenen URLs, oder mehrere benannte Kategorie-Bereiche). Beide Quellenarten sind symmetrisch aufgebaut und gleichzeitig, beliebig kombinierbar – es gibt kein Entweder-Oder zwischen „eigener Sitemap" und „eigenem Struktur-Bereich" mehr. Jede Gruppe (egal ob Sitemap oder Struktur) kann zusätzlich:
+Zusätzliche Sitemaps und Struktur-Bereiche (Kategorie-Teilbäume der REDAXO-Struktur) lassen sich je Profil jeweils in mehrere benannte Gruppen aufteilen statt in einer einzigen Liste (z. B. „Allgemein" und „News" mit jeweils eigenen URLs, oder mehrere benannte Kategorie-Bereiche). Beide Quellenarten sind symmetrisch aufgebaut und beliebig kombinierbar, auch untereinander. Jede Gruppe (egal ob Sitemap oder Struktur) kann zusätzlich:
 
 - eine kurze **Beschreibung** bekommen, die der KI als Zusatzkontext mitgeteilt wird und ihr hilft, den Bereich thematisch einzuordnen,
 - als **aktuell/zeitkritisch** markiert werden (z. B. eine News-Gruppe) – Fragen mit Signalwörtern wie „aktuell", „neu" oder „zuletzt" bevorzugen dann gezielt Treffer aus dieser Gruppe, sowohl im Ranking als auch per Hinweis an die KI.
@@ -163,19 +163,19 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick, 
 
 ### Wichtige Settings
 
-Die Backend-Navigation kennt kein „Hauptprofil" mehr, auf das ein Profil bei leerem Feld zurückfallen könnte – jedes Profil trägt seine sichtbarkeits-, verhaltens- und darstellungsbezogenen Einstellungen vollständig selbst (siehe Einzelfeature „Profile" oben). „Profile" ist deshalb die erste/Startseite des Addons. Auf den verbleibenden Ebenen **Themes** (zentrale Farb-/Avatar-Verwaltung, siehe oben) und **Einstellungen** stehen nur noch echt globale, profilunabhängige Werte:
+Jedes Profil trägt seine sichtbarkeits-, verhaltens- und darstellungsbezogenen Einstellungen vollständig selbst (siehe Einzelfeature „Profile" oben) – „Profile" ist deshalb die erste/Startseite des Addons. Auf den Ebenen **Themes** (zentrale Farb-/Avatar-Verwaltung, siehe oben) und **Einstellungen** stehen nur echt globale, profilunabhängige Werte:
 
 - **Übersicht**: keine Formularseite, sondern eine Orientierungs-/Status-Ansicht – zeigt den konfigurierten KI-Provider und ob Zugangsdaten hinterlegt sind, die Anzahl aktiver Profile sowie Links zur Profil-Verwaltung und zu jeder Detail-Einstellungsseite.
-- **Verhalten & Antworten**: die global gebliebenen Standard-Werte ohne Profil-Äquivalent – Standard-Begrüßung, Standard-Prompt, Fehlermeldung, Zusatzkontext, Quellen-Link-Titel. Der eigene Prompt bzw. die eigene Begrüßung eines Profils überschreibt diese Werte optional (leer = globaler Wert).
+- **Verhalten & Antworten**: globale Standard-Werte ohne Profil-Äquivalent – Standard-Begrüßung, Standard-Prompt, Fehlermeldung, Zusatzkontext, Quellen-Link-Titel. Der eigene Prompt bzw. die eigene Begrüßung eines Profils überschreibt diese Werte optional (leer = globaler Wert).
 - **Erscheinungsbild**: globaler Standard-Widget-Modus (Bubble/ohne Bubble) und globale Standard-Position; beides bleibt zusätzlich je Profil überschreibbar.
-- **Suche**: bündelt alle reinen Such-Einstellungen an einer Stelle – „aktuelle Seite durchsuchen"-Umschalter, KI-Zusammenstellung in der Suche, Quellentyp-Bezeichnungen, Mehrfach-Kontext-Schnipsel (vorher verteilt auf „Zugriff & Sicherheit" und „Erscheinungsbild").
+- **Suche**: bündelt alle reinen Such-Einstellungen an einer Stelle – „aktuelle Seite durchsuchen"-Umschalter, KI-Zusammenstellung in der Suche, Quellentyp-Bezeichnungen, Mehrfach-Kontext-Schnipsel.
 - **Zugriff & Sicherheit**: öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter, sowie ein **Testmodus** über eine IP-Whitelist – gesetzt, ist Chat/Suche im Frontend serverseitig nur für diese IPs sichtbar (für alle anderen komplett gesperrt) und hebt für sie zusätzlich die „Sichtbar für"-Einschränkung einzelner Profile auf, praktisch um die gesamte Website unkompliziert nur für sich selbst in einen Testmodus zu versetzen.
 - **KI-Provider & Parameter**: Provider-Auswahl/Zugangsdaten, Verbindungstest, Timeout/Temperature/Token-Limit sowie das (rein globale) SSE-Streaming.
-- **Indexierungs-Quellen**: seit der Profil-Entflechtung deutlich kleiner – nur noch die Vektor-Retrieval-Statusbox (samt „Neu prüfen"), ein Schalter für Live-Reindexierung, ein Schalter zur Respektierung der yrewrite-SEO-Einstellungen sowie die Aktivierung optionaler, profilunabhängiger Content-Provider (aktuell „forcal" für Kalendereinträge) inklusive dessen forcal-spezifischer Felder. Die eigentliche Wissensauswahl (Sitemap, Struktur, YForm, PDFs) erfolgt ausschließlich je Profil (siehe oben) – es gibt keine globale Struktur-/Sitemap-/PDF-Indexierung mehr.
+- **Indexierungs-Quellen**: die Vektor-Retrieval-Statusbox (samt „Neu prüfen"), ein Schalter für Live-Reindexierung, ein Schalter zur Respektierung der yrewrite-SEO-Einstellungen sowie die Aktivierung optionaler, profilunabhängiger Content-Provider (aktuell „forcal" für Kalendereinträge) inklusive dessen forcal-spezifischer Felder. Die eigentliche Wissensauswahl (Sitemap, Struktur, YForm, PDFs) erfolgt ausschließlich je Profil (siehe oben).
 - **Systemcheck**: Server-/Voraussetzungs-Diagnose (PHP-/REDAXO-Version, PDF-Extraktion, Hintergrund-Indexierung, native Vektorsuche, KI-Provider) an einer Stelle statt verstreuter Fehlermeldungen.
-- **Chunking & Cache**: Chunking-Größe/Overlap, Kontext-Anreicherung (Kategorie-Pfad, Metainfo-Felder – siehe Einzelfeature „Indexierung" oben), RAG-Kandidatenfenster, Re-Ranking (an/aus, Kandidatenzahl), Antwort-Cache – gilt für alle Quellen und Profile gleichermaßen. FAQ-Vorcaching ist keine Einstellung mehr auf dieser Seite, sondern reine Profil-Sache (siehe oben).
+- **Chunking & Cache**: Chunking-Größe/Overlap, Kontext-Anreicherung (Kategorie-Pfad, Metainfo-Felder – siehe Einzelfeature „Indexierung" oben), RAG-Kandidatenfenster, Re-Ranking (an/aus, Kandidatenzahl), Antwort-Cache – gilt für alle Quellen und Profile gleichermaßen. FAQ-Vorcaching ist reine Profil-Sache (siehe oben).
 
-„Indexierung" hat außerdem eigene Unterseiten bekommen: **Übersicht** (Status/Reindex-Steuerung, wie bisher), **YForm-Tabellen** (Mappings, vorher unter Einstellungen), **Trigger & Antworten** (vorher eigener Menüpunkt) und **Cache-Fragen** (vorher eigener Menüpunkt) – beide inzwischen mit optionalem Profil-Bezug: ein Trigger kann auf ein einzelnes Profil eingeschränkt werden (leer = gilt weiterhin für alle Profile), und Cache-Einträge tragen ebenfalls eine `profile_id`, sodass zwei Profile auf dieselbe Frage unterschiedliche gecachte Antworten bekommen können.
+„Indexierung" hat eigene Unterseiten: **Übersicht** (Status/Reindex-Steuerung), **YForm-Tabellen** (Mappings), **Trigger & Antworten** und **Cache-Fragen** – beide mit optionalem Profil-Bezug: ein Trigger kann auf ein einzelnes Profil eingeschränkt werden (leer = gilt für alle Profile), und Cache-Einträge tragen ebenfalls eine `profile_id`, sodass zwei Profile auf dieselbe Frage unterschiedliche gecachte Antworten bekommen können.
 
 ### Best Practices
 
@@ -247,7 +247,7 @@ Kommen die `event: chunk`-Zeilen sichtbar nacheinander mit Pausen an, funktionie
 
 ### Sicherheit und Zugriff
 
-Es gibt keinen Backend-/Developer-Chat mehr – Chat und Suche laufen ausschließlich im Frontend, es wird nichts automatisch ins REDAXO-Backend eingebunden. Ob und für wen ein Profil überhaupt sichtbar ist, entscheidet dessen „Sichtbar für"-Einstellung (Besucher/Redakteure/Admins, siehe Einzelfeature „Profile" oben); ohne „Besucher" wirkt ein Profil damit wie ein Testmodus, sichtbar nur für eingeloggte Redakteure/Admins. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein IP-Testmodus (Einstellungen → Zugriff & Sicherheit) macht die gesamte Website unkompliziert nur für die eigene IP sichtbar, unabhängig von einem Login. Details zum Missbrauchsschutz (Prompt-Injection, Jailbreak-Muster, Upkeep-Anbindung) siehe Einzelfeature „Missbrauchsschutz" oben.
+Chat und Suche laufen ausschließlich im Frontend, es wird nichts automatisch ins REDAXO-Backend eingebunden. Ob und für wen ein Profil überhaupt sichtbar ist, entscheidet dessen „Sichtbar für"-Einstellung (Besucher/Redakteure/Admins, siehe Einzelfeature „Profile" oben); ohne „Besucher" wirkt ein Profil damit wie ein Testmodus, sichtbar nur für eingeloggte Redakteure/Admins. Der öffentliche API-Endpunkt lässt sich bei Bedarf komplett deaktivieren. Ein IP-Testmodus (Einstellungen → Zugriff & Sicherheit) macht die gesamte Website unkompliziert nur für die eigene IP sichtbar, unabhängig von einem Login. Details zum Missbrauchsschutz (Prompt-Injection, Jailbreak-Muster, Upkeep-Anbindung) siehe Einzelfeature „Missbrauchsschutz" oben.
 
 ### Datenschutz und Besucherschutz
 
@@ -320,7 +320,7 @@ Wird das Addon nicht automatisch über die REDAXO-Backend-Ausgabe eingebunden, l
 </ai-chat>
 ```
 
-Das Widget kennt seit der Entfernung des Developer-Chats nur noch den Scope `frontend` (Standard- und einziger Wert – das Attribut lässt sich auch ganz weglassen). Einen Scope-Umschalter im Widget sowie das Attribut `allow-scope-switch` gibt es nicht mehr.
+Das Widget kennt nur den Scope `frontend` (Standard- und einziger Wert – das Attribut lässt sich auch ganz weglassen).
 
 **Variante 2: Suche allein**
 
@@ -573,7 +573,7 @@ rex_extension::register('AI_CHAT_CONTENT_PROVIDERS', function (rex_extension_poi
 });
 ```
 
-Das ist inzwischen auch der vorgesehene Weg für Fälle wie GitHub-Repo- oder Addon-Dokumentations-Indexierung, die früher fest im Core eingebaut waren (nur zur Wissensversorgung des inzwischen entfernten Developer-Chats): ein Dritt-Addon meldet dafür einfach einen eigenen `ContentProviderInterface` an, statt auf ein Core-Feature angewiesen zu sein.
+Das ist der vorgesehene Weg für Fälle wie GitHub-Repo- oder Addon-Dokumentations-Indexierung: ein Dritt-Addon meldet dafür einfach einen eigenen `ContentProviderInterface` an, statt auf ein Core-Feature angewiesen zu sein.
 
 Weitere Extension Points: `AI_CHAT_REGISTER_PROVIDERS` (eigene KI-Provider-Implementierung unter einem eigenen Schlüssel), `AI_CHAT_PROFILE_CANDIDATES` (Profil-Auswahl vor der finalen Entscheidung filtern/umsortieren) und `AI_CHAT_WIDGET_TRANSLATIONS` (zusätzliche Sprachen/Schlüssel für die Widget-Oberfläche nachliefern, ohne den Core-Ordner anzufassen).
 

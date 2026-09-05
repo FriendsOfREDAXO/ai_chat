@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Geändert
+- **README bereinigt**: verbliebene Erwähnungen von Hauptprofil und
+  Backend-/Developer-Chat entfernt - beide Features sind seit 2.0.0 Geschichte,
+  die README beschreibt jetzt durchgängig nur noch den aktuellen Stand statt
+  „X gibt es nicht mehr"/„vorher war Y"-Vergleichen mit der alten Architektur.
+
 ### Behoben
 - **„yrewrite-SEO-Einstellungen respektieren" hatte keine Wirkung.** Die
   Einstellung (Standard: an) versprach laut eigenem Hinweistext, einen
