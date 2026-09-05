@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Behoben
+- **„yrewrite-SEO-Einstellungen respektieren" hatte keine Wirkung.** Die
+  Einstellung (Standard: an) versprach laut eigenem Hinweistext, einen
+  Artikel zu überspringen, den yrewrite als „nicht indexieren" markiert -
+  tatsächlich wurde das Metainfo-Feld `yrewrite_index` nirgends ausgewertet.
+  `IndexerService::indexArticle()` überspringt einen Artikel jetzt, wenn
+  yrewrite ihn explizit auf „noindex" gesetzt hat (Wert `2`). Bewusst NICHT
+  betroffen: der Online-/Offline-Status - ein Struktur-Bereich indexiert
+  weiterhin absichtlich unabhängig davon (siehe `updateArticleIndex()`).
+
 ### Geändert
 - **README erheblich erweitert**: die neuen Retrieval-Features (Re-Ranking,
   Kategorie-Pfad, Metainfo-Felder, erweitertes JSON-LD) dokumentiert, dazu

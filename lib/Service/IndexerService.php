@@ -841,6 +841,10 @@ class IndexerService
 
     public function indexArticle(rex_article $article, int $clangId, ?int $chatProfileId = null): int
     {
+        if ($this->isExcludedByYrewriteSeo($article)) {
+            return 0;
+        }
+
         $chunkCount = 0;
 
         // Kein HTTP-Crawl-Modus mehr (index_method - ohne UI seit Phase 6, siehe
@@ -1466,6 +1470,30 @@ class IndexerService
     private function isCategoryPathEnabled(): bool
     {
         return (bool) \rex_addon::get('ai_chat')->getConfig('embedding_category_path_enabled', true);
+    }
+
+    /**
+     * Respektiert eine EXPLIZITE "noindex"-Markierung eines Artikels ueber yrewrites
+     * Metainfo-Feld "yrewrite_index" (rex_yrewrite_seo::$meta_index_field), wenn der Schalter
+     * "yrewrite-SEO-Einstellungen respektieren" aktiv ist (Standard: an). Wert `2` = explizit
+     * "noindex, follow" (siehe rex_yrewrite_seo::getTags()) - das ist die einzige Stufe, die
+     * hier geprueft wird. Der Online/Offline-Status (Wert `0`/leer = Standard, dort zusaetzlich
+     * von isOnline() abhaengig) bleibt bewusst AUSSEN VOR: ein Mountpoint ist eine bewusste,
+     * enge Auswahl, die unabhaengig vom Online/Offline-Filter indexiert wird (siehe
+     * updateArticleIndex()) - dieses Verhalten soll sich durch diesen Schalter nicht aendern,
+     * nur eine explizite Redakteurs-Entscheidung "diese Seite nicht indexieren" soll wirken.
+     */
+    private function isExcludedByYrewriteSeo(rex_article $article): bool
+    {
+        if (!\rex_addon::exists('yrewrite') || !\rex_addon::get('yrewrite')->isAvailable()) {
+            return false;
+        }
+
+        if (!(bool) \rex_addon::get('ai_chat')->getConfig('index_respect_yrewrite_seo', true)) {
+            return false;
+        }
+
+        return 2 === (int) $article->getValue('yrewrite_index');
     }
 
     /**

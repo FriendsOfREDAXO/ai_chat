@@ -276,7 +276,7 @@ Greift der Filter, wird die Anfrage **nicht an den KI-Provider weitergegeben** �
 **Empfehlungen für sensible Inhalte auf der Website**:
 
 - Seiten mit personenbezogenen Daten über das eigentliche Impressum hinaus (z. B. eine interne Mitgliederliste) lassen sich am zuverlässigsten über die Profil-Quellenauswahl selbst ausschließen – nur explizit gewählte Sitemap-Gruppen/Struktur-Bereiche werden indexiert.
-- Ein einzelner Artikel lässt sich am einfachsten aus dem Wissens-Scope eines Profils fernhalten, indem er in keinem der von diesem Profil gewählten Struktur-Bereiche/Sitemap-Gruppen liegt – eine feingranulare Einzelartikel-Ausnahme *innerhalb* eines sonst indexierten Bereichs gibt es aktuell nicht.
+- Ein einzelner Artikel innerhalb eines sonst indexierten Struktur-Bereichs lässt sich über yrewrites eigene SEO-Einstellung „nicht indexieren" (pro Artikel) ausschließen, sofern „yrewrite-SEO-Einstellungen respektieren" aktiv ist (Einstellungen → Indexierungs-Quellen, Standard: an) – praktisch, um z. B. eine einzelne Seite ohne eigenes Profil-Redesign aus dem Suchmaschinen- *und* KI-Index herauszuhalten. Der Online-/Offline-Status eines Artikels wirkt sich dagegen bewusst nicht aus – ein einmal als Wissensquelle gewählter Struktur-Bereich indexiert unabhängig davon vollständig.
 - Bei besonders hohen Anforderungen: „OpenAI-kompatibel" mit selbst gehostetem Modell wählen (siehe oben) statt eines kommerziellen Cloud-Providers.
 
 ### Server-/Docker-Anforderungen
