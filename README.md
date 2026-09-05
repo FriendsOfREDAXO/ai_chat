@@ -14,28 +14,63 @@ Darüber hinaus bringt das Addon ein Profil-System mit, über das sich mehrere t
 
 Zwei getrennte Abläufe: **Indexierung** passiert einmalig bzw. bei jeder Neuindizierung, **Abruf & Antwort** bei jeder einzelnen Chat-/Suchanfrage.
 
-```mermaid
-flowchart LR
-    A["Quelle je Profil:<br/>Struktur / Sitemap / YForm / PDF"] --> B["Text extrahieren<br/>und bereinigen"]
-    B --> C["Zusatz-Kontext anreichern:<br/>JSON-LD, Kategorie-Pfad, Metainfo-Felder"]
-    C --> D["In Chunks zerlegen<br/>(Größe/Overlap konfigurierbar)"]
-    D --> E["Embedding je Chunk<br/>erzeugen"]
-    E --> F[("Index:<br/>Vektor + Text + Metadaten")]
+**Indexierung** (je Profil, bei jeder Neuindizierung):
+
+```
+Quelle: Struktur / Sitemap / YForm / PDF
+                │
+                ▼
+Text extrahieren und bereinigen
+                │
+                ▼
+Zusatz-Kontext anreichern
+(JSON-LD, Kategorie-Pfad, Metainfo-Felder)
+                │
+                ▼
+In Chunks zerlegen (Größe/Overlap konfigurierbar)
+                │
+                ▼
+Embedding je Chunk erzeugen
+                │
+                ▼
+Index (Vektor + Text + Metadaten)
 ```
 
-```mermaid
-flowchart TD
-    Q["Nutzerfrage"] --> P{"Datenschutz-Guard:<br/>sensible Daten erkannt?"}
-    P -- ja --> W["Warnung an Nutzer,<br/>keine KI-Anfrage"]
-    P -- nein --> R["Retrieval-Anfrage aus Frage<br/>+ letzten Gesprächsturns bilden"]
-    R --> E["Embedding der<br/>Anfrage erzeugen"]
-    E --> V["Vektorsuche im Index<br/>(Profil-Scope, Kandidatenfenster)"]
-    V --> K["Stichwort-Fallback ergänzt<br/>fehlende Kandidaten (Hybrid-Anteil)"]
-    K --> RR["Re-Ranking:<br/>Similarity + Stichwort-Überdeckung"]
-    RR --> T["Top-Kontext auswählen<br/>(RAG-Kandidatenzahl)"]
-    T --> PR["Prompt aus System-Prompt<br/>+ Kontext + Frage"]
-    PR --> LLM["KI-Provider generiert<br/>Antwort"]
-    LLM --> OUT["Antwort + Quellenangaben<br/>an Nutzer"]
+**Abruf & Antwort** (bei jeder Chat-Anfrage):
+
+```
+Nutzerfrage
+    │
+    ▼
+Datenschutz-Guard: sensible Daten erkannt? ──ja──▶ Warnung an Nutzer,
+    │                                              keine KI-Anfrage
+    │ nein
+    ▼
+Retrieval-Anfrage aus Frage + letzten Gesprächsturns bilden
+    │
+    ▼
+Embedding der Anfrage erzeugen
+    │
+    ▼
+Vektorsuche im Index (Profil-Scope, Kandidatenfenster)
+    │
+    ▼
+Stichwort-Fallback ergänzt fehlende Kandidaten (Hybrid-Anteil)
+    │
+    ▼
+Re-Ranking: Similarity + Stichwort-Überdeckung
+    │
+    ▼
+Top-Kontext auswählen (RAG-Kandidatenzahl)
+    │
+    ▼
+Prompt aus System-Prompt + Kontext + Frage
+    │
+    ▼
+KI-Provider generiert Antwort
+    │
+    ▼
+Antwort + Quellenangaben an Nutzer
 ```
 
 Die reine **Suche** (ohne Chat-Antwort) überspringt die Prompt-/KI-Schritte und zeigt stattdessen direkt die gefundenen Treffer als Liste; eine optionale KI-Zusammenstellung über mehrere Bereiche hinweg läuft dort separat nachgeladen (siehe Einzelfeature „Suche" unten).
