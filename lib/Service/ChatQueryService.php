@@ -2372,7 +2372,7 @@ class ChatQueryService
             return;
         }
 
-        if ($mode === 'search' && $this->isLikelyPartialTyping($scope, $normalized)) {
+        if ($mode === 'search' && $this->updateLastPartialTypingStat($scope, $normalized, $status, $hitCount, $profileId)) {
             return;
         }
 
@@ -2387,30 +2387,77 @@ class ChatQueryService
         $sql->setValue('profile_id', $profileId);
         $sql->setValue('created_at', date('Y-m-d H:i:s'));
         $sql->insert();
+
+        if ($mode === 'search') {
+            $this->rememberPartialTypingStat($scope, $normalized, (int) $sql->getLastId());
+        }
     }
 
-    private function isLikelyPartialTyping(string $scope, string $query): bool
+    /**
+     * Live-Suche feuert bei jedem Tastendruck eine neue Anfrage - ohne Entprellung wuerde
+     * jede Zwischeneingabe ("S", "Sl", "Slo", ...) als eigene Statistik-Zeile landen.
+     * Bisher wurde eine erkannte Zwischeneingabe (Praefix der vorherigen Anfrage desselben
+     * Scopes, unter 2.5s seit deren Log-Zeitpunkt) einfach VERWORFEN - der Haken dabei: die
+     * tatsaechlich fertig getippte Anfrage ist selbst fast immer ein Praefix-Fortsatz der
+     * vorletzten Zwischeneingabe und wurde dadurch GENAUSO verworfen, sodass am Ende
+     * ueberhaupt keine Zeile fuer diese Suche entstand (Bugreport: eine Suche nach
+     * "Slowenien" ohne Treffer tauchte trotzdem nirgends in der Statistik auf). Aktualisiert
+     * jetzt stattdessen die zuletzt fuer dieses Scope geloggte Zeile in-place, statt sie zu
+     * verwerfen - am Ende einer Tipp-Sequenz steht dadurch garantiert die tatsaechlich
+     * finale Anfrage in der Statistik.
+     *
+     * @return bool true, wenn eine bestehende Zeile aktualisiert wurde (Aufrufer darf dann
+     *              das eigentliche INSERT ueberspringen).
+     */
+    private function updateLastPartialTypingStat(string $scope, string $query, string $status, int $hitCount, ?int $profileId): bool
     {
         if (session_status() === PHP_SESSION_NONE) {
             @session_start();
         }
 
         $key = 'ai_chat_last_stat_' . $scope;
-        $state = $_SESSION[$key] ?? ['query' => '', 'time' => 0.0];
-        $now = microtime(true);
-        $previous = (string) ($state['query'] ?? '');
-        $lastTime = (float) ($state['time'] ?? 0.0);
-
-        if ($previous !== '' && ($now - $lastTime) < 2.5) {
-            $prefixMatch = str_starts_with($query, $previous) || str_starts_with($previous, $query);
-            if ($prefixMatch) {
-                $_SESSION[$key] = ['query' => $query, 'time' => $now];
-                return true;
-            }
+        $state = $_SESSION[$key] ?? null;
+        if (!is_array($state)) {
+            return false;
         }
 
-        $_SESSION[$key] = ['query' => $query, 'time' => $now];
-        return false;
+        $previousQuery = (string) ($state['query'] ?? '');
+        $previousTime = (float) ($state['time'] ?? 0.0);
+        $previousRowId = (int) ($state['row_id'] ?? 0);
+        $now = microtime(true);
+
+        if ($previousRowId <= 0 || $previousQuery === '' || ($now - $previousTime) >= 2.5) {
+            return false;
+        }
+
+        $prefixMatch = str_starts_with($query, $previousQuery) || str_starts_with($previousQuery, $query);
+        if (!$prefixMatch) {
+            return false;
+        }
+
+        $sql = rex_sql::factory();
+        $sql->setTable(rex::getTable('ai_chat_stats'));
+        $sql->setWhere(['id' => $previousRowId]);
+        $sql->setValue('status', $status);
+        $sql->setValue('query', $query);
+        $sql->setValue('normalized_query', $query);
+        $sql->setValue('hit_count', max(0, $hitCount));
+        $sql->setValue('profile_id', $profileId);
+        $sql->setValue('created_at', date('Y-m-d H:i:s'));
+        $sql->update();
+
+        $_SESSION[$key] = ['query' => $query, 'time' => $now, 'row_id' => $previousRowId];
+
+        return true;
+    }
+
+    private function rememberPartialTypingStat(string $scope, string $query, int $rowId): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+
+        $_SESSION['ai_chat_last_stat_' . $scope] = ['query' => $query, 'time' => microtime(true), 'row_id' => $rowId];
     }
 
     private function normalizeStatQuery(string $query): string

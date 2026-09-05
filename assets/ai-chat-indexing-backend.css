@@ -3,11 +3,14 @@
    ai-chat-settings-backend.css fuer die settings- und hauptprofil-Seiten. */
 
 /* ── Kopfbereich mit Animation ───────────────────────────────────────────
-   Gleiche Technik wie der cke5-Addon-Header (Aurora-Blobs per radial-gradient
-   + Scan-Lichtstrahl per linear-gradient, beides reines CSS/@keyframes, keine
-   Bild-/Lottie-Datei) - hier thematisch auf "Indexierung/Scannen von Inhalten"
-   uebertragen statt auf CKEditor-Branding. Immer dunkel, unabhaengig vom
-   REDAXO-Theme der Seite, wie im Original. */
+   Statt der frueheren Aurora-Blobs (schoen, aber ohne inhaltlichen Bezug zu
+   "Indexierung") ein dezenter Digital-Rain-Effekt: vertikale Streifen aus
+   kurzen Strichen, die per background-position-Animation nach unten
+   "durchlaufen" - reines CSS/@keyframes (repeating-linear-gradient statt
+   vieler einzelner Zeichen-Elemente), keine Bild-/Lottie-/JS-Canvas-Datei,
+   gleiche Palette wie zuvor (Blau/Gruen/Teal). Ein maskierter Verlauf laesst
+   den Effekt zu den Raendern hin ausblenden, damit er nicht hart wirkt.
+   Immer dunkel, unabhaengig vom REDAXO-Theme der Seite. */
 .ai-chat-index-header {
     position: relative;
     display: flex;
@@ -25,21 +28,31 @@
 .ai-chat-index-header::before {
     content: '';
     position: absolute;
-    inset: -30%;
-    background:
-        radial-gradient(ellipse 55% 80% at 15% 50%, rgba(56, 189, 248, 0.26) 0%, transparent 55%),
-        radial-gradient(ellipse 40% 70% at 82% 25%, rgba(33, 163, 102, 0.24) 0%, transparent 55%),
-        radial-gradient(ellipse 35% 60% at 55% 110%, rgba(20, 184, 166, 0.18) 0%, transparent 50%);
-    filter: blur(28px);
-    animation: aiChatIndexAurora 16s ease-in-out infinite;
+    inset: 0;
+    opacity: 0.4;
+    background-image:
+        repeating-linear-gradient(90deg,
+            rgba(56, 189, 248, 0.55) 0px, rgba(56, 189, 248, 0.55) 2px,
+            transparent 2px, transparent 26px),
+        repeating-linear-gradient(90deg,
+            rgba(33, 163, 102, 0.5) 0px, rgba(33, 163, 102, 0.5) 2px,
+            transparent 2px, transparent 34px);
+    background-position: 0 0, 13px 0;
+    background-size: 100% 22px, 100% 17px;
+    animation: aiChatIndexDataRain 5s linear infinite;
+    -webkit-mask-image: linear-gradient(180deg, transparent, black 25%, black 75%, transparent),
+        linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(180deg, transparent, black 25%, black 75%, transparent),
+        linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
+    mask-composite: intersect;
     pointer-events: none;
     z-index: 1;
 }
 
-@keyframes aiChatIndexAurora {
-    0%, 100% { opacity: 0.85; transform: scale(1) translate(0, 0); }
-    30% { opacity: 1; transform: scale(1.06) translate(-3%, -2%); }
-    65% { opacity: 0.9; transform: scale(0.97) translate(2%, 1%); }
+@keyframes aiChatIndexDataRain {
+    from { background-position: 0 0, 13px 0; }
+    to   { background-position: 0 220px, 13px -170px; }
 }
 
 /* Scan-Lichtstrahl - passt inhaltlich besonders gut: die Seite indexiert/

@@ -2,7 +2,25 @@
 
 ## [Unreleased]
 
+### Behoben
+- **Live-Suchen ohne Treffer tauchten oft gar nicht in der Statistik auf.**
+  Die Entprellung gegen Tastendruck-für-Tastendruck-Zwischenanfragen ("S",
+  "Sl", "Slo", …) verwarf bisher jede Anfrage, die ein Präfix-Fortsatz der
+  vorherigen war - genau das trifft aber fast immer auch auf die fertig
+  getippte, tatsächlich interessante Anfrage zu, die dadurch ebenfalls
+  verworfen wurde. Aktualisiert jetzt stattdessen die zuletzt geloggte Zeile
+  in-place statt sie zu verwerfen - am Ende einer Tipp-Sequenz steht
+  garantiert die tatsächlich finale Anfrage in der Statistik, nicht gar
+  keine.
+
 ### Geändert
+- **Indexierungs-Seite: Kopfbereich und Status-Icon.** Der animierte
+  Kopfbereich hatte bisher Aurora-Farbflächen ohne inhaltlichen Bezug zur
+  Indexierung - ersetzt durch einen dezenten "Digital Rain"-Effekt
+  (vertikale, nach unten durchlaufende Streifen), der eher nach
+  Scannen/Verarbeiten von Inhalten aussieht. Außerdem drehte sich beim
+  Hintergrund-Indexlauf ein Cloud-Icon in der Statusanzeige (wirkte seltsam)
+  - jetzt ein Zahnrad, wie es für "läuft im Hintergrund" erwartbar ist.
 - **Indexierungs-Übersicht aufgeräumt.** Die evergreen-Hinweise
   (Provider-Wechsel, Chunking-Einblick, RAG-Kandidatenfenster-Warnung)
   standen bisher als volle-Breite-Alert-Balken direkt im Hauptfluss und

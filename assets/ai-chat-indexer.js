@@ -204,7 +204,7 @@
         const variants = {
             idle:         { cls: 'label-default', icon: 'fa-circle-o',            running: false, card: 'idle',    text: config.statusIdle || 'Bereit' },
             'running-fg': { cls: 'label-primary', icon: 'fa-refresh',             running: true,  card: 'running', text: config.statusRunningForeground || 'Läuft im Browser' },
-            'running-bg': { cls: 'label-info',    icon: 'fa-cloud-upload',        running: true,  card: 'running', text: config.statusRunningBackground || 'Läuft im Hintergrund' },
+            'running-bg': { cls: 'label-info',    icon: 'fa-cog',                 running: true,  card: 'running', text: config.statusRunningBackground || 'Läuft im Hintergrund' },
             success:      { cls: 'label-success', icon: 'fa-check',               running: false, card: 'success', text: config.statusDone || 'Fertig' },
             warning:      { cls: 'label-warning', icon: 'fa-exclamation-triangle', running: false, card: 'warning', text: config.statusDoneWithErrors || 'Fertig mit Fehlern' },
             cancelled:    { cls: 'label-warning', icon: 'fa-stop',                running: false, card: 'warning', text: config.statusCancelled || 'Abgebrochen' },
