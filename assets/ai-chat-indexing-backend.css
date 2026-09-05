@@ -3,21 +3,29 @@
    ai-chat-settings-backend.css fuer die settings- und hauptprofil-Seiten. */
 
 /* ── Kopfbereich mit Animation ───────────────────────────────────────────
-   Statt der frueheren Aurora-Blobs (schoen, aber ohne inhaltlichen Bezug zu
-   "Indexierung") ein dezenter Digital-Rain-Effekt: vertikale Streifen aus
-   kurzen Strichen, die per background-position-Animation nach unten
-   "durchlaufen" - reines CSS/@keyframes (repeating-linear-gradient statt
-   vieler einzelner Zeichen-Elemente), keine Bild-/Lottie-/JS-Canvas-Datei,
-   gleiche Palette wie zuvor (Blau/Gruen/Teal). Ein maskierter Verlauf laesst
-   den Effekt zu den Raendern hin ausblenden, damit er nicht hart wirkt.
-   Immer dunkel, unabhaengig vom REDAXO-Theme der Seite. */
+   Zweiter Anlauf nach den fruaheren Aurora-Blobs (huebsch, aber ohne Bezug
+   zu "Indexierung") und einem Digital-Rain-Streifenmuster (kam nicht gut
+   an): jetzt einzelne "Datenpartikel" (kleine, unterschiedlich grosse
+   Rechtecke - siehe HTML in content.overview.php), die von verschiedenen
+   Seiten hereinfliegen und in Richtung des Icons verblassen - macht
+   sichtbar, dass hier Inhalte eingesammelt/verarbeitet werden, statt nur
+   dekorativ zu sein. Grundfarbe angelehnt an REDAXOs eigenes Markenteal
+   (#5B6D69, siehe core/assets/redaxo-logo.svg), nicht an ein generisches
+   Blau/Gruen. Reines CSS/@keyframes, keine Bild-/Lottie-/JS-Canvas-Datei.
+
+   Das Icon selbst ist ein bewusstes, zurueckhaltendes Augenzwinkern - ein
+   rundes, "beobachtendes" Objektiv mit warm glühendem Kern. Wer's erkennt,
+   erkennt's; wer nicht, sieht einfach ein rundes KI-Symbol. Ebenso ein
+   kleiner Textgruss im title-Attribut (nur beim Hovern sichtbar) - beides
+   bewusst eigene Formulierung/Umkehr der Filmzeile statt eines Zitats,
+   keine Logos/Standbilder/Charakterzeichnungen. */
 .ai-chat-index-header {
     position: relative;
     display: flex;
     align-items: center;
     padding: 0.75rem 2rem;
-    background: radial-gradient(ellipse 150% 250% at 8% 60%, #062a2a 0%, #081018 45%, #0a1e2e 100%);
-    color: #e8f7f2;
+    background: radial-gradient(ellipse 150% 250% at 8% 60%, #16211f 0%, #0c1413 45%, #081010 100%);
+    color: #e7efed;
     margin: -15px -15px 15px;
     min-height: 110px;
     gap: 1.5rem;
@@ -25,78 +33,101 @@
     border-radius: 7px 7px 0 0;
 }
 
+/* Feiner Grundschimmer in Markenteal statt eines auffaelligen Musters -
+   bleibt ruhig, sorgt aber dafuer, dass der Hintergrund nicht komplett
+   flach wirkt. */
 .ai-chat-index-header::before {
     content: '';
     position: absolute;
-    inset: 0;
-    opacity: 0.4;
-    background-image:
-        repeating-linear-gradient(90deg,
-            rgba(56, 189, 248, 0.55) 0px, rgba(56, 189, 248, 0.55) 2px,
-            transparent 2px, transparent 26px),
-        repeating-linear-gradient(90deg,
-            rgba(33, 163, 102, 0.5) 0px, rgba(33, 163, 102, 0.5) 2px,
-            transparent 2px, transparent 34px);
-    background-position: 0 0, 13px 0;
-    background-size: 100% 22px, 100% 17px;
-    animation: aiChatIndexDataRain 5s linear infinite;
-    -webkit-mask-image: linear-gradient(180deg, transparent, black 25%, black 75%, transparent),
-        linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
-    -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(180deg, transparent, black 25%, black 75%, transparent),
-        linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
-    mask-composite: intersect;
+    inset: -20%;
+    background: radial-gradient(ellipse 45% 70% at 75% 30%, rgba(91, 109, 105, 0.35) 0%, transparent 60%);
+    filter: blur(20px);
+    animation: aiChatIndexGlow 12s ease-in-out infinite;
     pointer-events: none;
     z-index: 1;
 }
 
-@keyframes aiChatIndexDataRain {
-    from { background-position: 0 0, 13px 0; }
-    to   { background-position: 0 220px, 13px -170px; }
+@keyframes aiChatIndexGlow {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
 }
 
-/* Scan-Lichtstrahl - passt inhaltlich besonders gut: die Seite indexiert/
-   "scannt" Inhalte, der Lichtstrahl macht das optisch spuerbar. */
-.ai-chat-index-header .ai-chat-index-scan {
+/* Datenpartikel: jedes .ai-chat-index-particle-Element bekommt ueber
+   nth-child eine eigene Flugbahn/Verzoegerung/Groesse - Start ueber den
+   ganzen Kopfbereich verteilt, Ziel jeweils grob die Icon-Position links
+   (Prozentwerte statt Pixel, damit es bei jeder Breite passt). */
+.ai-chat-index-header .ai-chat-index-particle {
     position: absolute;
-    top: 0;
-    left: -15%;
-    width: 80px;
-    height: 100%;
-    background: linear-gradient(90deg,
-        transparent 0%,
-        rgba(56, 189, 248, 0.14) 40%,
-        rgba(255, 255, 255, 0.10) 50%,
-        rgba(33, 163, 102, 0.14) 60%,
-        transparent 100%);
-    animation: aiChatIndexScanMove 9s ease-in-out infinite;
+    top: 50%;
+    left: 4.5rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    background: #7fd8c8;
+    box-shadow: 0 0 6px rgba(127, 216, 200, 0.7);
+    opacity: 0;
+    z-index: 2;
     pointer-events: none;
-    z-index: 3;
 }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(1) { animation: aiChatIndexParticle1 4.5s ease-in infinite; }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(2) { width: 6px; height: 6px; background: #38bdf8; box-shadow: 0 0 6px rgba(56, 189, 248, 0.7); animation: aiChatIndexParticle2 3.8s ease-in infinite 0.6s; }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(3) { width: 12px; height: 12px; animation: aiChatIndexParticle3 5.2s ease-in infinite 1.4s; }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(4) { width: 7px; height: 7px; background: #38bdf8; box-shadow: 0 0 6px rgba(56, 189, 248, 0.7); animation: aiChatIndexParticle4 4.1s ease-in infinite 2.1s; }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(5) { width: 8px; height: 8px; animation: aiChatIndexParticle1 4.7s ease-in infinite 3s; }
+.ai-chat-index-header .ai-chat-index-particle:nth-child(6) { width: 5px; height: 5px; background: #38bdf8; box-shadow: 0 0 6px rgba(56, 189, 248, 0.7); animation: aiChatIndexParticle3 3.6s ease-in infinite 0.3s; }
 
-@keyframes aiChatIndexScanMove {
-    0%   { left: -15%; opacity: 0; }
-    8%   { opacity: 1; }
-    88%  { opacity: 1; }
-    100% { left: 108%; opacity: 0; }
+@keyframes aiChatIndexParticle1 {
+    0%   { transform: translate(340px, -60px) scale(1); opacity: 0; }
+    12%  { opacity: 0.95; }
+    85%  { opacity: 0.5; }
+    100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+}
+@keyframes aiChatIndexParticle2 {
+    0%   { transform: translate(280px, 40px) scale(1); opacity: 0; }
+    15%  { opacity: 0.95; }
+    85%  { opacity: 0.5; }
+    100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+}
+@keyframes aiChatIndexParticle3 {
+    0%   { transform: translate(400px, 10px) scale(1); opacity: 0; }
+    10%  { opacity: 0.95; }
+    85%  { opacity: 0.5; }
+    100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+}
+@keyframes aiChatIndexParticle4 {
+    0%   { transform: translate(220px, -30px) scale(1); opacity: 0; }
+    14%  { opacity: 0.95; }
+    85%  { opacity: 0.5; }
+    100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
 }
 
 .ai-chat-index-header .header-icon {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     flex-shrink: 0;
     width: 56px;
     height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.35));
+    filter: drop-shadow(0 0 14px rgba(255, 138, 76, 0.3));
     animation: aiChatIndexIconFloat 7s ease-in-out infinite;
+    cursor: help;
 }
 
 .ai-chat-index-header .header-icon svg {
     width: 100%;
     height: 100%;
+}
+
+.ai-chat-index-header .header-icon .ai-chat-index-eye-core {
+    animation: aiChatIndexEyePulse 3.4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes aiChatIndexEyePulse {
+    0%, 100% { opacity: 0.85; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.12); }
 }
 
 @keyframes aiChatIndexIconFloat {
@@ -148,10 +179,14 @@
 
 @media (prefers-reduced-motion: reduce) {
     .ai-chat-index-header::before,
-    .ai-chat-index-header .ai-chat-index-scan,
+    .ai-chat-index-header .ai-chat-index-particle,
     .ai-chat-index-header .header-icon,
+    .ai-chat-index-header .ai-chat-index-eye-core,
     .ai-chat-index-header h1 {
         animation: none;
+    }
+    .ai-chat-index-header .ai-chat-index-particle {
+        display: none;
     }
 }
 

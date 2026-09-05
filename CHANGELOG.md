@@ -14,11 +14,15 @@
   keine.
 
 ### Geändert
-- **Indexierungs-Seite: Kopfbereich und Status-Icon.** Der animierte
-  Kopfbereich hatte bisher Aurora-Farbflächen ohne inhaltlichen Bezug zur
-  Indexierung - ersetzt durch einen dezenten "Digital Rain"-Effekt
-  (vertikale, nach unten durchlaufende Streifen), der eher nach
-  Scannen/Verarbeiten von Inhalten aussieht. Außerdem drehte sich beim
+- **Indexierungs-Seite: Kopfbereich neu gestaltet.** Zwei Anläufe verworfen
+  (Aurora-Farbflächen ohne Bezug zur Indexierung, danach ein "Digital
+  Rain"-Streifenmuster, das nicht überzeugte) - jetzt fliegen kleine
+  Datenpartikel von verschiedenen Seiten auf ein rundes, "beobachtendes"
+  Icon zu und verblassen dort, in an REDAXOs eigenes Markenteal angelehnten
+  Farben statt eines generischen Blau/Grün. Zwei zurückhaltende, rein
+  textuelle Anspielungen für alle, die sie erkennen (ein Tooltip beim
+  Hovern über das Icon, ein Kommentar im Quelltext) - keine Zitate, Logos
+  oder Standbilder, nur eigene Umformulierungen. Außerdem drehte sich beim
   Hintergrund-Indexlauf ein Cloud-Icon in der Statusanzeige (wirkte seltsam)
   - jetzt ein Zahnrad, wie es für "läuft im Hintergrund" erwartbar ist.
 - **Indexierungs-Übersicht aufgeräumt.** Die evergreen-Hinweise

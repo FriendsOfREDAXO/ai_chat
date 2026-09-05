@@ -125,27 +125,32 @@ $jsConfig = json_encode([
     'sourceTypeLabels'  => $sourceTypeLabels,
 ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT);
 
-// Animierter Kopfbereich statt der bisherigen nackten Titelzeile - Technik 1:1
-// vom cke5-Addon-Header uebernommen (Aurora-Blobs + Scan-Lichtstrahl, reines
-// CSS/@keyframes, siehe assets/ai-chat-indexing-backend.css), inhaltlich aber
-// auf "Indexierung/Scannen von Inhalten" uebertragen statt CKEditor-Branding.
-// Traegt den Seitentitel selbst, die umschliessende rex_fragment bekommt
-// deshalb bewusst KEINEN eigenen Titel mehr (sonst stuende "Indexierung"
-// doppelt da).
+// Animierter Kopfbereich statt der bisherigen nackten Titelzeile - reines
+// CSS/@keyframes, siehe assets/ai-chat-indexing-backend.css fuer Details und
+// Hintergrund zur Farb-/Icon-Wahl. Traegt den Seitentitel selbst, die
+// umschliessende rex_fragment bekommt deshalb bewusst KEINEN eigenen Titel
+// mehr (sonst stuende "Indexierung" doppelt da).
 // Header traegt volle Seitenbreite (spaeter AUSSERHALB der zweispaltigen
 // Row aus Hauptspalte + Sidebar), deshalb eine eigene Variable statt Teil
 // von $content.
+//
+// Falls hier jemand mitliest: dem weissen Kaninchen folgen, aber keine Sorge,
+// hier spielt niemand "Global Thermonuclear War".
 $header = '
 <div class="ai-chat-index-header">
-    <div class="ai-chat-index-scan"></div>
-    <div class="header-icon">
+    <span class="ai-chat-index-particle"></span>
+    <span class="ai-chat-index-particle"></span>
+    <span class="ai-chat-index-particle"></span>
+    <span class="ai-chat-index-particle"></span>
+    <span class="ai-chat-index-particle"></span>
+    <span class="ai-chat-index-particle"></span>
+    <div class="header-icon" title="Natürlich lasse ich dich das tun, Dave.">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect x="9" y="7" width="34" height="44" rx="4" fill="#38bdf8" fill-opacity="0.16" stroke="#38bdf8" stroke-width="2"/>
-            <line x1="16" y1="19" x2="36" y2="19" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round"/>
-            <line x1="16" y1="27" x2="36" y2="27" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-            <line x1="16" y1="35" x2="29" y2="35" stroke="#e8f7f2" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-            <circle cx="43" cy="43" r="12" fill="#0a1e2e" stroke="#21a366" stroke-width="3"/>
-            <line x1="52" y1="52" x2="59" y2="59" stroke="#21a366" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="32" cy="32" r="27" fill="#0b1210" stroke="#3d4b47" stroke-width="2"/>
+            <circle cx="32" cy="32" r="19" fill="none" stroke="#5B6D69" stroke-width="1.5" opacity="0.6"/>
+            <circle class="ai-chat-index-eye-core" cx="32" cy="32" r="10" fill="#ff8a4c"/>
+            <circle cx="32" cy="32" r="10" fill="none" stroke="#ffcda0" stroke-width="0.5" opacity="0.6"/>
+            <circle cx="28" cy="27" r="2.5" fill="#ffe4cc" opacity="0.85"/>
         </svg>
     </div>
     <div class="header-content">
