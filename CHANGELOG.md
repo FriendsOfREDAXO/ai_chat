@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0-beta3] - 2026-09-06
 
 ### Geändert
 - **Listen-Seiten Trigger &amp; Antworten, Profile und Themes hatten keine
