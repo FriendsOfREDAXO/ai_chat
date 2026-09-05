@@ -184,6 +184,31 @@ if (rex::isBackend() && rex::getUser()) {
         }
         return $content;
     });
+
+    // Retrieval-Log ist reines Debugging (siehe ChatQueryService::logRetrievalDebug()) und
+    // standardmaessig aus - die Seite blendet sich deshalb selbst aus dem Menue aus, solange
+    // niemand das zugehoerige Log eingeschaltet hat, statt dauerhaft eine leere Auswertung zu
+    // zeigen. Gleiches Muster wie MediaPlace fuer die klassische Mediapool-Seite (siehe dort).
+    rex_extension::register('PAGES_PREPARED', static function () use ($addon) {
+        if ((bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
+            return;
+        }
+
+        $aiChatPage = rex_be_controller::getPages()['ai_chat'] ?? null;
+        if (!$aiChatPage instanceof rex_be_page) {
+            return;
+        }
+
+        $contentPage = $aiChatPage->getSubpage('content');
+        if (!$contentPage instanceof rex_be_page) {
+            return;
+        }
+
+        $retrievalLogPage = $contentPage->getSubpage('retrieval_log');
+        if ($retrievalLogPage instanceof rex_be_page) {
+            $retrievalLogPage->setHidden(true);
+        }
+    });
 }
 
 // Frontend: Visitor Chat + eigenständiges Such-Widget (klxm-search) - unabhängig

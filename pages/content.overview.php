@@ -192,6 +192,18 @@ $currentChunkSize = (int) $addon->getConfig('chunk_size', 1000);
 
 $sidebar .= $renderSidebarPanel('Provider-Wechsel', 'fa-exchange', $addon->i18n('index_provider_hint'), 'panel-info');
 
+// Deutlich sichtbarer Hinweis, solange das Retrieval-Debug-Log laeuft - reines Debugging
+// (siehe ChatQueryService::logRetrievalDebug()), das bei jeder Chat-Anfrage zusaetzliche
+// Datenbankzeilen erzeugt und leicht vergessen wird, wieder abzuschalten. Die zugehoerige
+// Menueseite ist ansonsten ausgeblendet (siehe boot.php PAGES_PREPARED), taucht also nur
+// auf, wenn das hier ohnehin schon als aktiv angezeigt wird.
+if ((bool) $addon->getConfig('retrieval_debug_log_enabled', false)) {
+    $debugLogBody = '<p>Jede Chat-Anfrage wird aktuell zusätzlich protokolliert (Chunks, Similarity, Re-Ranking).</p>'
+        . '<a href="' . rex_url::backendPage('ai_chat/content/retrieval_log') . '">Retrieval-Log ansehen</a>'
+        . ' · <a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Abschalten</a>';
+    $sidebar .= $renderSidebarPanel('Debug-Log aktiv', 'fa-bug', $debugLogBody, 'panel-warning');
+}
+
 // Zentrale Statusanzeige: EIN Element, das den aktuellen Lauf-Zustand eindeutig
 // zeigt (Bereit/Läuft im Browser/Läuft im Hintergrund/Fertig/Fehler/Abgebrochen),
 // über Bootstrap-"label"-Klassen theme-/dark-mode-kompatibel statt fest codierter

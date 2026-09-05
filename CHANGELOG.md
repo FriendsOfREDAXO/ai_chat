@@ -13,7 +13,11 @@
   galt) - einsehbar unter Index → Retrieval-Log, mit Detailansicht pro
   Anfrage. Standardmäßig deaktiviert (Toggle unter Einstellungen → Chunking &
   Cache → Debugging), da es laufend zusätzliche Zeilen erzeugt - alte
-  Einträge werden automatisch nach 7 Tagen bereinigt.
+  Einträge werden automatisch nach 7 Tagen bereinigt. Die Menüseite blendet
+  sich selbst aus, solange das Log deaktiviert ist (sonst nur eine dauerhaft
+  leere Auswertung), und die Indexierungs-Übersicht zeigt umgekehrt einen
+  auffälligen gelben Hinweis in der Sidebar, solange es AKTIV ist - reines
+  Debugging soll nicht unbemerkt weiterlaufen.
 
 ### Behoben
 - **"[Bereich: ...]"-Label tauchte manchmal mehrfach in der sichtbaren
