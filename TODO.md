@@ -24,38 +24,45 @@ Profil-Entflechtung. Noch nicht entschieden, wie es weitergehen soll:
 
 Bis zur Entscheidung bleibt es wie es ist (Option A, unverändert).
 
-## Ideen für später: RAG-Qualität
+## Ideen für später: RAG-Qualität (Fortsetzung)
 
-Ausgangspunkt: ein Abgleich gegen eine externe Best-Practice-Checkliste (Chunk-
-Metadaten, Query-Rewriting, Multi-Query, Re-Ranking, Hybrid Search, saubere
-Trennung Verlauf/Retrieval, vollständiges Retrieval-Logging). Größte Hebel,
-noch nicht priorisiert/umgesetzt:
+Ausgangspunkt war ein Abgleich gegen eine externe Best-Practice-Checkliste
+(Chunk-Metadaten, Query-Rewriting, Multi-Query, Re-Ranking, Hybrid Search,
+saubere Trennung Verlauf/Retrieval, vollständiges Retrieval-Logging). Bereits
+umgesetzt: Re-Ranking (Heuristik statt LLM-Aufruf, siehe unten),
+Kategorie-Pfad-Metadaten (echte REDAXO-Kategorie für Struktur-Inhalte,
+geratene URL-Segmente als Fallback für Sitemap/YForm/Provider-URLs),
+konfigurierbare Metainfo-Felder als Zusatzkontext, JSON-LD-Erweiterung um
+`BreadcrumbList`/`FAQPage`/Öffnungszeiten. Einstellungen dazu unter
+"Chunking & Cache" → "Kontext-Anreicherung" bzw. "RAG-Abruf".
 
-- **Re-Ranking + mehr Kandidaten holen**: `rag_results` liefert heute per
-  Default nur 3 Treffer direkt aus der rohen Cosine-Similarity an die KI,
-  ohne Zwischenschritt. Idee: `rag_candidate_limit`-Fenster nutzen, davon
-  die Top ~20 nehmen und per kurzem, günstigem LLM-Aufruf (nur Titel+Snippet
-  pro Kandidat, nicht Volltext) nach echter Relevanz zur Frage neu sortieren
-  lassen, erst danach die besten 5-8 in den Prompt geben. Kein neuer
-  Provider nötig (bestehende `AiServiceFactory`). Tradeoff: ein zusätzlicher
-  LLM-Roundtrip pro Chatnachricht (Latenz + Kosten).
-- **URL-Pfad als Kategorie-Metadaten fürs Embedding**: Sitemap-Inhalte haben
-  keine echte REDAXO-Kategorie, aber meist sprechende URL-Segmente (z.B.
-  `/agentur/leistungen/webentwicklung/`). Aktuell fließt der Pfad nur
-  *nachträglich* als Stichwort-Fallback ein (`ensureKeywordMatchedContext()`/
-  `scoreSearchHit()`/`stripUrlHost()`), nie *vorher* ins Embedding selbst.
-  Idee: für `source_type='sitemap_url'` die Pfadsegmente in lesbare Labels
-  umwandeln und als zusätzliche Metadaten-Zeile in
-  `IndexerService::prepareEmbeddingText()` aufnehmen (analog zu Titel/URL/
-  Typ dort). Nur so gut wie die tatsächliche URL-Struktur der Seite, wirkt
-  erst nach Reindex.
-- **JSON-LD-Extraktion erweitern**: `extractJsonLdFacts()`/
-  `jsonLdNodeToFacts()` liest bereits `Person`/`Organization`/
-  `ContactPoint`/`LocalBusiness` aus (Name/Rolle/Kontakt). Noch nicht
-  abgedeckt: `BreadcrumbList` (verlässlicheres Kategorie-Signal als geratene
-  URL-Segmente, siehe vorheriger Punkt - wo vorhanden nutzen, sonst auf
-  URL-Segmente zurückfallen), `FAQPage` (Frage/Antwort-Paare direkt als
-  Fakten) und `openingHours`/`OpeningHoursSpecification`.
+Noch offen:
+
+- **Re-Ranking ist aktuell nur eine Heuristik** (gewichtete Mischung aus
+  normalisierter Similarity und Stichwort-Überdeckung mit der Frage,
+  `ChatQueryService::rerankResults()`) statt eines echten Modell-basierten
+  Re-Rankings. Ein LLM-Aufruf zum Neusortieren der Kandidaten (nur
+  Titel+Snippet pro Kandidat, nicht Volltext) wäre der nächste
+  Qualitätsschritt, braucht aber eine für alle vier Provider (Gemini/
+  Cloudflare/OpenAI-kompatibel/ai_platform) einheitliche
+  "kurze, strukturierte Antwort"-Schnittstelle, die es heute noch nicht gibt
+  (`AiServiceInterface` kennt nur `generateAnswer()` für vollständige
+  Chat-Antworten). Tradeoff: ein zusätzlicher LLM-Roundtrip pro
+  Chatnachricht (Latenz + Kosten).
+- **Query-Rewriting/Multi-Query**: aus der ursprünglichen Checkliste weiterhin
+  nicht umgesetzt - die Nutzerfrage geht unverändert (nur um die letzten 4
+  Gesprächsturns ergänzt) ins Embedding, keine Umformulierung in eine
+  präzisere Suchanfrage, keine mehreren Suchvarianten.
+- **Vollständiges Retrieval-Logging**: `recordUsageStat()` protokolliert nur
+  grobe Nutzungsstatistik (Modus/Scope/Status/Query/Trefferzahl), keine
+  Embeddings/Similarity-/Rerank-Scores/tatsächlich übergebenen Chunks - für
+  gezieltes Debugging künftiger Relevanz-Reports wäre ein optionales,
+  detaillierteres Debug-Log hilfreich.
+- **Token-gated Seiten-Prompts**: Idee verworfen (siehe Diskussion) - Seiten
+  sollten der KI eigene Hinweise mitgeben können, nur sichtbar für den
+  authentifizierten Crawler (Header-Token). Nicht weiterverfolgt, da der
+  Schutz nur vor fremden Crawlern wirkt, nicht vor Redakteuren mit
+  Schreibrecht - bei Bedarf später erneut aufgreifen.
 
 ## Ideen für später
 

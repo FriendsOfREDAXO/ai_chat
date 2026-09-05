@@ -81,6 +81,21 @@ $field->setAttribute('placeholder', "article=Kontakt|telefon|email|ansprechpartn
 
 $form->addRawField('</div>');
 
+// Kontext-Anreicherung: zusaetzliche, strukturierte Hinweise, die VOR dem Embedding jedem
+// Chunk vorangestellt werden (siehe IndexerService::prepareEmbeddingText()) - ergaenzt Titel/
+// URL/Typ dort um eine Kategorie-Einordnung und optionale Metainfo-Keywords.
+$form->addRawField('<div id="klxm-retrieval-enrichment-settings" class="ai-chat-settings-box">');
+$form->addRawField('<p class="ai-chat-settings-box-title">Kontext-Anreicherung</p>');
+
+$addBoolSelectField($form, 'embedding_category_path_enabled', $addon->i18n('config_embedding_category_path_enabled'), $addon->i18n('config_embedding_category_path_enabled_notice'), true);
+
+$field = $form->addTextField('embedding_metainfo_fields');
+$field->setLabel($tooltipLabel($addon->i18n('config_embedding_metainfo_fields'), 'config_embedding_metainfo_fields_notice'));
+$field->setNotice($addon->i18n('config_embedding_metainfo_fields_notice'));
+$field->setAttribute('placeholder', 'art_meta_keywords, art_kurzbeschreibung');
+
+$form->addRawField('</div>');
+
 // RAG-Abruf: wie viele/aus wie vielen Kandidaten der Kontext fuer JEDE Anfrage ausgewaehlt
 // wird - unabhaengig davon, aus welcher Quelle/welchem Profil der Kandidat stammt.
 $form->addRawField('<div id="klxm-retrieval-rag-settings" class="ai-chat-settings-box">');
@@ -109,6 +124,19 @@ $select->addOption('3000 – sehr große Website', 3000);
 $select->addOption('6000 – maximal', 6000);
 if ($isConfigUnset($field->getValue())) {
     $field->setValue(800);
+}
+
+$addBoolSelectField($form, 'rerank_enabled', $addon->i18n('config_rerank_enabled'), $addon->i18n('config_rerank_enabled_notice'), true);
+
+$field = $form->addSelectField('rerank_candidate_count');
+$field->setLabel($tooltipLabel($addon->i18n('config_rerank_candidate_count'), 'config_rerank_candidate_count_notice'));
+$field->setNotice($addon->i18n('config_rerank_candidate_count_notice'));
+$select = $field->getSelect();
+$select->addOption('10', 10);
+$select->addOption('20 – Standard (empfohlen)', 20);
+$select->addOption('30', 30);
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(20);
 }
 
 $form->addRawField('</div>');

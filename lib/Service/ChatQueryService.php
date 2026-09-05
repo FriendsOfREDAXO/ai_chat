@@ -886,6 +886,11 @@ class ChatQueryService
         // (siehe Nutzer-Report: "Referenzen"-Anfrage lieferte 3x dieselbe Ankuendigung statt
         // echter Projekt-Referenzen). $results ist bereits nach Similarity sortiert, die erste
         // (beste) Instanz je Titel bleibt erhalten.
+        // Re-Ranking (siehe rerankResults()) braucht einen breiteren Kandidaten-Pool als die
+        // eigentlich gewuenschte Trefferzahl, um daraus ueberhaupt sinnvoll neu sortieren zu
+        // koennen - ohne Re-Ranking bleibt es beim bisherigen Verhalten (Pool == $limit).
+        $candidateCutoff = $this->isRerankEnabled() ? max($limit, $this->getRerankCandidateCount()) : $limit;
+
         $uniqueResults = [];
         $seenSources = [];
         $seenTitles = [];
@@ -906,12 +911,18 @@ class ChatQueryService
             }
             $uniqueResults[] = $result;
 
-            if (count($uniqueResults) >= $limit) {
+            if (count($uniqueResults) >= $candidateCutoff) {
                 break;
             }
         }
 
-        return $this->trimLowSignalResults($uniqueResults, $limit);
+        $uniqueResults = $this->trimLowSignalResults($uniqueResults, $candidateCutoff);
+
+        if ($this->isRerankEnabled() && count($uniqueResults) > $limit) {
+            $uniqueResults = $this->rerankResults($uniqueResults, $message);
+        }
+
+        return array_slice($uniqueResults, 0, $limit);
     }
 
     /**
@@ -1207,6 +1218,74 @@ class ChatQueryService
         // Die Schleife haengt beim ersten Durchlauf immer ein Element an (der $kept !== []-Check
         // greift erst ab der zweiten Iteration), $kept ist danach also garantiert nicht leer.
         return $kept;
+    }
+
+    private function isRerankEnabled(): bool
+    {
+        return (bool) rex_addon::get('ai_chat')->getConfig('rerank_enabled', true);
+    }
+
+    private function getRerankCandidateCount(): int
+    {
+        $configured = (int) rex_addon::get('ai_chat')->getConfig('rerank_candidate_count', 20);
+
+        return $configured > 0 ? $configured : 20;
+    }
+
+    /**
+     * Reines Heuristik-Re-Ranking ohne zusaetzlichen KI-Aufruf: die reine Cosine-Similarity
+     * kennt den tatsaechlichen Wortlaut der Frage nicht und kann dadurch thematisch zufaellige,
+     * aber embedding-technisch naheliegende Kandidaten ueber tatsaechlich passendere stellen
+     * (dieselbe Grundursache wie bei den Domainname-/Stichwort-Problemen, die
+     * collectDisplaySources()/getGermanStopwords() bereits an anderer Stelle beheben). Score
+     * ist eine gewichtete Mischung aus normalisierter Similarity (Hauptsignal, 70%) und
+     * Keyword-Ueberdeckung mit der Anfrage (Korrektiv, 30%) - kein Ersatz fuer ein echtes
+     * Modell-basiertes Re-Ranking, aber ohne zusaetzliche Latenz/Kosten umsetzbar. Gibt die
+     * Kandidaten unveraendert (nur neu sortiert) zurueck, ihre Original-Arrays bleiben
+     * unangetastet.
+     *
+     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}> $results
+     * @return array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}>
+     */
+    private function rerankResults(array $results, string $message): array
+    {
+        $tokens = $this->extractRelevantTokens($message);
+        if ($tokens === [] || count($results) <= 1) {
+            return $results;
+        }
+
+        $maxSimilarity = 0.0;
+        foreach ($results as $result) {
+            $maxSimilarity = max($maxSimilarity, (float) $result['similarity']);
+        }
+        if ($maxSimilarity <= 0.0) {
+            $maxSimilarity = 1.0;
+        }
+
+        $tokenCount = count($tokens);
+        $scored = [];
+        foreach ($results as $index => $result) {
+            $text = strtolower($result['title'] . ' ' . $this->stripIndexMetadataPrefix($result['content']) . ' ' . $this->stripUrlHost($result['url']));
+            $matches = 0;
+            foreach ($tokens as $token) {
+                if ($this->tokenMatchesText($text, $token)) {
+                    ++$matches;
+                }
+            }
+
+            $overlapScore = $matches / $tokenCount;
+            $normalizedSimilarity = (float) $result['similarity'] / $maxSimilarity;
+            $scored[] = ['index' => $index, 'score' => 0.7 * $normalizedSimilarity + 0.3 * $overlapScore];
+        }
+
+        usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+
+        $reordered = [];
+        foreach ($scored as $entry) {
+            $reordered[] = $results[$entry['index']];
+        }
+
+        return $reordered;
     }
 
     /**

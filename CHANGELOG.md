@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Neu
+- **Re-Ranking**: die Top-Kandidaten der Ähnlichkeitssuche (Standard: 20)
+  werden vor der finalen Auswahl zusätzlich nach Stichwort-Überdeckung mit
+  der Frage neu sortiert - korrigiert Fälle, in denen die reine
+  Cosine-Similarity einen thematisch zufälligen, aber embedding-technisch
+  naheliegenden Treffer vor eine tatsächlich passendere Seite stellt. Ohne
+  zusätzlichen KI-Aufruf, keine spürbare Verzögerung. Einstellbar unter
+  "Chunking & Cache" (an/aus, Kandidatenzahl).
+- **Kategorie-Pfad als Embedding-Metadaten**: jeder Kontext-Abschnitt bekommt
+  vor dem Embedding jetzt zusätzlich seine Einordnung mitgegeben - bei
+  Struktur-Inhalten die echte REDAXO-Kategorie-Hierarchie (z.B. "Agentur >
+  Leistungen > Webentwicklung"), bei Sitemap-/YForm-/Provider-Inhalten ohne
+  REDAXO-Kategorie ersatzweise die Ordnerstruktur aus der URL. Abschaltbar,
+  Standard: an. Wirkt erst nach einer erneuten Indexierung.
+- **Konfigurierbare Metainfo-Felder als Zusatzkontext**: eigene Metainfo-Felder
+  (z.B. eine "Meta-Keywords"-Spalte) können jetzt als zusätzlicher
+  Kontext-Hinweis vor dem Embedding jedes Artikels eingefügt werden - Feldnamen
+  sind pro Installation frei vergeben, deshalb konfigurierbar statt fest
+  verdrahtet. Nur für Struktur-Inhalte wirksam.
+- **JSON-LD-Extraktion erweitert**: neben `Person`/`Organization`/
+  `ContactPoint`/`LocalBusiness` (bereits vorhanden) werden jetzt auch
+  `BreadcrumbList` (Kategorie-Pfad aus echten Schema.org-Daten, zuverlässiger
+  als geratene URL-Segmente), `FAQPage` (Frage/Antwort-Paare als einzelne
+  Fakten) und `openingHours`/`OpeningHoursSpecification` ausgewertet.
+
 ### Behoben
 - **Indexierungs-Übersicht zeigte für YForm/Medienpool einen irreführenden
   globalen "aktiv/deaktiviert"-Status.** Überbleibsel aus der Zeit vor der

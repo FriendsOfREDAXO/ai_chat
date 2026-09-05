@@ -890,7 +890,7 @@ class IndexerService
 
         $semanticChunks = [];
         foreach ($chunks as $chunk) {
-            $semanticChunks[] = $this->prepareEmbeddingText($chunk, $article->getName(), $article->getUrl(), 'article');
+            $semanticChunks[] = $this->prepareEmbeddingText($chunk, $article->getName(), $article->getUrl(), 'article', $article);
         }
         $embeddings = $this->aiService->getEmbeddings($semanticChunks);
 
@@ -1219,8 +1219,58 @@ class IndexerService
                 }
             }
 
+            $openingHoursText = $this->jsonLdOpeningHoursText($node);
+            if ('' !== $openingHoursText) {
+                $attributes[] = 'Öffnungszeiten: ' . $openingHoursText;
+            }
+
             if ($label !== '' && $attributes !== []) {
                 $facts[] = trim($label . ' – ' . implode('; ', $attributes));
+            }
+        }
+
+        // BreadcrumbList: die itemListElement-Eintraege sind nach "position" sortiert, aber
+        // im JSON nicht zwingend in dieser Reihenfolge aufgelistet - deshalb per position
+        // einsortieren statt die Array-Reihenfolge zu uebernehmen. Nur ab zwei Ebenen ein
+        // eigenes Fakt wert (eine einzelne Ebene traegt keine Hierarchie-Information).
+        if (preg_match('/breadcrumblist/i', $type) === 1) {
+            $items = is_array($node['itemListElement'] ?? null) ? $node['itemListElement'] : [];
+            $ordered = [];
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $position = (int) ($item['position'] ?? 0);
+                $itemNode = is_array($item['item'] ?? null) ? $item['item'] : $item;
+                $name = $this->jsonLdScalar($itemNode['name'] ?? null);
+                if ('' !== $name) {
+                    $ordered[$position] = $name;
+                }
+            }
+            ksort($ordered);
+            if (count($ordered) > 1) {
+                $facts[] = 'Kategorie-Pfad: ' . implode(' > ', $ordered);
+            }
+        }
+
+        // FAQPage: jede Frage/Antwort als eigenes Fakt, damit eine spaetere Aehnlichkeitssuche
+        // gezielt die passende Frage treffen kann statt eines einzigen grossen FAQ-Blocks.
+        if (preg_match('/faqpage/i', $type) === 1) {
+            $questions = is_array($node['mainEntity'] ?? null) ? $node['mainEntity'] : [];
+            if (isset($questions['@type'])) {
+                $questions = [$questions];
+            }
+            foreach ($questions as $question) {
+                if (!is_array($question)) {
+                    continue;
+                }
+                $questionText = $this->jsonLdScalar($question['name'] ?? null);
+                $answerNode = $question['acceptedAnswer'] ?? null;
+                $answerText = is_array($answerNode) ? $this->jsonLdScalar($answerNode['text'] ?? null) : '';
+                $answerText = trim(strip_tags($answerText));
+                if ('' !== $questionText && '' !== $answerText) {
+                    $facts[] = 'FAQ: ' . $questionText . ' – ' . $answerText;
+                }
             }
         }
 
@@ -1266,6 +1316,51 @@ class IndexerService
     }
 
     /**
+     * "openingHours" ist meist ein einfacher String/String-Array direkt am Node (z.B.
+     * "Mo-Fr 09:00-18:00"), "openingHoursSpecification" ein strukturiertes Objekt/eine Liste
+     * mit dayOfWeek/opens/closes - beide Formen kommen in freier Wildbahn vor, hier beide
+     * abgedeckt statt sich auf eine Schreibweise zu verlassen.
+     *
+     * @param array<mixed> $node
+     */
+    private function jsonLdOpeningHoursText(array $node): string
+    {
+        $parts = [];
+
+        $simple = $node['openingHours'] ?? null;
+        if (is_string($simple) && '' !== trim($simple)) {
+            $parts[] = trim($simple);
+        } elseif (is_array($simple)) {
+            foreach ($simple as $entry) {
+                if (is_string($entry) && '' !== trim($entry)) {
+                    $parts[] = trim($entry);
+                }
+            }
+        }
+
+        $specs = $node['openingHoursSpecification'] ?? null;
+        if (is_array($specs)) {
+            if (isset($specs['@type']) || !array_is_list($specs)) {
+                $specs = [$specs];
+            }
+            foreach ($specs as $spec) {
+                if (!is_array($spec)) {
+                    continue;
+                }
+                $days = $spec['dayOfWeek'] ?? null;
+                $daysText = is_array($days) ? implode(', ', array_map(static fn ($d): string => (string) $d, $days)) : trim((string) ($days ?? ''));
+                $opens = $this->jsonLdScalar($spec['opens'] ?? null);
+                $closes = $this->jsonLdScalar($spec['closes'] ?? null);
+                if ('' !== $daysText && '' !== $opens && '' !== $closes) {
+                    $parts[] = $daysText . ' ' . $opens . '–' . $closes;
+                }
+            }
+        }
+
+        return implode('; ', array_values(array_unique($parts)));
+    }
+
+    /**
      * Schreibt das Embedding in beiden Formaten: die bestehende JSON-Spalte (immer, fuer
      * BruteForceRetrieval/den Cache-Treffer-Abgleich) und zusaetzlich die natives-Vektor-
      * Spalte, wenn MariaDB das unterstuetzt (siehe VectorCapability/NativeVectorRetrieval).
@@ -1306,7 +1401,7 @@ class IndexerService
         return sqrt($sumOfSquares);
     }
 
-    private function prepareEmbeddingText(string $text, string $title = '', string $url = '', string $sourceType = ''): string
+    private function prepareEmbeddingText(string $text, string $title = '', string $url = '', string $sourceType = '', ?rex_article $article = null): string
     {
         $normalized = trim((string) $text);
         if ($normalized === '') {
@@ -1322,6 +1417,28 @@ class IndexerService
         }
         if ($sourceType !== '') {
             $meta[] = 'Typ: ' . str_replace('_', ' ', $sourceType);
+        }
+
+        // Kategorie-/Struktur-Pfad: bei einem echten REDAXO-Artikel die tatsaechliche
+        // Kategorie-Hierarchie (zuverlaessig), sonst - falls vorhanden - die Ordnerstruktur
+        // aus der URL geraten (Sitemap-Inhalte/YForm-URLs haben keine REDAXO-Kategorie).
+        // Beides fliesst NUR in den Embedding-Text, nicht in die gespeicherte "content"-Spalte
+        // (siehe stripIndexMetadataPrefix()-Gegenstueck in ChatQueryService fuer die URL-Zeile
+        // oben, die aus genau diesem Grund dort wieder entfernt wird).
+        if ($this->isCategoryPathEnabled()) {
+            $categoryPath = null !== $article
+                ? $this->buildCategoryPathLabel($article->getCategoryId())
+                : $this->buildUrlPathCategoryLabel($url);
+            if ('' !== $categoryPath) {
+                $meta[] = 'Kategorie: ' . $categoryPath;
+            }
+        }
+
+        if (null !== $article) {
+            $metainfoKeywords = $this->buildMetainfoKeywordsText($article);
+            if ('' !== $metainfoKeywords) {
+                $meta[] = 'Zusätzliche Keywords: ' . $metainfoKeywords;
+            }
         }
 
         $contextHint = $this->getEmbeddingContextHint($sourceType);
@@ -1344,6 +1461,124 @@ class IndexerService
         $metaText = $meta !== [] ? implode("\n", array_values(array_unique($meta))) . "\n\nInhalt:\n" : '';
 
         return trim($metaText . $normalized);
+    }
+
+    private function isCategoryPathEnabled(): bool
+    {
+        return (bool) \rex_addon::get('ai_chat')->getConfig('embedding_category_path_enabled', true);
+    }
+
+    /**
+     * Echte REDAXO-Kategorie-Hierarchie eines Artikels als "A > B > C"-Pfad (Wurzel zuerst),
+     * z.B. "Agentur > Leistungen > Webentwicklung" - zuverlässiger als das URL-Raten in
+     * buildUrlPathCategoryLabel(), weil hier eine echte Struktur existiert statt einer
+     * Heuristik. Tiefenbegrenzung als Schutz vor (praktisch nie vorkommenden) Zyklen.
+     */
+    private function buildCategoryPathLabel(int $categoryId): string
+    {
+        $names = [];
+        $current = \rex_category::get($categoryId);
+        $depth = 0;
+        while (null !== $current && $depth < 10) {
+            $name = trim($current->getName());
+            if ('' !== $name) {
+                $names[] = $name;
+            }
+            $current = $current->getParent();
+            ++$depth;
+        }
+
+        return implode(' > ', array_reverse($names));
+    }
+
+    /**
+     * Fallback fuer Inhalte ohne echte REDAXO-Kategorie (Sitemap-Seiten, YForm-/Provider-URLs):
+     * die URL-Pfadsegmente als grobe Kategorie-Naeherung, z.B.
+     * "/agentur/leistungen/webentwicklung/" -> "Agentur > Leistungen > Webentwicklung". Nur so
+     * gut wie die tatsaechliche URL-Struktur der Seite - bei sprechenden Slugs hilfreich, bei
+     * z.B. "/de/node/12345" liefert das nichts Sinnvolles und wird deshalb einzeln verworfen.
+     */
+    private function buildUrlPathCategoryLabel(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!is_string($path) || '' === $path) {
+            return '';
+        }
+
+        $segments = array_values(array_filter(explode('/', $path), static fn (string $segment): bool => '' !== $segment));
+        if ($segments === []) {
+            return '';
+        }
+
+        // Letztes Segment nur verwerfen, wenn es erkennbar eine einzelne Detailseite ist statt
+        // einer Kategorie-Ebene: REDAXO haengt bei Slug-Kollisionen automatisch "-<Zahl>" an
+        // (z.B. ".../referenz/klxm-launcht-...-77"), und ein sehr langes, satzartiges Segment
+        // ist ebenfalls eher ein Artikeltitel als ein Kategoriename (der Titel selbst steht
+        // ohnehin schon in der separaten "Titel:"-Zeile, keine Dopplung noetig). Ein kurzes,
+        // sprechendes letztes Segment wie "web"/"webentwicklung"/"kontakt" ist dagegen meist
+        // die eigentliche Kategorie/Seite selbst und bleibt erhalten.
+        $lastSegment = end($segments);
+        $looksLikeDetailSlug = 1 === preg_match('/-\d+$/', $lastSegment) || mb_strlen($lastSegment) > 40;
+        if ($looksLikeDetailSlug && count($segments) > 1) {
+            array_pop($segments);
+        }
+        $segments = array_slice($segments, 0, 4);
+
+        $labels = [];
+        foreach ($segments as $segment) {
+            $segment = preg_replace('/\.\w{2,5}$/', '', $segment) ?? $segment;
+            $words = array_filter(preg_split('/[-_]+/', $segment) ?: [], static fn (string $word): bool => '' !== $word);
+            if ($words === []) {
+                continue;
+            }
+            // Rein numerische Segmente (IDs) tragen keine lesbare Bedeutung.
+            $label = implode(' ', array_map('ucfirst', $words));
+            if (!ctype_digit(str_replace(' ', '', $label))) {
+                $labels[] = $label;
+            }
+        }
+
+        return implode(' > ', $labels);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function getConfiguredMetainfoFields(): array
+    {
+        $raw = trim((string) \rex_addon::get('ai_chat')->getConfig('embedding_metainfo_fields', ''));
+        if ('' === $raw) {
+            return [];
+        }
+
+        $fields = array_map('trim', explode(',', $raw));
+
+        return array_values(array_filter($fields, static fn (string $field): bool => '' !== $field));
+    }
+
+    /**
+     * Liest die in den Einstellungen ("Chunking & Cache") konfigurierten Metainfo-Felder eines
+     * Artikels aus (z.B. eine eigene "Meta-Keywords"-Spalte) und reiht ihre Werte als
+     * zusaetzlichen Kontext-Hinweis fuers Embedding ein - anders als JSON-LD (feste
+     * schema.org-Struktur) sind Metainfo-Feldnamen frei pro Installation vergeben, deshalb
+     * konfigurierbar statt fest verdrahtet.
+     */
+    private function buildMetainfoKeywordsText(rex_article $article): string
+    {
+        $fields = $this->getConfiguredMetainfoFields();
+        if ($fields === []) {
+            return '';
+        }
+
+        $values = [];
+        foreach ($fields as $field) {
+            $value = trim((string) $article->getValue($field));
+            if ('' !== $value) {
+                $values[] = $value;
+            }
+        }
+
+        return implode(' | ', array_values(array_unique($values)));
     }
 
     private function getEmbeddingContextHint(string $sourceType = ''): string
