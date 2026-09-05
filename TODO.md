@@ -24,6 +24,17 @@ Profil-Entflechtung. Noch nicht entschieden, wie es weitergehen soll:
 
 Bis zur Entscheidung bleibt es wie es ist (Option A, unverändert).
 
+## Entschieden: kein natives MySQL-Feature-Parity-Ziel
+
+`NativeVectorRetrieval` (echtes `VEC_DISTANCE_COSINE()`/`VECTOR INDEX`) läuft
+nur auf MariaDB ab 11.7 - auf allem anderen (aeltere MariaDB, jedes MySQL)
+greift automatisch `BruteForceRetrieval` (PHP-seitiger Vergleich, siehe
+`resolveRetrievalStrategy()`), das Addon bleibt also ueberall lauffaehig.
+Entschieden (Nutzer-Vorgabe): geplante Erweiterungen dieses nativen Pfads
+(siehe Hybrid-Search-Idee unten) werden bewusst NICHT auf MySQL-Kompatibilitaet
+hin entworfen oder getestet - reines MariaDB-Feature, kein Rueckbau-Aufwand fuer
+den PHP-Fallback, falls MySQL das nicht kann.
+
 ## Ideen für später: RAG-Qualität (Fortsetzung)
 
 Ausgangspunkt war ein Abgleich gegen eine externe Best-Practice-Checkliste
@@ -59,6 +70,34 @@ Noch offen:
   nicht umgesetzt - die Nutzerfrage geht unverändert (nur um die letzten 4
   Gesprächsturns ergänzt) ins Embedding, keine Umformulierung in eine
   präzisere Suchanfrage, keine mehreren Suchvarianten.
+- **Echtes Hybrid-Search via MariaDB Reciprocal Rank Fusion (RRF), statt der
+  aktuellen PHP-Heuristik.** Recherche (2026-09-06, siehe MariaDB-Doku zu
+  Vektoren/RRF sowie nevercodealone.de-Blogpost zu MariaDB Vector) ergab: MariaDB
+  unterstuetzt eine native RRF-Query fuer genau dieses Problem - zwei
+  Kandidaten-CTEs (ein `MATCH() AGAINST()`-Volltext-Ranking, ein
+  `VEC_DISTANCE_COSINE()`-Vektor-Ranking), je mit `RANK() OVER()` bewertet, per
+  `1/(k+rank)`-Formel gemergt (`FULL OUTER JOIN`-Ersatz via `LEFT JOIN` +
+  `UNION` + `IFNULL()`). Das ersetzt `ChatQueryService::rerankResults()`s
+  aktuelle Mischung aus normalisierter Similarity und grobem
+  Stichwort-Treffer-Zaehler (`extractRelevantTokens()`/`tokenMatchesText()`)
+  durch echtes TF-IDF-artiges Volltext-Ranking statt reinem Wort-Overlap -
+  adressiert direkt das dokumentierte "thematisch zufaelliger Treffer schlaegt
+  tatsaechlich passendere Seite"-Problem. Voraussetzungen bereits erfuellt:
+  Instanz laeuft auf MariaDB 11.8.9 (RRF-Window-Functions seit 10.2,
+  `VEC_DISTANCE_COSINE()`/`VECTOR INDEX` seit 11.7 verfuegbar), `embedding_vector`-
+  Spalte + `VECTOR INDEX` existieren bereits (`NativeVectorRetrieval.php`) - es
+  fehlt nur ein `FULLTEXT INDEX` auf `content`/`title` in `ai_chat_index`
+  (aktuell nur BTREE-Indizes, siehe `install.php`), den es noch nie gab (die
+  bisherige Stichwort-Suche in `search()`/`extractSearchTerms()` nutzt reines
+  `LIKE '%term%'`, also ohnehin ungeindext). Aufwand: neue
+  `FULLTEXT INDEX`-Migration, eine neue/erweiterte Retrieval-Strategie-Klasse
+  (nur fuer den ohnehin schon MariaDB-exklusiven `NativeVectorRetrieval`-Pfad,
+  siehe Entscheidung oben - kein Bedarf, das im PHP-Fallback nachzubauen),
+  plus Nachziehen im Retrieval-Log (RRF-Teilscores mitprotokollieren waere fuer
+  die Fehlersuche wertvoll). Zu beachten: der Blogpost nennt ~4096 Dimensionen
+  als praktisch getestete Obergrenze - unsere Embeddings laufen exakt bei
+  4096, also am oberen Rand des Erprobten (aktuell kein bekanntes Problem,
+  aber im Auge behalten).
 - **Token-gated Seiten-Prompts**: Idee verworfen (siehe Diskussion) - Seiten
   sollten der KI eigene Hinweise mitgeben können, nur sichtbar für den
   authentifizierten Crawler (Header-Token). Nicht weiterverfolgt, da der

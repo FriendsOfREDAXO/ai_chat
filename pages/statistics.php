@@ -172,7 +172,7 @@ $periodHtml = '<div class="pull-right" style="margin-bottom: 12px;">'
     . '<form id="klxmchat-stats-period-form" method="get" action="' . $currentStatsPage . '" class="form-inline" style="margin: 0;">'
     . '<input type="hidden" name="page" value="ai_chat/statistics">'
     . '<label for="profile" style="margin: 0 8px 0 0;">Profil</label>'
-    . '<select id="profile" name="profile" class="form-control input-sm" onchange="this.form.submit()" style="margin-right: 16px;">'
+    . '<select id="profile" name="profile" class="form-control selectpicker" data-width="auto" data-style="btn-default btn-sm" onchange="this.form.submit()">'
     . '<option value=""' . ('' === $profileFilterRaw ? ' selected' : '') . '>Alle Profile</option>'
     . '<option value="0"' . ('0' === $profileFilterRaw ? ' selected' : '') . '>Kein Profil (global)</option>';
 foreach ($allProfiles as $profileEntry) {
@@ -180,8 +180,8 @@ foreach ($allProfiles as $profileEntry) {
     $periodHtml .= '<option value="' . $profileEntry->id . '"' . $selected . '>' . rex_escape($profileEntry->name) . '</option>';
 }
 $periodHtml .= '</select>'
-    . '<label for="days" style="margin-right: 8px;">Zeitraum</label>'
-    . '<select id="days" name="days" class="form-control input-sm" onchange="this.form.submit()">';
+    . '<label for="days" style="margin: 0 8px 0 16px;">Zeitraum</label>'
+    . '<select id="days" name="days" class="form-control selectpicker" data-width="auto" data-style="btn-default btn-sm" onchange="this.form.submit()">';
 foreach ($periodOptions as $value => $label) {
     $selected = $days === (int) $value ? ' selected' : '';
     $periodHtml .= '<option value="' . (int) $value . '"' . $selected . '>' . rex_escape($label) . '</option>';

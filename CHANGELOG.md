@@ -3,6 +3,41 @@
 ## [Unreleased]
 
 ### Behoben
+- **Cache-Fragen/Retrieval-Log zeigten immer "0 Einträge", egal wie viele es
+  wirklich gab.** `rex_sql::getValue()` erwartet einen Spaltennamen aus einem
+  bereits ausgeführten Query, kein rohes SQL-Statement - `$sql->getValue('SELECT
+  COUNT(*) FROM ...')` lieferte deshalb still `null`/`0` zurück, unabhängig von
+  der tatsächlichen Zeilenzahl. Erst mit `setQuery()` ausführen, dann per
+  Spalten-Alias auslesen.
+- **Antworten aus dem FAQ-Vorcache konnten das interne "[Bereich: ...]"-Label
+  dauerhaft im Cache-Eintrag behalten**, obwohl Besucher es dank der
+  bestehenden Bereinigung nie zu sehen bekamen: `cacheAnswer()` schrieb die
+  Antwort, BEVOR `removeLeakedContextLabel()`/`removeUnwantedGreetingPrefix()`
+  liefen - sichtbar u.a. in der Cache-Fragen-Übersicht. Bereinigung läuft jetzt
+  auch vor dem Cache-Schreiben.
+- **Selects auf Retrieval-Log, Cache-Fragen, Statistik, YForm-Mapping,
+  Indexierungs-Übersicht und Profile-Struktur-Bereichen** rendern als native,
+  unstilisierte Browser-Dropdowns statt im REDAXO-Standard-Look - fehlender
+  `rex-select-style`-Wrapper (siehe core/lib/select.php) um `<select
+  class="form-control">`. Ergänzt; für die beiden reinen Toolbar-Filter
+  (Statistik-Profil/-Zeitraum, Cache-/Retrieval-Log-Profilfilter) stattdessen
+  `selectpicker` (Bootstrap-Select, seit je in REDAXOs eigenem Backend
+  gebündelt) verwendet, weil `rex-select-style` von einer block-breiten
+  Formularzeile ausgeht und in einer kompakten, rechtsbündigen Toolbar-Zeile
+  keine sinnvolle Breite fand. "Filtern"/"Zurücksetzen" außerdem zu einer
+  `btn-group` zusammengefasst (Muster aus dem `statistics`-Addon) statt zwei
+  lose stehender Buttons.
+- **YForm-Mapping-Formular: "Sprachen (clang-IDs)" war ein viel zu breites
+  Freitextfeld für numerische IDs zum Auswendiglernen.** Jetzt ein Mehrfach-
+  Select mit den echten, im System hinterlegten Sprachen (Name + ID sichtbar)
+  statt eines Kommalisten-Textfelds - Hilfetext weist darauf hin, dass dies nur
+  passt, wenn die gewählte Sprach-Spalte tatsächlich REDAXO-Sprach-IDs
+  speichert (der YForm-Regelfall, aber nicht zwingend). Formular zusätzlich in
+  klar benannte Abschnitte gegliedert (Basis/Datenquelle/Status &amp;
+  Zeitstempel/Sprache/URL/Zusätzliche Felder/Bedingungen) statt einer langen,
+  unstrukturierten Feldfolge.
+
+### Behoben
 - **Native, unstyled `<select>`-Dropdowns auf mehreren Seiten.** Retrieval-Log,
   Cache-Fragen und sämtliche Felder der YForm-Mapping-Seite (inkl. der
   Zusätzliche-Felder-/Bedingungen-Repeater) rendern ihre `<select

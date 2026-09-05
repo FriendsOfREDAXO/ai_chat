@@ -363,7 +363,7 @@ if ('add' === $func || 'edit' === $func) {
         $form->addRawField(
             '<div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
             . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value="' . rex_escape($groupLabel, 'html_attr') . '"></div>'
-            . '<div class="col-md-8"><label>Kategorie</label><select class="form-control" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div>'
+            . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
             . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten" value="' . rex_escape($groupDescription, 'html_attr') . '"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
             . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely' . ($groupIsTimely ? ' checked' : '') . '> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
             . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'
@@ -374,7 +374,7 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('<button type="button" class="btn btn-default btn-sm" id="ai-chat-mountpoint-group-add">+ Struktur-Bereich hinzufügen</button>');
     $form->addRawField('<template id="ai-chat-mountpoint-group-template"><div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
         . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value=""></div>'
-        . '<div class="col-md-8"><label>Kategorie</label><select class="form-control" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div>'
+        . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
         . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
         . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
         . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'

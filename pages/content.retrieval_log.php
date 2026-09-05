@@ -100,17 +100,18 @@ if ($func === 'view' && $id > 0) {
 }
 
 $summarySql = rex_sql::factory();
-$totalCount = (int) $summarySql->getValue('SELECT COUNT(*) FROM ' . $table);
+$summarySql->setQuery('SELECT COUNT(*) AS total FROM ' . $table);
+$totalCount = (int) $summarySql->getValue('total');
 
 $filterForm = '<form class="form-inline" method="get" action="' . rex_url::currentBackendPage() . '" style="margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">';
 $filterForm .= '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">';
-$filterForm .= '<div class="form-group"><label for="klxm-retrieval-log-profile-filter" style="display:block;">Profil</label><div class="rex-select-style"><select id="klxm-retrieval-log-profile-filter" class="form-control" name="profile_id">';
+$filterForm .= '<div class="form-group"><label for="klxm-retrieval-log-profile-filter" style="display:block;">Profil</label><select id="klxm-retrieval-log-profile-filter" class="form-control selectpicker" data-width="auto" data-style="btn-default" name="profile_id">';
 $filterForm .= '<option value="0"' . (0 === $profileFilter ? ' selected' : '') . '>Alle Profile</option>';
 foreach ($profiles as $filterProfile) {
     $selected = $profileFilter === $filterProfile->id ? ' selected' : '';
     $filterForm .= '<option value="' . $filterProfile->id . '"' . $selected . '>' . rex_escape($filterProfile->name) . '</option>';
 }
-$filterForm .= '</select></div></div>';
+$filterForm .= '</select></div>';
 $filterForm .= '<div class="form-group"><div class="btn-group" role="group"><button class="btn btn-primary" type="submit">Filtern</button> <a class="btn btn-default" href="' . rex_url::currentBackendPage() . '">Zurücksetzen</a></div></div>';
 $filterForm .= '</form>';
 

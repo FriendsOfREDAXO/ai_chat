@@ -393,11 +393,11 @@ $delayOptions = [
     2000 => '2 s',
     3000 => '3 s',
 ];
-$delaySelect  = '<select id="ai-chat-delay-select" class="form-control" style="display:inline-block;width:auto;vertical-align:middle;">';
+$delaySelect  = '<div class="rex-select-style" style="display:inline-block;width:auto;vertical-align:middle;"><select id="ai-chat-delay-select" class="form-control">';
 foreach ($delayOptions as $ms => $label) {
     $delaySelect .= '<option value="' . $ms . '">' . $label . '</option>';
 }
-$delaySelect .= '</select>';
+$delaySelect .= '</select></div>';
 
 // Zwei klar getrennte Gruppen statt einer einzigen, ununterschiedenen
 // Button-Reihe: "Indexierung" (die eigentliche Aktion, für die Nutzer i.d.R.

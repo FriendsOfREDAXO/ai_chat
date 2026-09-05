@@ -237,9 +237,11 @@ if ('add' === $func || 'edit' === $func) {
     $body .= '<input type="hidden" name="func" value="save">';
     $body .= '<input type="hidden" name="original_key" value="' . rex_escape($key) . '">';
 
+    $body .= '<h4 style="margin-top:0;">Basis</h4>';
     $body .= '<div class="row"><div class="col-md-6"><label>Mapping-ID</label><input class="form-control" type="text" name="profile[id]" value="' . rex_escape((string) ($profile['id'] ?? $key)) . '" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profile[label]" value="' . rex_escape((string) ($profile['label'] ?? '')) . '" placeholder="News"></div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Tabelle</label><div class="rex-select-style"><select class="form-control js-table-select" name="profile[table]"><option value="">— Tabelle wählen —</option>';
+    $body .= '<hr><h4>Datenquelle</h4>';
+    $body .= '<div class="row"><div class="col-md-6"><label>Tabelle</label><div class="rex-select-style"><select class="form-control js-table-select" name="profile[table]"><option value="">— Tabelle wählen —</option>';
     foreach ($availableTables as $tableName => $label) {
         $selected = $tableName === $profileTable ? ' selected' : '';
         $body .= '<option value="' . rex_escape($tableName) . '"' . $selected . '>' . rex_escape($label) . '</option>';
@@ -260,17 +262,27 @@ if ('add' === $func || 'edit' === $func) {
         'json' => 'JSON',
     ], (string) ($profile['content_field_mode'] ?? 'auto'), '— Typ —', false) . '</select></div></div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Status-Spalte</label>' . $renderColumnSelect('status_field', (string) ($profile['status_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
+    $body .= '<hr><h4>Status &amp; Zeitstempel</h4>';
+    $body .= '<div class="row"><div class="col-md-4"><label>Status-Spalte</label>' . $renderColumnSelect('status_field', (string) ($profile['status_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
     $body .= '<div class="col-md-4"><label>Statuswerte</label><input class="form-control" type="text" name="profile[status_values]" value="' . rex_escape((string) ($profile['status_values'] ?? '')) . '" placeholder="1,online,published"></div>';
     $body .= '<div class="col-md-4"><label>Datumsspalte</label>' . $renderColumnSelect('date_field', (string) ($profile['date_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div></div>';
 
     $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Erstellt am</label>' . $renderColumnSelect('created_field', (string) ($profile['created_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
     $body .= '<div class="col-md-6"><label>Aktualisiert am</label>' . $renderColumnSelect('updated_field', (string) ($profile['updated_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Sprach-Spalte</label>' . $renderColumnSelect('clang_field', (string) ($profile['clang_field'] ?? ''), $profileTable, $columnsMap, true, '— optional, keine Sprachfilterung —') . '</div>';
-    $body .= '<div class="col-md-8"><label>Sprachen (clang-IDs)</label><input class="form-control" type="text" name="profile[clang_ids]" value="' . rex_escape((string) ($profile['clang_ids'] ?? '')) . '" placeholder="1,2"><p class="help-block">Kommagetrennte clang-IDs. Nur wirksam, wenn eine Sprach-Spalte gewählt ist; leer = alle Sprachen (Standard, unverändertes Verhalten).</p></div></div>';
+    $body .= '<hr><h4>Sprache</h4>';
+    $body .= '<div class="row"><div class="col-md-4"><label>Sprach-Spalte</label>' . $renderColumnSelect('clang_field', (string) ($profile['clang_field'] ?? ''), $profileTable, $columnsMap, true, '— optional, keine Sprachfilterung —') . '</div>';
+    $currentClangIds = array_filter(array_map('trim', preg_split('/[\r\n,;|]+/', (string) ($profile['clang_ids'] ?? '')) ?: []), static fn (string $v): bool => '' !== $v);
+    $clangOptionsHtml = '';
+    foreach (rex_clang::getAll() as $clangOption) {
+        $clangId = (string) $clangOption->getId();
+        $selected = in_array($clangId, $currentClangIds, true) ? ' selected' : '';
+        $clangOptionsHtml .= '<option value="' . $clangId . '"' . $selected . '>' . rex_escape($clangOption->getName()) . ' (' . $clangId . ')</option>';
+    }
+    $body .= '<div class="col-md-8"><label>Sprachen</label><select class="form-control" multiple size="3" name="profile[clang_ids][]" style="width:auto;min-width:220px;max-width:100%;">' . $clangOptionsHtml . '</select><p class="help-block">Nur wirksam, wenn eine Sprach-Spalte gewählt ist; keine Auswahl = alle Sprachen (Standard, unverändertes Verhalten). Setzt voraus, dass die gewählte Sprach-Spalte tatsächlich REDAXO-Sprach-IDs speichert (der YForm-Regelfall) - falls die Tabelle eigene, abweichende Werte nutzt, passt diese Auswahl nicht.</p></div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-3"><label>URL-Modus</label><div class="rex-select-style"><select class="form-control js-url-mode-select" name="profile[url_mode]">' . $renderOptions([
+    $body .= '<hr><h4>URL</h4>';
+    $body .= '<div class="row"><div class="col-md-3"><label>URL-Modus</label><div class="rex-select-style"><select class="form-control js-url-mode-select" name="profile[url_mode]">' . $renderOptions([
         'field' => 'Aus Feldwert',
         'profile' => 'URL-Profil (Namespace)',
         'template' => 'Template',

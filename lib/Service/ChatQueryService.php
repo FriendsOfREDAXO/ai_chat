@@ -633,6 +633,14 @@ class ChatQueryService
 
             $answer = $this->appendSourcesFromContext($answer, $context, $retrievalMessage, $scope, $showSources);
 
+            // Vor dem Cachen bereinigen (nicht erst am Ende von process(), siehe dortiger
+            // zweiter Aufruf) - sonst landet ein einmal geleaktes "[Bereich: ...]"-Label oder
+            // eine unerwuenschte Begruessung dauerhaft IM Cache-Eintrag selbst (sichtbar u.a.
+            // im Cache-Fragen-Backend), auch wenn die eigentliche Auslieferung an Besucher
+            // durch den spaeteren Aufruf ohnehin schon sauber war.
+            $answer = $this->removeUnwantedGreetingPrefix($answer, $scope);
+            $answer = $this->removeLeakedContextLabel($answer);
+
             if ($faqPrecacheEnabled) {
                 $this->cacheAnswer($message, $userEmbedding, $answer, $scope, $profile->id);
             }

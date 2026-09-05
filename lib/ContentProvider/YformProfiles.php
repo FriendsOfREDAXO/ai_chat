@@ -182,7 +182,9 @@ final class YformProfiles
             'url_profile' => trim((string) ($profile['url_profile'] ?? '')),
             'url_template' => trim((string) ($profile['url_template'] ?? '')),
             'clang_field' => trim((string) ($profile['clang_field'] ?? '')),
-            'clang_ids' => trim((string) ($profile['clang_ids'] ?? '')),
+            'clang_ids' => is_array($profile['clang_ids'] ?? null)
+                ? implode(',', array_map('strval', $profile['clang_ids']))
+                : trim((string) ($profile['clang_ids'] ?? '')),
             'fields' => $fields,
             'conditions' => $conditions,
             'source_type' => self::sourceTypeForProfile($id),
