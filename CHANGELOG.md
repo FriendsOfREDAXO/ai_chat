@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Geändert
+- **Listen-Seiten Trigger &amp; Antworten, Profile und Themes hatten keine
+  Panel-Überschrift** über der Tabelle, anders als YForm-Mappings,
+  Cache-Fragen, Retrieval-Log und REDAXOs eigene Modul-Liste
+  (`modules/modules`). Jetzt einheitlich mit Titel ("Trigger &amp;
+  Antworten"/"Profile"/"Themes").
+
 ### Behoben
 - **Interne Metadaten-Zeilen (z.B. "Kontext-Hinweis: ...") konnten als
   scheinbar eigener Hinweis/Fußnote in der sichtbaren Antwort auftauchen.**

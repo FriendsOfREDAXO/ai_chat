@@ -794,6 +794,7 @@ if ('add' === $func || 'edit' === $func) {
     $content = $list->get();
 
     $fragment = new rex_fragment();
+    $fragment->setVar('title', 'Profile', false);
     $fragment->setVar('content', $content, false);
     echo $fragment->parse('core/page/section.php');
 }
