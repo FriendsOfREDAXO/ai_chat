@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Behoben
+- **Native, unstyled `<select>`-Dropdowns auf mehreren Seiten.** Retrieval-Log,
+  Cache-Fragen und sämtliche Felder der YForm-Mapping-Seite (inkl. der
+  Zusätzliche-Felder-/Bedingungen-Repeater) rendern ihre `<select
+  class="form-control">`-Elemente bisher ohne REDAXOs eigenen
+  `rex-select-style`-Wrapper (`<div class="rex-select-style">…</div>`), der
+  erst den flachen, eckigen Look mit dem kleinen Pfeil erzeugt (siehe
+  core/lib/select.php bzw. jedes über `rex_form` erzeugte Select) - ohne den
+  Wrapper zeigte der Browser stattdessen das native, abgerundete
+  Betriebssystem-Dropdown. Alle betroffenen Selects entsprechend eingepackt.
+  Zusätzlich "Filtern"/"Zurücksetzen" auf Retrieval-Log und Cache-Fragen zu
+  einer `btn-group` zusammengefasst (gleiches Muster wie z.B. im
+  `statistics`-Addon), statt zwei lose nebeneinanderstehender Buttons.
+
 ### Hinzugefügt
 - **Optionales Retrieval-Debug-Log.** Bisher protokollierte
   `recordUsageStat()` nur grobe Nutzungsstatistik (Modus/Scope/Status/

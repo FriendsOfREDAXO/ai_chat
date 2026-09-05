@@ -132,7 +132,7 @@ $renderColumnSelect = static function (string $fieldName, string $currentValue, 
 
     $name = $explicitName ?? ('profile[' . $fieldName . ']');
 
-    return '<select class="form-control js-column-select" data-allow-empty="' . ($allowEmpty ? '1' : '0') . '" data-empty-label="' . rex_escape($placeholder) . '" data-current-value="' . rex_escape($currentValue) . '" name="' . rex_escape($name) . '">' . $options . '</select>';
+    return '<div class="rex-select-style"><select class="form-control js-column-select" data-allow-empty="' . ($allowEmpty ? '1' : '0') . '" data-empty-label="' . rex_escape($placeholder) . '" data-current-value="' . rex_escape($currentValue) . '" name="' . rex_escape($name) . '">' . $options . '</select></div>';
 };
 
 // Select statt Freitext, wenn das url-Addon verfuegbar ist und Profile registriert hat -
@@ -152,7 +152,7 @@ $renderUrlProfileField = static function (string $currentValue) use ($renderOpti
     }
     $options .= $renderOptions($urlProfileOptions, $currentValue, '— URL-Profil wählen —', true);
 
-    return '<select class="form-control" name="' . rex_escape($name) . '">' . $options . '</select>';
+    return '<div class="rex-select-style"><select class="form-control" name="' . rex_escape($name) . '">' . $options . '</select></div>';
 };
 
 $renderFieldRow = static function ($rowIndex, array $row, string $tableName, array $columnsMap, string $kind) use ($renderColumnSelect, $renderOptions): string {
@@ -171,7 +171,7 @@ $renderFieldRow = static function ($rowIndex, array $row, string $tableName, arr
     $html .= '<div class="col-md-3">' . $renderColumnSelect('field', $fieldName, $tableName, $columnsMap, true, '— bitte wählen —', $nameBase . '[field]') . '</div>';
 
     if ($isCondition) {
-        $html .= '<div class="col-md-3"><select class="form-control" name="' . rex_escape($nameBase . '[operator]') . '">';
+        $html .= '<div class="col-md-3"><div class="rex-select-style"><select class="form-control" name="' . rex_escape($nameBase . '[operator]') . '">';
         $html .= $renderOptions([
             'equals' => 'ist gleich',
             'not_equals' => 'ist ungleich',
@@ -186,13 +186,13 @@ $renderFieldRow = static function ($rowIndex, array $row, string $tableName, arr
             'is_empty' => 'ist leer',
             'is_not_empty' => 'ist nicht leer',
         ], $operatorValue, '— Operator —', false);
-        $html .= '</select></div>';
+        $html .= '</select></div></div>';
         $html .= '<div class="col-md-4"><input class="form-control" type="text" name="' . rex_escape($nameBase . '[value]') . '" value="' . rex_escape($valueValue) . '" placeholder="Wert oder now/today"></div>';
         $html .= '<div class="col-md-2 text-right"><button type="button" class="btn btn-danger btn-sm klxm-repeater-remove" data-remove-repeater-row="1"><i class="rex-icon fa-trash"></i></button></div>';
         $html .= '<input type="hidden" name="' . rex_escape($nameBase . '[value_type]') . '" value="' . rex_escape($valueTypeValue !== '' ? $valueTypeValue : 'auto') . '">';
     } else {
         $html .= '<div class="col-md-3"><input class="form-control" type="text" name="' . rex_escape($nameBase . '[label]') . '" value="' . rex_escape($labelValue) . '" placeholder="Label"></div>';
-        $html .= '<div class="col-md-2"><select class="form-control" name="' . rex_escape($nameBase . '[mode]') . '">';
+        $html .= '<div class="col-md-2"><div class="rex-select-style"><select class="form-control" name="' . rex_escape($nameBase . '[mode]') . '">';
         $html .= $renderOptions([
             'auto' => 'Auto',
             'text' => 'Plain Text',
@@ -208,7 +208,7 @@ $renderFieldRow = static function ($rowIndex, array $row, string $tableName, arr
             'status' => 'Status',
             'media' => 'Medienname',
         ], $modeValue, '— Typ —', false);
-        $html .= '</select></div>';
+        $html .= '</select></div></div>';
         $html .= '<div class="col-md-1" style="padding-top:7px;"><label class="checkbox-inline"><input type="checkbox" name="' . rex_escape($nameBase . '[include]') . '" value="1"' . ($includeChecked ? ' checked' : '') . '> aktiv</label></div>';
         $html .= '<div class="col-md-3 text-right"><button type="button" class="btn btn-danger btn-sm klxm-repeater-remove" data-remove-repeater-row="1"><i class="rex-icon fa-trash"></i></button></div>';
     }
@@ -239,18 +239,18 @@ if ('add' === $func || 'edit' === $func) {
 
     $body .= '<div class="row"><div class="col-md-6"><label>Mapping-ID</label><input class="form-control" type="text" name="profile[id]" value="' . rex_escape((string) ($profile['id'] ?? $key)) . '" placeholder="news"></div><div class="col-md-6"><label>Bezeichnung</label><input class="form-control" type="text" name="profile[label]" value="' . rex_escape((string) ($profile['label'] ?? '')) . '" placeholder="News"></div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Tabelle</label><select class="form-control js-table-select" name="profile[table]"><option value="">— Tabelle wählen —</option>';
+    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-6"><label>Tabelle</label><div class="rex-select-style"><select class="form-control js-table-select" name="profile[table]"><option value="">— Tabelle wählen —</option>';
     foreach ($availableTables as $tableName => $label) {
         $selected = $tableName === $profileTable ? ' selected' : '';
         $body .= '<option value="' . rex_escape($tableName) . '"' . $selected . '>' . rex_escape($label) . '</option>';
     }
-    $body .= '</select></div>';
-    $body .= '<div class="col-md-3"><label>Sortier-Richtung</label><select class="form-control" name="profile[sort_dir]">' . $renderOptions(['DESC' => 'Absteigend', 'ASC' => 'Aufsteigend'], (string) ($profile['sort_dir'] ?? 'DESC'), '— Richtung —', false) . '</select></div>';
+    $body .= '</select></div></div>';
+    $body .= '<div class="col-md-3"><label>Sortier-Richtung</label><div class="rex-select-style"><select class="form-control" name="profile[sort_dir]">' . $renderOptions(['DESC' => 'Absteigend', 'ASC' => 'Aufsteigend'], (string) ($profile['sort_dir'] ?? 'DESC'), '— Richtung —', false) . '</select></div></div>';
     $body .= '<div class="col-md-3"><label>Sortier-Spalte</label>' . $renderColumnSelect('sort_field', (string) ($profile['sort_field'] ?? ''), $profileTable, $columnsMap, false, '— bitte wählen —') . '</div></div>';
 
     $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Titel-Spalte</label>' . $renderColumnSelect('title_field', (string) ($profile['title_field'] ?? ''), $profileTable, $columnsMap, false, '— bitte wählen —') . '</div>';
     $body .= '<div class="col-md-4"><label>Content-Spalte</label>' . $renderColumnSelect('content_field', (string) ($profile['content_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
-    $body .= '<div class="col-md-4"><label>Content-Modus</label><select class="form-control" name="profile[content_field_mode]">' . $renderOptions([
+    $body .= '<div class="col-md-4"><label>Content-Modus</label><div class="rex-select-style"><select class="form-control" name="profile[content_field_mode]">' . $renderOptions([
         'auto' => 'Auto',
         'text' => 'Plain Text',
         'html' => 'HTML',
@@ -258,7 +258,7 @@ if ('add' === $func || 'edit' === $func) {
         'textile' => 'Textile',
         'content_builder' => 'Content Builder JSON',
         'json' => 'JSON',
-    ], (string) ($profile['content_field_mode'] ?? 'auto'), '— Typ —', false) . '</select></div></div>';
+    ], (string) ($profile['content_field_mode'] ?? 'auto'), '— Typ —', false) . '</select></div></div></div>';
 
     $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Status-Spalte</label>' . $renderColumnSelect('status_field', (string) ($profile['status_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
     $body .= '<div class="col-md-4"><label>Statuswerte</label><input class="form-control" type="text" name="profile[status_values]" value="' . rex_escape((string) ($profile['status_values'] ?? '')) . '" placeholder="1,online,published"></div>';
@@ -270,11 +270,11 @@ if ('add' === $func || 'edit' === $func) {
     $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-4"><label>Sprach-Spalte</label>' . $renderColumnSelect('clang_field', (string) ($profile['clang_field'] ?? ''), $profileTable, $columnsMap, true, '— optional, keine Sprachfilterung —') . '</div>';
     $body .= '<div class="col-md-8"><label>Sprachen (clang-IDs)</label><input class="form-control" type="text" name="profile[clang_ids]" value="' . rex_escape((string) ($profile['clang_ids'] ?? '')) . '" placeholder="1,2"><p class="help-block">Kommagetrennte clang-IDs. Nur wirksam, wenn eine Sprach-Spalte gewählt ist; leer = alle Sprachen (Standard, unverändertes Verhalten).</p></div></div>';
 
-    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-3"><label>URL-Modus</label><select class="form-control js-url-mode-select" name="profile[url_mode]">' . $renderOptions([
+    $body .= '<div class="row" style="margin-top:10px;"><div class="col-md-3"><label>URL-Modus</label><div class="rex-select-style"><select class="form-control js-url-mode-select" name="profile[url_mode]">' . $renderOptions([
         'field' => 'Aus Feldwert',
         'profile' => 'URL-Profil (Namespace)',
         'template' => 'Template',
-    ], (string) ($profile['url_mode'] ?? 'field'), '— Modus —', false) . '</select></div>';
+    ], (string) ($profile['url_mode'] ?? 'field'), '— Modus —', false) . '</select></div></div>';
     $body .= '<div class="col-md-3" data-url-mode-field="field"><label>URL-Feld</label>' . $renderColumnSelect('url_field', (string) ($profile['url_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
     $body .= '<div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label>' . $renderUrlProfileField((string) ($profile['url_profile'] ?? '')) . '</div>';
     $body .= '<div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profile[url_template]" value="' . rex_escape((string) ($profile['url_template'] ?? '')) . '" placeholder="/news/{id}-{slug}"></div></div>';
