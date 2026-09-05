@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Geändert
+- **Indexierungs-Übersicht aufgeräumt.** Die evergreen-Hinweise
+  (Provider-Wechsel, Chunking-Einblick, RAG-Kandidatenfenster-Warnung)
+  standen bisher als volle-Breite-Alert-Balken direkt im Hauptfluss und
+  konkurrierten optisch mit Status/Fortschritt/Aktionen, obwohl sie meist
+  gar nicht akut handlungsrelevant sind. Stehen jetzt als ruhigere Panels in
+  einer neuen Sidebar (gleiches Muster wie bei den Einstellungsseiten),
+  Hauptspalte zeigt nur noch Status, Fundstellen-Übersicht, laufenden
+  Fortschritt und die Aktions-Buttons.
 - **Entwickler-Hinweise von der Demo-Seite in die README verschoben.** Die
   Demo zeigte zwei Infoboxen mit Hinweisen zur getrennten Nutzung von
   `<ai-chat>`/Suche und dazu, dass Begrüßung/Prompt/Anrede/Theme etc. im

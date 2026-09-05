@@ -80,6 +80,20 @@ if ($rawConfiguredLabels !== '') {
     }
 }
 
+// Generischer Info-Panel-Baustein fuer die Sidebar (gleiches Muster wie
+// settings.shared.php's $renderInfoPanel - hier lokal statt per require, da
+// diese Seite kein Formular ist und den Rest der dortigen Formular-Helper
+// nicht braucht).
+$renderSidebarPanel = static function (string $title, string $icon, string $bodyHtml, string $panelClass = 'panel-default', string $wrapperId = ''): string {
+    $idAttr = '' !== $wrapperId ? ' id="' . rex_escape($wrapperId, 'html_attr') . '"' : '';
+
+    return '<div class="panel ' . rex_escape($panelClass) . '"' . $idAttr . ' style="margin-bottom:20px;">'
+        . '<header class="panel-heading"><div class="panel-title"><i class="rex-icon ' . rex_escape($icon) . '"></i> ' . rex_escape($title) . '</div></header>'
+        . '<div class="panel-body">' . $bodyHtml . '</div>'
+        . '</div>';
+};
+$sidebar = '';
+
 // (JS wird global über boot.php geladen und per rex:ready initialisiert)
 
 // Config for JS – injected via data attribute (no inline JS)
@@ -118,7 +132,10 @@ $jsConfig = json_encode([
 // Traegt den Seitentitel selbst, die umschliessende rex_fragment bekommt
 // deshalb bewusst KEINEN eigenen Titel mehr (sonst stuende "Indexierung"
 // doppelt da).
-$content = '
+// Header traegt volle Seitenbreite (spaeter AUSSERHALB der zweispaltigen
+// Row aus Hauptspalte + Sidebar), deshalb eine eigene Variable statt Teil
+// von $content.
+$header = '
 <div class="ai-chat-index-header">
     <div class="ai-chat-index-scan"></div>
     <div class="header-icon">
@@ -138,7 +155,7 @@ $content = '
 </div>';
 
 // Hidden config element – read by ai-chat-indexer.js via data attribute
-$content .= '<div id="ai-chat-indexer-config" data-config=\'' . $jsConfig . '\' style="display:none"></div>';
+$content = '<div id="ai-chat-indexer-config" data-config=\'' . $jsConfig . '\' style="display:none"></div>';
 
 // Show current status
 $sql = rex_sql::factory();
@@ -168,7 +185,7 @@ $avgChunkLength = (float) ($chunkInsightSql->getValue('avg_chunk_length') ?? 0.0
 $avgChunksPerSource = $totalSources > 0 ? $total / $totalSources : 0.0;
 $currentChunkSize = (int) $addon->getConfig('chunk_size', 1000);
 
-$content .= rex_view::info($addon->i18n('index_provider_hint'));
+$sidebar .= $renderSidebarPanel('Provider-Wechsel', 'fa-exchange', $addon->i18n('index_provider_hint'), 'panel-info');
 
 // Zentrale Statusanzeige: EIN Element, das den aktuellen Lauf-Zustand eindeutig
 // zeigt (Bereit/Läuft im Browser/Läuft im Hintergrund/Fertig/Fehler/Abgebrochen),
@@ -189,11 +206,10 @@ $content .= '<div class="klxm-index-statusbar">'
 // greift - kein blinder Fleck, die Warnung waere hier irrefuehrend und wird deshalb ausgeblendet.
 $ragCandidateLimit = (int) $addon->getConfig('rag_candidate_limit', 800);
 if ($total > $ragCandidateLimit && !\FriendsOfRedaxo\AiChat\Db\VectorCapability::isSupported()) {
-    $content .= '<div id="ai-chat-rag-limit-warning" class="alert alert-warning">'
-        . '<p>' . sprintf($addon->i18n('index_rag_limit_warning'), $total, $ragCandidateLimit) . '</p>'
+    $ragWarningBody = '<p>' . sprintf($addon->i18n('index_rag_limit_warning'), $total, $ragCandidateLimit) . '</p>'
         . '<button type="button" id="ai-chat-optimize-rag-btn" class="btn btn-warning btn-sm"><i class="rex-icon fa-magic"></i> ' . $addon->i18n('index_rag_limit_optimize_button') . '</button>'
-        . ' <span id="ai-chat-optimize-rag-result" style="margin-left: 10px;"></span>'
-        . '</div>';
+        . ' <span id="ai-chat-optimize-rag-result" style="margin-left: 10px;"></span>';
+    $sidebar .= $renderSidebarPanel('RAG-Kandidatenfenster', 'fa-exclamation-triangle', $ragWarningBody, 'panel-warning', 'ai-chat-rag-limit-warning');
 }
 
 // Chunking-Einblick nur zeigen, wenn genug Daten fuer eine sinnvolle Aussage vorhanden sind -
@@ -201,7 +217,7 @@ if ($total > $ragCandidateLimit && !\FriendsOfRedaxo\AiChat\Db\VectorCapability:
 // Empfehlung abzuleiten.
 if ($totalSources >= 5) {
     $chunkAdvice = '';
-    $chunkAdviceClass = 'alert-info';
+    $chunkAdvicePanelClass = 'panel-info';
     if ($avgChunksPerSource > 8.0) {
         $suggestedChunkSize = (int) round($currentChunkSize * 1.5 / 100) * 100;
         $chunkAdvice = sprintf(
@@ -211,7 +227,7 @@ if ($totalSources >= 5) {
             $suggestedChunkSize,
             $currentChunkSize,
         );
-        $chunkAdviceClass = 'alert-warning';
+        $chunkAdvicePanelClass = 'panel-warning';
     } elseif ($avgChunksPerSource <= 1.3 && $avgChunkLength < $currentChunkSize * 0.5) {
         $chunkAdvice = sprintf(
             'Inhalte passen im Schnitt bequem in einen einzelnen Chunk (Ø %d von %d möglichen Zeichen) - die aktuelle Chunk-Größe passt gut zur vorhandenen Datenmenge, keine Änderung nötig.',
@@ -226,10 +242,9 @@ if ($totalSources >= 5) {
         );
     }
 
-    $content .= '<div class="alert ' . $chunkAdviceClass . '">'
-        . '<strong><i class="rex-icon fa-info-circle"></i> Chunking-Einblick:</strong> ' . rex_escape($chunkAdvice)
-        . ' <a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Chunking &amp; Cache öffnen</a>'
-        . '</div>';
+    $chunkAdviceBody = '<p>' . rex_escape($chunkAdvice) . '</p>'
+        . '<a href="' . rex_url::backendPage('ai_chat/settings/retrieval') . '">Chunking &amp; Cache öffnen</a>';
+    $sidebar .= $renderSidebarPanel('Chunking-Einblick', 'fa-magic', $chunkAdviceBody, $chunkAdvicePanelClass);
 }
 
 // Drei Uebersichten (Fundstellen je Quellentyp, aktivierte/verfuegbare Content-
@@ -390,8 +405,15 @@ $content .= '</div>';
 
 
 // Bewusst OHNE 'title'-Var: der Seitentitel steht bereits im animierten
-// Kopfbereich oben (siehe $content-Aufbau weiter oben) - ein zusaetzlicher
-// Panel-Titel wuerde "Indexierung" doppelt zeigen.
+// Kopfbereich oben - ein zusaetzlicher Panel-Titel wuerde "Indexierung"
+// doppelt zeigen. Evergreen-Hinweise (Provider-Wechsel, Chunking-Einblick,
+// RAG-Kandidatenfenster) leben in der Sidebar statt als volle-Breite-Balken
+// im Hauptfluss - dort konkurrieren sie sonst optisch mit dem eigentlichen
+// Status/Fortschritt, obwohl sie meist gar nicht akut handlungsrelevant sind.
+// $sidebar enthaelt immer mindestens den Provider-Wechsel-Hinweis (einzige
+// unbedingte Ergaenzung, siehe oben) - keine leere Sidebar-Spalte moeglich.
+$body = $header . '<div class="row"><div class="col-md-9">' . $content . '</div><div class="col-md-3">' . $sidebar . '</div></div>';
+
 $fragment = new rex_fragment();
-$fragment->setVar('body', $content, false);
+$fragment->setVar('body', $body, false);
 echo $fragment->parse('core/page/section.php');
