@@ -129,41 +129,60 @@ $faqPrecacheMigrationNeeded = $profileTable->exists() && !$profileTable->hasColu
 // bestehender Installationen durch dieses Update nicht stillschweigend aendert. Muss vor
 // dem ensureColumn()-Aufruf unten laufen, der die Spalten NOT NULL macht - danach waeren
 // die urspruenglichen "leer = geerbt"-Zeilen nicht mehr von echten Werten zu unterscheiden.
+// Jede UPDATE-Anweisung ist einzeln per hasColumn() abgesichert, nicht nur pauschal ueber
+// $profileTable->exists() - eine deinstallierte, aber nicht per DROP TABLE entfernte
+// Alt-Installation (REDAXO-Uninstall loescht Tabellen grundsaetzlich nicht) kann eine
+// Profil-Tabelle ohne diese Spalten hinterlassen, wenn sie aus einer Zeit VOR ihrer
+// Einfuehrung stammt. Ohne den Check schlaegt UPDATE mit "Unknown column" fehl, obwohl
+// die Spalte gleich im Anschluss per ensureColumn() unten ohnehin neu angelegt wird -
+// und zwar direkt mit dem richtigen Default fuer alle bestehenden Zeilen (ALTER TABLE ADD
+// COLUMN ... NOT NULL DEFAULT '...' fuellt automatisch), ein Backfill ist dann ueberfluessig.
 if ($profileTable->exists()) {
     $aiChatAddon = rex_addon::get('ai_chat');
     $profileTableName = rex::getTable('ai_chat_profile');
-
-    $inheritedAddressingMode = trim((string) $aiChatAddon->getConfig('frontend_addressing_mode', 'auto'));
-    $inheritedPersonalizationMode = trim((string) $aiChatAddon->getConfig('personalization_mode', 'off'));
-    $inheritedSuggestFollowup = ((bool) $aiChatAddon->getConfig('suggest_followup_questions', false)) ? '1' : '0';
-    $inheritedShowSources = ((bool) $aiChatAddon->getConfig('show_sources', true)) ? '1' : '0';
-
     $backfillSql = rex_sql::factory();
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET addressing_mode = ? WHERE addressing_mode IS NULL OR TRIM(addressing_mode) = ''",
-        [$inheritedAddressingMode],
-    );
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET personalization_mode = ? WHERE personalization_mode IS NULL OR TRIM(personalization_mode) = ''",
-        [$inheritedPersonalizationMode],
-    );
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET suggest_followup_questions = ? WHERE suggest_followup_questions IS NULL OR TRIM(suggest_followup_questions) = ''",
-        [$inheritedSuggestFollowup],
-    );
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET show_sources = ? WHERE show_sources IS NULL OR TRIM(show_sources) = ''",
-        [$inheritedShowSources],
-    );
+
+    if ($profileTable->hasColumn('addressing_mode')) {
+        $inheritedAddressingMode = trim((string) $aiChatAddon->getConfig('frontend_addressing_mode', 'auto'));
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET addressing_mode = ? WHERE addressing_mode IS NULL OR TRIM(addressing_mode) = ''",
+            [$inheritedAddressingMode],
+        );
+    }
+    if ($profileTable->hasColumn('personalization_mode')) {
+        $inheritedPersonalizationMode = trim((string) $aiChatAddon->getConfig('personalization_mode', 'off'));
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET personalization_mode = ? WHERE personalization_mode IS NULL OR TRIM(personalization_mode) = ''",
+            [$inheritedPersonalizationMode],
+        );
+    }
+    if ($profileTable->hasColumn('suggest_followup_questions')) {
+        $inheritedSuggestFollowup = ((bool) $aiChatAddon->getConfig('suggest_followup_questions', false)) ? '1' : '0';
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET suggest_followup_questions = ? WHERE suggest_followup_questions IS NULL OR TRIM(suggest_followup_questions) = ''",
+            [$inheritedSuggestFollowup],
+        );
+    }
+    if ($profileTable->hasColumn('show_sources')) {
+        $inheritedShowSources = ((bool) $aiChatAddon->getConfig('show_sources', true)) ? '1' : '0';
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET show_sources = ? WHERE show_sources IS NULL OR TRIM(show_sources) = ''",
+            [$inheritedShowSources],
+        );
+    }
     // chat_enabled/search_enabled hingen nie von einem eigenen globalen Config-Wert ab,
     // sondern defaulteten in boot.php schon bisher auf "aktiv" (siehe $showChat/$showSearch,
     // "?? true") - Backfill uebernimmt genau dieses Verhalten als echten Wert.
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET chat_enabled = '1' WHERE chat_enabled IS NULL OR TRIM(chat_enabled) = ''",
-    );
-    $backfillSql->setQuery(
-        "UPDATE {$profileTableName} SET search_enabled = '1' WHERE search_enabled IS NULL OR TRIM(search_enabled) = ''",
-    );
+    if ($profileTable->hasColumn('chat_enabled')) {
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET chat_enabled = '1' WHERE chat_enabled IS NULL OR TRIM(chat_enabled) = ''",
+        );
+    }
+    if ($profileTable->hasColumn('search_enabled')) {
+        $backfillSql->setQuery(
+            "UPDATE {$profileTableName} SET search_enabled = '1' WHERE search_enabled IS NULL OR TRIM(search_enabled) = ''",
+        );
+    }
 }
 
 $profileTable

@@ -3,6 +3,19 @@
 ## [Unreleased]
 
 ### Behoben
+- **Installation schlug mit "Unknown column 'suggest_followup_questions'" fehl,
+  wenn eine ältere `ai_chat`-Version zuvor deinstalliert (nicht: die Tabellen
+  per DROP TABLE entfernt) und danach neu installiert wurde.** Die
+  Backfill-Migration in `install.php` prüfte vor ihren UPDATE-Anweisungen nur,
+  ob die Profil-Tabelle überhaupt existiert, nicht ob die jeweilige Spalte
+  bereits existiert - eine Alt-Tabelle von vor Einführung von
+  `suggest_followup_questions`/`show_sources`/`addressing_mode`/
+  `personalization_mode`/`chat_enabled`/`search_enabled` ließ das UPDATE ins
+  Leere laufen. Jede UPDATE-Anweisung jetzt einzeln per `hasColumn()`
+  abgesichert (Muster wie bereits bei der `extra_source`-Migration) - fehlt
+  eine Spalte komplett, übernimmt stattdessen der direkt im Anschluss
+  laufende `ensureColumn()`-Aufruf mit seinem Default die Befüllung alle
+  bestehenden Zeilen.
 - **Antworten konnten normale Aufzählungen (z.B. "Beispiele für Leistungen")
   als rohen HTML-Codeblock statt als lesbare Markdown-Liste ausgeben** -
   sichtbar als grauer "HTML"-Codeblock mit Copy-Button im Chat-Fenster. Die
