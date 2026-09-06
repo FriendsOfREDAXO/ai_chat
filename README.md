@@ -189,6 +189,24 @@ Jedes Profil trägt seine sichtbarkeits-, verhaltens- und darstellungsbezogenen 
 
 **Ein Profil, das nur eine einzelne Sitemap-Gruppe ohne Namen/Beschreibung nutzt, reicht für die meisten Websites** – benannte Gruppen, mehrere Profile und „Wissen teilen mit Profil(en)" lohnen sich vor allem bei mehrsprachigen Auftritten, klar getrennten Zielgruppen oder deutlich unterschiedlichen Themenbereichen auf derselben Website.
 
+### Prompting-Tipps
+
+Der System-Prompt (global unter „Verhalten & Antworten" oder je Profil, siehe Einzelfeature „Profile" oben) steuert Ton, Persona und Antwortverhalten – unabhängig vom durchsuchten Wissen selbst. Ein paar praxisnahe Hinweise für den eigenen Prompt-Text:
+
+**Datum/Uhrzeit kennt die KI bereits automatisch – das reicht aber nicht, um veraltete Hinweise zu unterdrücken.** Vor jeden System-Prompt (global wie je Profil) stellt das Addon automatisch einen Zeit-Kontext („Aktuelles Datum: Dienstag, der 27.05.2025. Aktuelle Uhrzeit: 14:30 Uhr.") – ein eigener „heutiges Datum"-Hinweis im Prompt ist also überflüssig. Indexierte Inhalte enthalten aber oft Datums-/Zeitraum-Angaben (Sonderöffnungszeiten, Aktionen, Veranstaltungshinweise), die längst in der Vergangenheit liegen, ohne dass die Quelle aktualisiert wurde. Die KI erkennt zwar korrekt, dass der Zeitraum vorbei ist und schlussfolgert richtig – erwähnt den abgelaufenen Hinweis dabei aber trotzdem, was in der Antwort unpassend wirkt. Ein expliziter Prompt-Zusatz behebt das:
+
+> „Enthält ein gefundener Kontext-Abschnitt eine Datums- oder Zeitraumangabe (z. B. Sonderöffnungszeiten, ein Veranstaltungshinweis), prüfe sie gegen das aktuelle Datum. Ist der Zeitraum bereits vorbei, ignoriere den Hinweis vollständig – erwähne ihn nicht einmal erklärend."
+
+Das ist nur ein Prompt-seitiger Behelf: Der zugrunde liegende Inhalt bleibt veraltet, bis er an der Quelle aktualisiert oder entfernt wird. Bei wiederkehrenden zeitkritischen Inhalten lohnt sich zusätzlich eine als „aktuell/zeitkritisch" markierte benannte Gruppe (siehe „Benannte Sitemap- und Struktur-Bereiche" oben) sowie eine regelmäßige Durchsicht der betroffenen Quellen.
+
+**Nur auf Basis des gefundenen Kontexts antworten lassen.** Ein Hinweis wie „Antworte ausschließlich basierend auf dem bereitgestellten Kontext; ist die Information nicht enthalten, sage das offen, statt zu raten oder zu kombinieren" reduziert Halluzinationen bei Lücken im Index spürbar.
+
+**Ton und Persona gehören in den Prompt-Text, nicht nur ins Anrede-Feld.** Das Anrede-Feld (Du/Sie/neutral, siehe Einzelfeature „Profile" oben) steuert nur die Grundform; Tonfall (locker vs. förmlich), Antwortlänge oder eine feste Persona („Du bist der freundliche Assistent von …") legt erst der Prompt-Text fest.
+
+**Kurze, chat-taugliche Antworten explizit einfordern.** Ohne Hinweis neigen manche Modelle zu langen Aufzählungen oder Markdown-Tabellen, die in einer schmalen Chat-Bubble schlecht wirken – ein Zusatz wie „Antworte in kurzen Absätzen, keine Tabellen, maximal 2–3 Sätze außer bei ausdrücklicher Nachfrage nach Details" hilft.
+
+**Globalen Prompt generisch halten, Profil-Prompt für Spezifisches nutzen.** Der Profil-Prompt ersetzt den globalen Prompt vollständig statt ihn zu ergänzen (siehe „Profile" oben) – projektweite Regeln wie die Datums-Prüfung oben gehören deshalb entweder in den globalen Standard-Prompt (gilt dann für alle Profile ohne eigenen Prompt) oder müssen bewusst in jeden Profil-Prompt übernommen werden.
+
 ### SSE-Streaming: Server-Voraussetzungen
 
 Ist „Live-Antworten streamen (SSE)" aktiviert, sendet `rex-api-call=ai_chat_query` die Antwort als `text/event-stream` und schreibt laufend per `flush()`. Damit das beim Browser auch fortlaufend statt am Ende komplett auf einmal ankommt, darf keine Schicht auf dem Weg zwischenpuffern:
