@@ -1,6 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-09-06
+
+### Dokumentation
+- **Prompt-Tipps im README**: dokumentiert, dass jeder System-Prompt bereits
+  automatisch das aktuelle Datum/die Uhrzeit erhält (`PromptBuilder`/
+  `SystemToolService`), inklusive eines Prompt-Snippets, um abgelaufene,
+  datumsgebundene Inhalte (Sonderöffnungszeiten, Veranstaltungshinweise)
+  aus Antworten herauszuhalten, sowie allgemeiner Hinweise zum Prompt-Schreiben
+  (nur aus dem Kontext antworten, Ton/Persona, chat-gerechte Antwortlänge,
+  globaler vs. profilspezifischer Prompt).
 
 ### Hinzugefügt
 - **`uninstall.php`**: Deinstallieren entfernt jetzt vollständig alle
