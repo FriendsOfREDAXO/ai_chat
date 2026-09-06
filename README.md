@@ -1,91 +1,22 @@
 # AI Chat & Search für REDAXO
 
-Ein FriendsOfREDAXO-AddOn für KI-gestützte Suche und Chat: Inhalte aus Artikeln, Sitemaps, Struktur-Bereichen, YForm-Tabellen, PDFs/Medienpool-Dateien und weiteren Quellen per Extension Point werden je Profil indexiert, per Vektorsuche durchsucht und wahlweise per KI zu einer Antwort verarbeitet. Mehrere Profile erlauben unterschiedliche Wissensstände, Zielgruppen, Prompts und Optiken nebeneinander – von einem einzelnen Standard-Profil bis zu mehreren parallel laufenden, vollständig voneinander isolierten Bereichen.
+Ein FriendsOfREDAXO-AddOn für KI-gestützte Suche und Chat: Inhalte aus Artikeln, Sitemaps, Struktur-Bereichen, YForm-Tabellen, PDFs/Medienpool-Dateien und weiteren Quellen per Extension Point werden je Profil indexiert, per Vektorsuche durchsucht und wahlweise per KI zu einer Antwort mit Quellenangaben verarbeitet (klassische RAG-Pipeline). Suche und Chat teilen sich denselben Index und laufen kombiniert oder unabhängig voneinander.
+
+Ein Profil-System erlaubt mehrere thematisch, sprachlich oder nach Zielgruppe getrennte „Instanzen" nebeneinander – jede mit eigenem Wissensausschnitt, Prompt, Anrede, Antwortsprache und Erscheinungsbild. Ein einzelnes Standard-Profil reicht für die meisten Installationen; wer mehr braucht, legt beliebig viele weitere an.
 
 > Vormals `klxmchat`/„KLXM Chat & Search" – ab Version 1.0.0 als `ai_chat` neu aufgesetzt (neuer Addon-Key, neuer Namespace `FriendsOfRedaxo\AiChat`, keine automatische Migration alter Installationen).
-
-## Einleitung
-
-Kern des Addons ist eine klassische RAG-Pipeline (Retrieval-Augmented Generation): Inhalte werden in Textabschnitte zerlegt, als Vektoren gespeichert und bei einer Anfrage nach semantischer Ähnlichkeit durchsucht – nicht nach exakten Wörtern. Darüber liegen zwei nutzbare Oberflächen: eine reine Trefferliste (Suche) und eine KI-generierte Antwort mit Quellenangaben (Chat). Beide teilen sich denselben Index und laufen wahlweise kombiniert oder unabhängig voneinander.
-
-Darüber hinaus bringt das Addon ein Profil-System mit, über das sich mehrere thematisch, sprachlich oder nach Zielgruppe getrennte „Instanzen" des Chats parallel betreiben lassen – inklusive eigenem Wissensausschnitt, eigenem Prompt, eigener Anrede, eigener Antwortsprache und eigenem Erscheinungsbild je Profil. Ein einzelnes Standard-Profil reicht für die meisten Installationen völlig aus; wer mehr braucht, kann beliebig viele weitere anlegen.
-
-## Ablauf im Überblick
-
-Zwei getrennte Abläufe: **Indexierung** passiert einmalig bzw. bei jeder Neuindizierung, **Abruf & Antwort** bei jeder einzelnen Chat-/Suchanfrage.
-
-**Indexierung** (je Profil, bei jeder Neuindizierung):
-
-```
-Quelle: Struktur / Sitemap / YForm / PDF
-                │
-                ▼
-Text extrahieren und bereinigen
-                │
-                ▼
-Zusatz-Kontext anreichern
-(JSON-LD, Kategorie-Pfad, Metainfo-Felder)
-                │
-                ▼
-In Chunks zerlegen (Größe/Overlap konfigurierbar)
-                │
-                ▼
-Embedding je Chunk erzeugen
-                │
-                ▼
-Index (Vektor + Text + Metadaten)
-```
-
-**Abruf & Antwort** (bei jeder Chat-Anfrage):
-
-```
-Nutzerfrage
-    │
-    ▼
-Datenschutz-Guard: sensible Daten erkannt? ──ja──▶ Warnung an Nutzer,
-    │                                              keine KI-Anfrage
-    │ nein
-    ▼
-Retrieval-Anfrage aus Frage + letzten Gesprächsturns bilden
-    │
-    ▼
-Embedding der Anfrage erzeugen
-    │
-    ▼
-Vektorsuche im Index (Profil-Scope, Kandidatenfenster)
-    │
-    ▼
-Stichwort-Fallback ergänzt fehlende Kandidaten (Hybrid-Anteil)
-    │
-    ▼
-Re-Ranking: Similarity + Stichwort-Überdeckung
-    │
-    ▼
-Top-Kontext auswählen (RAG-Kandidatenzahl)
-    │
-    ▼
-Prompt aus System-Prompt + Kontext + Frage
-    │
-    ▼
-KI-Provider generiert Antwort
-    │
-    ▼
-Antwort + Quellenangaben an Nutzer
-```
-
-Die reine **Suche** (ohne Chat-Antwort) überspringt die Prompt-/KI-Schritte und zeigt stattdessen direkt die gefundenen Treffer als Liste; eine optionale KI-Zusammenstellung über mehrere Bereiche hinweg läuft dort separat nachgeladen (siehe Einzelfeature „Suche" unten).
 
 ## Features
 
 - Frontend-Suche und Frontend-Chat für Website-Besucher
-- Mehrere, vollständig voneinander isolierte Profile mit eigenem Wissens-Scope, eigener Zielgruppe (Rolle/Domain/Sprache), eigenem Prompt, eigener Anrede/Antwortsprache und eigenem Theme
-- Google Gemini, Cloudflare Workers AI, OpenAI-kompatible Endpunkte sowie optional das FriendsOfREDAXO-Addon `ai_platform` als gemeinsame Provider-Verwaltung
-- Natives Vektor-Retrieval auf MariaDB 11.7+/11.8+, mit automatischem Fallback auf PHP-seitige Berechnung auf älteren Versionen oder MySQL
-- Indexierung je Profil aus Sitemaps und Struktur-Bereichen (jeweils mehrere benannte, gleichzeitig kombinierbare Gruppen), YForm-Tabellen, PDFs/Medienpool-Dateien sowie weiteren Content-Providern per Extension Point – Wissen lässt sich bei Bedarf gezielt mit anderen Profilen teilen
-- Missbrauchsschutz: Erkennung von Prompt-Injection/Jailbreak-Versuchen, freundliche Gesprächsbeendigung bei wiederholten Angriffen, optionale Meldung an das Intrusion-Prevention-Addon `upkeep`
-- Übersetzbare Widget-Oberfläche (JSON-Sprachdateien, unabhängig von der Sprache der KI-Antworten)
+- Mehrere, vollständig isolierte Profile mit eigenem Wissens-Scope, Zielgruppe, Prompt, Anrede/Antwortsprache und Theme
+- Google Gemini, Cloudflare Workers AI, OpenAI-kompatible Endpunkte sowie optional `ai_platform` als gemeinsame Provider-Verwaltung
+- Natives Vektor-Retrieval auf MariaDB 11.7+/11.8+, automatischer PHP-Fallback auf älteren Versionen oder MySQL
+- Indexierung je Profil aus Sitemaps, Struktur-Bereichen, YForm-Tabellen, PDFs/Medienpool sowie weiteren Content-Providern per Extension Point
+- Missbrauchsschutz: Prompt-Injection-/Jailbreak-Erkennung, automatisches Gesprächsende bei wiederholten Angriffen, optionale Meldung an `upkeep`
+- Übersetzbare Widget-Oberfläche, unabhängig von der Antwortsprache der KI
 - FAQ-Vorcaching für wiederkehrende Fragen, je Profil konfigurierbar
-- Statistik zu Suchbegriffen, häufigen Fragen und Treffer-losen Anfragen, je Profil filterbar
+- Statistik zu Suchbegriffen, Fragen und Treffer-losen Anfragen, je Profil filterbar
 
 ## Einzelfeatures
 
@@ -222,7 +153,7 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick, 
 
 **Cloudflare Workers AI** – Cloudflare-Account mit aktiviertem Workers AI, Account-ID und Token konfigurieren.
 
-**OpenAI-kompatibel** – funktioniert mit Ollama, OpenWebUI, LM Studio oder selbstgehosteten OpenAI-ähnlichen APIs. Wichtig: korrekte Base-URL (typisch `https://ai.domain.tld/api/` oder `.../api/v1/`), API-Key nur falls vom Dienst gefordert, passendes Chat- und Embedding-Modell, und nach einem Provider-Wechsel den Index neu aufbauen (unterschiedliche Modelle liefern unterschiedliche Vektor-Dimensionen).
+**OpenAI-kompatibel** – funktioniert mit Ollama, OpenWebUI, LM Studio oder selbstgehosteten OpenAI-ähnlichen APIs. Wichtig: korrekte Base-URL (typisch `https://ai.domain.tld/api/` oder `.../api/v1/`), API-Key nur falls vom Dienst gefordert, passendes Chat- und Embedding-Modell (nach einem Wechsel Index neu aufbauen, siehe „Best Practices" unten).
 
 **`ai_platform`** – ist dieses FriendsOfREDAXO-Addon zusätzlich installiert, lässt sich dessen zentrale Provider-Verwaltung nutzen statt eigener API-Keys je Addon.
 
@@ -234,7 +165,7 @@ Jedes Profil trägt seine sichtbarkeits-, verhaltens- und darstellungsbezogenen 
 - **Verhalten & Antworten**: globale Standard-Werte ohne Profil-Äquivalent – Standard-Begrüßung, Standard-Prompt, Fehlermeldung, Zusatzkontext, Quellen-Link-Titel. Der eigene Prompt bzw. die eigene Begrüßung eines Profils überschreibt diese Werte optional (leer = globaler Wert).
 - **Erscheinungsbild**: globaler Standard-Widget-Modus (Bubble/ohne Bubble) und globale Standard-Position; beides bleibt zusätzlich je Profil überschreibbar.
 - **Suche**: bündelt alle reinen Such-Einstellungen an einer Stelle – „aktuelle Seite durchsuchen"-Umschalter, KI-Zusammenstellung in der Suche, Quellentyp-Bezeichnungen, Mehrfach-Kontext-Schnipsel.
-- **Zugriff & Sicherheit**: öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter, sowie ein **Testmodus** über eine IP-Whitelist – gesetzt, ist Chat/Suche im Frontend serverseitig nur für diese IPs sichtbar (für alle anderen komplett gesperrt) und hebt für sie zusätzlich die „Sichtbar für"-Einschränkung einzelner Profile auf, praktisch um die gesamte Website unkompliziert nur für sich selbst in einen Testmodus zu versetzen.
+- **Zugriff & Sicherheit**: öffentlicher API-Endpunkt, Rate-Limit/Nachrichtenlängen, Datenschutz-/Spam-Filter sowie der IP-Testmodus (siehe „Sicherheit und Zugriff" unten).
 - **KI-Provider & Parameter**: Provider-Auswahl/Zugangsdaten, Verbindungstest, Timeout/Temperature/Token-Limit sowie das (rein globale) SSE-Streaming.
 - **Indexierungs-Quellen**: die Vektor-Retrieval-Statusbox (samt „Neu prüfen"), ein Schalter für Live-Reindexierung, ein Schalter zur Respektierung der yrewrite-SEO-Einstellungen sowie die Aktivierung optionaler, profilunabhängiger Content-Provider (aktuell „forcal" für Kalendereinträge) inklusive dessen forcal-spezifischer Felder. Die eigentliche Wissensauswahl (Sitemap, Struktur, YForm, PDFs) erfolgt ausschließlich je Profil (siehe oben).
 - **Systemcheck**: Server-/Voraussetzungs-Diagnose (PHP-/REDAXO-Version, PDF-Extraktion, Hintergrund-Indexierung, native Vektorsuche, KI-Provider) an einer Stelle statt verstreuter Fehlermeldungen.
@@ -602,13 +533,13 @@ fetch('/index.php?rex-api-call=ai_chat_query', {
 ### FAQ
 
 **Die KI antwortet trotz vorhandenem Inhalt mit „weiß ich nicht" – woran liegt's?**
-Meist am RAG-Kandidatenfenster (siehe „Indexierung" oben): ist es kleiner als die Gesamtzahl indexierter Chunks (ohne natives Vektor-Retrieval relevant), bleiben ältere/seltener aktualisierte Inhalte beim Vergleich unberücksichtigt. Button „RAG-Kandidatenfenster automatisch optimieren" auf der Indexierungs-Übersicht nutzen. Zweithäufigste Ursache: der Inhalt liegt in keiner der Sitemap-Gruppen/Struktur-Bereiche/YForm-Mappings/PDF-Auswahlen, die das gerade aktive Profil durchsucht.
+Meist am zu kleinen RAG-Kandidatenfenster (siehe „Indexierung" oben) – Button „RAG-Kandidatenfenster automatisch optimieren" nutzen. Zweithäufigste Ursache: der Inhalt liegt in keiner der Quellen, die das aktive Profil durchsucht.
 
 **Ich habe die Chunk-Größe/Kategorie-Pfad/Metainfo-Felder geändert – warum wirkt sich das nicht auf bestehende Antworten aus?**
 Diese Einstellungen fließen nur in den Embedding-Text neu indexierter Inhalte ein, nie rückwirkend. Nach einer solchen Änderung ist ein vollständiger Reindex nötig (Button „Jetzt indexieren"/„Im Hintergrund indexieren" oder `php redaxo/bin/console ai_chat:reindex`).
 
 **Ich habe den KI-Provider gewechselt – der Chat antwortet plötzlich unsinnig oder gar nicht mehr.**
-Unterschiedliche Embedding-Modelle liefern unterschiedliche Vektor-Dimensionen – alte und neue Vektoren sind nicht miteinander vergleichbar. Nach jedem Provider-/Modellwechsel den kompletten Index leeren und neu aufbauen, kein inkrementelles Update.
+Unterschiedliche Embedding-Modelle liefern unterschiedliche Vektor-Dimensionen (siehe „Best Practices" oben) – nach jedem Provider-/Modellwechsel den Index vollständig neu aufbauen.
 
 **Kann ich mehrere Sprachen gleichzeitig anbieten?**
 Ja, über mehrere Profile: je eines pro Sprache/Domain, mit eigener Zielgruppen-Einstellung (Domain/Sprache), eigenem `ui-language` für die Widget-Oberfläche und optional eigener Antwortsprache für die KI-Antworten selbst (unabhängig voneinander einstellbar).
@@ -643,6 +574,71 @@ rex_extension::register('AI_CHAT_CONTENT_PROVIDERS', function (rex_extension_poi
 Das ist der vorgesehene Weg für Fälle wie GitHub-Repo- oder Addon-Dokumentations-Indexierung: ein Dritt-Addon meldet dafür einfach einen eigenen `ContentProviderInterface` an, statt auf ein Core-Feature angewiesen zu sein.
 
 Weitere Extension Points: `AI_CHAT_REGISTER_PROVIDERS` (eigene KI-Provider-Implementierung unter einem eigenen Schlüssel), `AI_CHAT_PROFILE_CANDIDATES` (Profil-Auswahl vor der finalen Entscheidung filtern/umsortieren) und `AI_CHAT_WIDGET_TRANSLATIONS` (zusätzliche Sprachen/Schlüssel für die Widget-Oberfläche nachliefern, ohne den Core-Ordner anzufassen).
+
+### Ablauf im Überblick
+
+Zwei getrennte Abläufe: **Indexierung** passiert bei jeder Neuindizierung, **Abruf & Antwort** bei jeder einzelnen Chat-/Suchanfrage.
+
+**Indexierung** (je Profil):
+
+```
+Quelle: Struktur / Sitemap / YForm / PDF
+                │
+                ▼
+Text extrahieren und bereinigen
+                │
+                ▼
+Zusatz-Kontext anreichern
+(JSON-LD, Kategorie-Pfad, Metainfo-Felder)
+                │
+                ▼
+In Chunks zerlegen (Größe/Overlap konfigurierbar)
+                │
+                ▼
+Embedding je Chunk erzeugen
+                │
+                ▼
+Index (Vektor + Text + Metadaten)
+```
+
+**Abruf & Antwort** (bei jeder Chat-Anfrage):
+
+```
+Nutzerfrage
+    │
+    ▼
+Datenschutz-Guard: sensible Daten erkannt? ──ja──▶ Warnung an Nutzer,
+    │                                              keine KI-Anfrage
+    │ nein
+    ▼
+Retrieval-Anfrage aus Frage + letzten Gesprächsturns bilden
+    │
+    ▼
+Embedding der Anfrage erzeugen
+    │
+    ▼
+Vektorsuche im Index (Profil-Scope, Kandidatenfenster)
+    │
+    ▼
+Stichwort-Fallback ergänzt fehlende Kandidaten (Hybrid-Anteil)
+    │
+    ▼
+Re-Ranking: Similarity + Stichwort-Überdeckung
+    │
+    ▼
+Top-Kontext auswählen (RAG-Kandidatenzahl)
+    │
+    ▼
+Prompt aus System-Prompt + Kontext + Frage
+    │
+    ▼
+KI-Provider generiert Antwort
+    │
+    ▼
+Antwort + Quellenangaben an Nutzer
+```
+
+Die reine **Suche** überspringt die Prompt-/KI-Schritte und zeigt direkt die Trefferliste; eine optionale KI-Zusammenstellung über mehrere Bereiche hinweg läuft dort separat nachgeladen (siehe Einzelfeature „Suche" oben).
 
 ### Architekturhinweise
 
