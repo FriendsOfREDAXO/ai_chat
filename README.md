@@ -147,6 +147,8 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick, 
 4. Chat/Suche je Profil aktivieren (Standard: beide automatisch aktiv, siehe „Chat automatisch einbinden"/„Suche automatisch einbinden" auf der jeweiligen Profil-Seite).
 5. Optional weitere Profile anlegen, Statistikseite und Demo-/Beispielbereich prüfen.
 
+**Deinstallation löscht unwiderruflich alle Addon-Tabellen** – Profile, Trigger, Themes, Index, Cache und Statistik. Vor dem Deinstallieren ggf. ein Datenbank-Backup ziehen.
+
 ### API-Provider
 
 **Google Gemini** – API-Key aus Google AI Studio, passendes Modell und Embedding-Variante wählen.

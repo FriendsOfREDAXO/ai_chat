@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Hinzugefügt
+- **`uninstall.php`**: Deinstallieren entfernt jetzt vollständig alle
+  Addon-Tabellen (`ai_chat_index`, `ai_chat_cache`, `ai_chat_triggers`,
+  `ai_chat_retrieval_log`, `ai_chat_profile`, `ai_chat_theme`, `ai_chat_stats`,
+  `ai_chat_ratelimit`) statt sie stillschweigend zurückzulassen (bisheriges
+  Verhalten ohne `uninstall.php`) - bewusste Entscheidung, auch auf Kosten
+  eines unwiderruflichen Verlusts der Profil-/Trigger-/Theme-Konfiguration bei
+  einer Deinstallation. `rex_config` wird bereits vom REDAXO-Core automatisch
+  geleert, unabhängig davon.
+
 ### Behoben
 - **Installation schlug mit "Unknown column 'suggest_followup_questions'" fehl,
   wenn eine ältere `ai_chat`-Version zuvor deinstalliert (nicht: die Tabellen
