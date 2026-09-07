@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### Hinzugefügt
+- **`aichatignore`-Klassenkonvention**: ein Element mit `class="aichatignore"`
+  (auf beliebigem Tag, beliebig tief verschachtelt) wird bei der Indexierung
+  vollständig entfernt - praktisch für wiederkehrende Boilerplate ohne
+  passendes semantisches `<nav>`/`<footer>`-Tag (z.B. ein Offcanvas-Menü),
+  ohne dafür einen CSS-Selektor konfigurieren zu müssen. Einfach die Klasse im
+  eigenen Website-Template setzen.
+
+### Geändert
+- **Mindestanforderung auf PHP ≥ 8.4 angehoben.** `IndexerService` nutzt jetzt
+  durchgängig die spec-konforme `Dom\HTMLDocument`/`Dom\XPath`-API aus PHP 8.4
+  statt der alten libxml-basierten `DOMDocument` - u.a. Grundlage für die neue
+  `aichatignore`-Konvention (verlässliche, tief verschachtelte
+  class-basierte Elementsuche/-entfernung, mit reiner Regex nicht robust
+  balancierbar). Nebeneffekt: der bisherige `<?xml encoding="utf-8" ?>`-Hack
+  für UTF-8 entfällt (der `overrideEncoding`-Parameter der neuen API
+  übernimmt das direkt), und HTML5-Parsing ist jetzt spec-konform statt der
+  alten, lockeren libxml-HTML4-Heuristik.
+
 ## [2.0.0] - 2026-09-06
 
 ### Dokumentation

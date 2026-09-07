@@ -558,9 +558,15 @@ class IndexerService
             $html = $response->getBody();
             if (empty($html)) return 0;
 
-            // Simple HTML to text
-            $dom = new \DOMDocument();
-            @$dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+            // Simple HTML to text - spec-konforme HTML5-Parser-API aus PHP 8.4 (siehe
+            // stripIgnoredElements()-Docblock), kein "<?xml encoding>"-Hack fuer UTF-8 mehr
+            // noetig. try/catch statt @-Fehlerunterdrueckung: eine einzelne kaputte Seite
+            // (z.B. voellig fehlerhafte Bytes) soll den ganzen Indexierungslauf nicht abbrechen.
+            try {
+                $dom = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR | \Dom\HTML_NO_DEFAULT_NS, 'UTF-8');
+            } catch (\Throwable) {
+                return 0;
+            }
 
             // Try to find title
             $title = '';
@@ -575,7 +581,7 @@ class IndexerService
             // settings.indexing.php): immer den kompletten <body> extrahieren, cleanText()
             // filtert Navigation/Footer/Skripte etc. bereits generisch heraus.
             $body = $dom->getElementsByTagName('body')->item(0);
-            $sourceHtml = $body ? (string) $dom->saveHTML($body) : (string) $html;
+            $sourceHtml = $body ? $dom->saveHTML($body) : (string) $html;
 
             $cleanText = $this->cleanText($sourceHtml);
 
@@ -922,6 +928,52 @@ class IndexerService
     }
 
     /**
+     * Entfernt jedes Element mit der Klasse "aichatignore" (auf beliebigem Tag, beliebig tief
+     * verschachtelt) komplett aus dem HTML - siehe Aufrufstelle in cleanText() fuer die
+     * Konvention selbst. Nutzt die spec-konforme HTML5-Parser-API aus PHP 8.4 (Dom\HTMLDocument/
+     * Dom\XPath, siehe package.yml requires.php) statt der alten libxml-basierten DOMDocument -
+     * kein "<?xml encoding>"-Hack fuer UTF-8 mehr noetig (overrideEncoding-Parameter uebernimmt
+     * das), und eine class-basierte Entfernung mit ggf. verschachtelten gleichnamigen Tags (z.B.
+     * <div class="aichatignore"><div>...</div></div>) laesst sich per XPath-Match samt
+     * Teilbaum-Entfernung zuverlaessig balancieren, mit einer einzelnen Regex nicht.
+     */
+    private function stripIgnoredElements(string $html): string
+    {
+        if (!str_contains($html, 'aichatignore')) {
+            return $html;
+        }
+
+        $doc = \Dom\HTMLDocument::createFromString(
+            '<div id="ai-chat-ignore-root">' . $html . '</div>',
+            LIBXML_NOERROR | \Dom\HTML_NO_DEFAULT_NS,
+            'UTF-8',
+        );
+
+        $xpath = new \Dom\XPath($doc);
+        $ignoredNodes = $xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' aichatignore ')]");
+
+        if (0 === $ignoredNodes->length) {
+            return $html;
+        }
+
+        foreach (iterator_to_array($ignoredNodes) as $node) {
+            $node->parentNode?->removeChild($node);
+        }
+
+        $root = $xpath->query("//div[@id='ai-chat-ignore-root']")->item(0);
+        if (!$root instanceof \Dom\Element) {
+            return $html;
+        }
+
+        $result = '';
+        foreach (iterator_to_array($root->childNodes) as $child) {
+            $result .= $doc->saveHTML($child);
+        }
+
+        return $result;
+    }
+
+    /**
      * Cleans HTML/Text from noisy elements like scripts, styles, navigation, etc.
      */
     private function cleanText(string $text): string
@@ -930,6 +982,14 @@ class IndexerService
         // Daten können nicht wie Fließtext "verschmelzen", da jede Person/Rolle ein eigenes,
         // in sich abgeschlossenes JSON-Objekt ist - deutlich robuster als Prosa-Parsing.
         $jsonLdFacts = $this->extractJsonLdFacts($text);
+
+        // 0b. Elemente mit der Klasse "aichatignore" entfernen - eine im Website-Template
+        // selbst gesetzte, addon-weite Konvention fuer Redakteure/Entwickler, um beliebige
+        // wiederkehrende Boilerplate-Bloecke (z.B. eine Offcanvas-/Sidebar-Navigation ohne
+        // passendes semantisches <nav>-Tag, siehe Schritt 1 unten) gezielt von der
+        // Indexierung auszuschliessen, ohne dafuer einen CSS-Selektor konfigurieren zu
+        // muessen - einfach <div class="aichatignore">...</div> um den Block setzen.
+        $text = $this->stripIgnoredElements($text);
 
         // 1. Remove obvious non-content blocks (with closing tag)
         $excludeTags = [

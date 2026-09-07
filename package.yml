@@ -4,7 +4,7 @@ author: 'KLXM Crossmedia GmbH'
 supportpage: https://github.com/FriendsOfRedaxo/ai_chat
 
 requires:
-    php: '>=8.1'
+    php: '>=8.4'
     redaxo: '^5.20.0'
 
 page:
