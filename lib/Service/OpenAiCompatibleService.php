@@ -191,31 +191,27 @@ class OpenAiCompatibleService implements AiServiceInterface
     }
 
     /**
-     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * Baut den System-Prompt-Text OHNE Kontext/ANWEISUNG-Block (siehe
+     * buildChatCompletionPayload() fuer die vollstaendige Zusammensetzung) -
+     * oeffentlich, damit die Systemprompt-Transparenz-Ansicht (siehe pages/profiles.php)
+     * den fuer diesen Provider TATSAECHLICH genutzten Text zeigen kann, ohne einen echten
+     * API-Call auszuloesen. Bewusst weiterhin dupliziert statt auf PromptBuilder::
+     * buildSystemPrompt() umgestellt (siehe TODO.md "Direkte Provider vereinheitlichen") -
+     * reine Extraktion der bestehenden Logik, kein Verhaltens-Refactoring.
+     *
      * @param array<string, mixed>|null $personalization
-     * @return array<string, mixed>
      */
-    private function buildChatCompletionPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    public function buildSystemPromptText(?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): string
     {
-        // Construct context with clear delimiters
-        $contextText = "Hier ist der relevante Kontext für die Beantwortung der Frage:\n";
-        $contextText .= "--------------------------------------------------\n";
-        foreach ($context as $i => $item) {
-            $bracket = PromptBuilder::formatSourceLabelBracket($item);
-            $header = 'DOKUMENT ' . ($i + 1) . ('' !== $bracket ? ' ' . $bracket : '') . ':';
-            $contextText .= $header . "\n" . $item['content'] . "\n";
-            $contextText .= "--------------------------------------------------\n";
-        }
-
         $systemPrompt = "Wichtiger Zeit-Kontext: " . SystemToolService::getDateTimeContext() . "\n\n";
 
         // Profil-eigener Prompt geht vor der globalen Einstellung.
         $addon = rex_addon::get('ai_chat');
         $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
         if (!empty($customPrompt)) {
-            $systemPrompt = $customPrompt;
+            $systemPrompt .= $customPrompt;
         } else {
-            $systemPrompt = "Du bist ein hilfreicher Assistent für diese Website. Nutze den bereitgestellten Kontext um die Frage des Nutzers zu beantworten.";
+            $systemPrompt .= "Du bist ein hilfreicher Assistent für diese Website. Nutze den bereitgestellten Kontext um die Frage des Nutzers zu beantworten.";
         }
 
         $addressingMode = $addressingModeOverride ?? 'auto';
@@ -249,8 +245,38 @@ class OpenAiCompatibleService implements AiServiceInterface
             $systemPrompt .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
         }
 
-        $instruction = "\n\nANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();
-        
+        return $systemPrompt;
+    }
+
+    /**
+     * Der "ANWEISUNG:"-Block, den buildChatCompletionPayload() hinter Kontext anhaengt -
+     * oeffentlich aus demselben Grund wie buildSystemPromptText() (siehe dort).
+     */
+    public function buildInstructionText(?string $answerLanguageOverride = null): string
+    {
+        return "ANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();
+    }
+
+    /**
+     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * @param array<string, mixed>|null $personalization
+     * @return array<string, mixed>
+     */
+    private function buildChatCompletionPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    {
+        // Construct context with clear delimiters
+        $contextText = "Hier ist der relevante Kontext für die Beantwortung der Frage:\n";
+        $contextText .= "--------------------------------------------------\n";
+        foreach ($context as $i => $item) {
+            $bracket = PromptBuilder::formatSourceLabelBracket($item);
+            $header = 'DOKUMENT ' . ($i + 1) . ('' !== $bracket ? ' ' . $bracket : '') . ':';
+            $contextText .= $header . "\n" . $item['content'] . "\n";
+            $contextText .= "--------------------------------------------------\n";
+        }
+
+        $systemPrompt = $this->buildSystemPromptText($personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
+        $instruction = "\n\n" . $this->buildInstructionText($answerLanguageOverride);
+
         $fullSystemPrompt = $systemPrompt . "\n\n" . $contextText . $instruction;
 
         $addon       = rex_addon::get('ai_chat');

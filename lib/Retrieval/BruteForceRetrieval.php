@@ -16,7 +16,7 @@ use rex_sql;
  */
 final class BruteForceRetrieval implements RetrievalStrategyInterface
 {
-    public function findCandidates(array $userEmbedding, string $whereSql, array $whereParams, int $candidateLimit): array
+    public function findCandidates(array $userEmbedding, string $whereSql, array $whereParams, int $candidateLimit, ?string $searchText = null): array
     {
         $queryMagnitude = VectorMath::magnitude($userEmbedding);
 

@@ -10,7 +10,7 @@ Ein Profil-System erlaubt mehrere thematisch, sprachlich oder nach Zielgruppe ge
 
 - Frontend-Suche und Frontend-Chat für Website-Besucher
 - Mehrere, vollständig isolierte Profile mit eigenem Wissens-Scope, Zielgruppe, Prompt, Anrede/Antwortsprache und Theme
-- Google Gemini, Cloudflare Workers AI, OpenAI-kompatible Endpunkte sowie optional `ai_platform` als gemeinsame Provider-Verwaltung
+- `ai_platform` als empfohlene, gemeinsame Provider-Verwaltung – alternativ direkt Google Gemini, Cloudflare Workers AI oder OpenAI-kompatible Endpunkte (veraltet, bleiben aber vollständig funktionsfähig)
 - Natives Vektor-Retrieval auf MariaDB 11.7+/11.8+, automatischer PHP-Fallback auf älteren Versionen oder MySQL
 - Indexierung je Profil aus Sitemaps, Struktur-Bereichen, YForm-Tabellen, PDFs/Medienpool sowie weiteren Content-Providern per Extension Point
 - Missbrauchsschutz: Prompt-Injection-/Jailbreak-Erkennung, automatisches Gesprächsende bei wiederholten Angriffen, optionale Meldung an `upkeep`
@@ -152,13 +152,15 @@ Eigene Backend-Seite mit Auswertung zu Such- und Chat-Aktivitäten: Überblick, 
 
 ### API-Provider
 
+**`ai_platform` (empfohlen)** – ist dieses FriendsOfREDAXO-Addon zusätzlich installiert, lässt sich dessen zentrale, providerübergreifende Provider-Verwaltung nutzen statt eigener API-Keys je Addon. Neue Provider-Integrationen und Verbesserungen fließen künftig vorrangig hierhin.
+
+Die folgenden drei direkten Provider sind **veraltet** (bleiben vollständig funktionsfähig, werden aber nicht mehr aktiv weiterentwickelt – für neue Installationen empfiehlt sich `ai_platform`):
+
 **Google Gemini** – API-Key aus Google AI Studio, passendes Modell und Embedding-Variante wählen.
 
 **Cloudflare Workers AI** – Cloudflare-Account mit aktiviertem Workers AI, Account-ID und Token konfigurieren.
 
 **OpenAI-kompatibel** – funktioniert mit Ollama, OpenWebUI, LM Studio oder selbstgehosteten OpenAI-ähnlichen APIs. Wichtig: korrekte Base-URL (typisch `https://ai.domain.tld/api/` oder `.../api/v1/`), API-Key nur falls vom Dienst gefordert, passendes Chat- und Embedding-Modell (nach einem Wechsel Index neu aufbauen, siehe „Best Practices" unten).
-
-**`ai_platform`** – ist dieses FriendsOfREDAXO-Addon zusätzlich installiert, lässt sich dessen zentrale Provider-Verwaltung nutzen statt eigener API-Keys je Addon.
 
 ### Wichtige Settings
 

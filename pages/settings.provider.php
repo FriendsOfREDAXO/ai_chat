@@ -26,14 +26,24 @@ $field = $form->addSelectField('provider');
 $field->setLabel($addon->i18n('config_provider'));
 $field->setAttribute('class', 'selectpicker');
 $select = $field->getSelect();
-$select->addOption('Google Gemini', 'gemini');
-$select->addOption('Cloudflare Workers AI', 'cloudflare');
-$select->addOption('OpenWebUI / OpenAI Compatible', 'openai');
+// ai_platform ist der empfohlene Weg (zentrale KI-Provider-Verwaltung, keine eigenen
+// API-Keys in diesem Addon) - deshalb zuerst gelistet, wenn verfuegbar. Die drei
+// direkten Provider bleiben vollstaendig funktionsfaehig (siehe README "Provider"),
+// sind aber als veraltet gekennzeichnet: neue Provider-spezifische Verbesserungen
+// (siehe TODO.md) fliessen kuenftig vorrangig in ai_platform statt hier dupliziert
+// zu werden.
 $aiPlatformAvailable = rex_addon::get('ai_platform')->isAvailable() && class_exists(\FriendsOfRedaxo\AiPlatform\Service::class);
 if ($aiPlatformAvailable) {
-    $select->addOption('ai_platform-Addon (gemeinsame KI-Provider-Verwaltung)', 'ai_platform');
+    $select->addOption('ai_platform-Addon (empfohlen, gemeinsame KI-Provider-Verwaltung)', 'ai_platform');
 }
+$select->addOption('Google Gemini (veraltet, empfohlen: ai_platform)', 'gemini');
+$select->addOption('Cloudflare Workers AI (veraltet, empfohlen: ai_platform)', 'cloudflare');
+$select->addOption('OpenWebUI / OpenAI Compatible (veraltet, empfohlen: ai_platform)', 'openai');
 $field->setAttribute('id', 'klxm-provider-select');
+
+if (!$aiPlatformAvailable) {
+    $form->addRawField('<p class="help-block"><i class="rex-icon fa-info-circle"></i> ' . $addon->i18n('config_ai_platform_recommendation_hint') . '</p>');
+}
 
 // Gemini
 $form->addRawField('<div id="gemini-settings" class="klxm-provider-settings">');

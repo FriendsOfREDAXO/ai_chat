@@ -22,11 +22,14 @@ require __DIR__ . '/settings.shared.php';
  */
 
 $provider = (string) $addon->getConfig('provider', 'gemini');
+// Konsistente Kennzeichnung mit dem Provider-Select auf settings.provider.php - die
+// drei direkten Provider sind veraltet (empfohlen: ai_platform), bleiben aber
+// vollstaendig funktionsfaehig.
 $providerLabels = [
-    'gemini' => 'Google Gemini',
-    'cloudflare' => 'Cloudflare Workers AI',
-    'openai' => 'OpenWebUI / OpenAI-kompatibel',
-    'ai_platform' => 'ai_platform-Addon',
+    'gemini' => 'Google Gemini (veraltet)',
+    'cloudflare' => 'Cloudflare Workers AI (veraltet)',
+    'openai' => 'OpenWebUI / OpenAI-kompatibel (veraltet)',
+    'ai_platform' => 'ai_platform-Addon (empfohlen)',
 ];
 $providerLabel = $providerLabels[$provider] ?? $provider;
 

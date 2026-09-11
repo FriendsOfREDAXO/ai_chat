@@ -1,8 +1,14 @@
 <?php
 
+// Vor dem ersten ensure() auf ai_chat_index pruefen, ob die Tabelle bereits existiert -
+// unterscheidet zuverlaessig "frische Installation" von "Update einer bestehenden
+// Installation" (gleiches Muster wie die $profileTable->exists()-Checks weiter unten).
+// Wird fuer den hybrid_search_enabled-Default direkt im Anschluss benoetigt.
+$indexTableExistedBefore = rex_sql_table::get(rex::getTable('ai_chat_index'))->exists();
+
 rex_sql_table::get(rex::getTable('ai_chat_index'))
     ->ensurePrimaryIdColumn()
-    ->ensureColumn(new rex_sql_column('source_type', 'varchar(50)')) // 'article', 'pdf', 'addon_docs'
+    ->ensureColumn(new rex_sql_column('source_type', 'varchar(50)')) // 'article', 'pdf', 'sitemap_url', 'forcal_entry', ...
     ->ensureColumn(new rex_sql_column('source_id', 'varchar(255)')) // Changed to varchar to support file paths/identifiers
     ->ensureColumn(new rex_sql_column('title', 'varchar(255)'))
     ->ensureColumn(new rex_sql_column('content', 'text'))
@@ -23,7 +29,33 @@ rex_sql_table::get(rex::getTable('ai_chat_index'))
     ->ensureColumn(new rex_sql_column('source_label', 'varchar(190)', true))
     ->ensureIndex(new rex_sql_index('source', ['source_type', 'source_id']))
     ->ensureIndex(new rex_sql_index('profile_source', ['profile_id', 'source_type']))
+    // Fuer Hybrid-Search (Reciprocal Rank Fusion, siehe HybridRrfRetrieval): MariaDBs
+    // natives Volltext-Ranking (MATCH() AGAINST()) als zweite, zum Vektor-Ranking
+    // komplementaere Rangliste. Regulaerer, von rex_sql_index nativ unterstuetzter
+    // Index-Typ - kein Bypass wie bei der VECTOR(n)-Spalte (siehe VectorIndexInstaller)
+    // noetig.
+    ->ensureIndex(new rex_sql_index('content_fulltext', ['title', 'content'], rex_sql_index::FULLTEXT))
     ->ensure();
+
+// hybrid_search_enabled-Default: NUR bei einer frischen Installation automatisch auf
+// "an" setzen, damit neue Installationen sofort mit der besseren Konfiguration starten.
+// Bestehende Installationen, die den Schluessel noch nie gesetzt haben, bleiben nach
+// einem Addon-Update bewusst unveraendert (kein ueberraschender Antwortwechsel) - dafuer
+// gehoert dieser Default NICHT in default_config/package.yml (das wuerde getConfig(...,
+// $default) global auf true ziehen), sondern ausschliesslich in diese einmalige Weiche.
+// rex_config::get() ohne Default-Parameter liefert null, wenn der Schluessel nie gesetzt
+// wurde - das unterscheidet zuverlaessig "nie beruehrt" von "explizit auf false gesetzt".
+if (!$indexTableExistedBefore && null === rex_config::get('ai_chat', 'hybrid_search_enabled')) {
+    rex_config::set('ai_chat', 'hybrid_search_enabled', true);
+}
+
+// Cached, ob der FULLTEXT-Index tatsaechlich existiert (ensureIndex() oben ist idempotent
+// und synchron - der Index ist an dieser Stelle garantiert vorhanden). Wird von
+// ChatQueryService::resolveRetrievalStrategy() gelesen, um HybridRrfRetrieval nur zu
+// waehlen, wenn der Index wirklich da ist (z.B. nach einem Downgrade auf eine aeltere
+// Addon-Version ohne diesen install.php-Schritt waere das Flag sonst veraltet - wird bei
+// jedem erneuten install.php-Lauf/Reinstall neu gesetzt).
+rex_config::set('ai_chat', 'fulltext_index_ready', true);
 
 rex_sql_table::get(rex::getTable('ai_chat_cache'))
     ->ensurePrimaryIdColumn()
@@ -104,6 +136,10 @@ rex_sql_table::get(rex::getTable('ai_chat_retrieval_log'))
     ->ensureColumn(new rex_sql_column('context_count', 'int', false, '0'))
     ->ensureColumn(new rex_sql_column('sufficient_context', 'tinyint(1)', false, '0'))
     ->ensureColumn(new rex_sql_column('rerank_enabled', 'tinyint(1)', false, '0'))
+    // Ob die Hybrid-Search-Strategie (HybridRrfRetrieval) fuer diese Anfrage aktiv war -
+    // context_json enthaelt dazu passend pro Kontext-Item fulltext_rank/vector_rank/
+    // rrf_score_raw, wenn dieses Flag gesetzt ist.
+    ->ensureColumn(new rex_sql_column('hybrid_search_used', 'tinyint(1)', false, '0'))
     ->ensureColumn(new rex_sql_column('context_json', 'mediumtext', true))
     ->ensureColumn(new rex_sql_column('profile_id', 'int(10) unsigned', true))
     ->ensureColumn(new rex_sql_column('created_at', 'datetime'))

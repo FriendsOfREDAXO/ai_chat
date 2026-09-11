@@ -9,6 +9,7 @@ use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileResolver;
 use FriendsOfRedaxo\AiChat\Retrieval\BruteForceRetrieval;
+use FriendsOfRedaxo\AiChat\Retrieval\HybridRrfRetrieval;
 use FriendsOfRedaxo\AiChat\Retrieval\NativeVectorRetrieval;
 use FriendsOfRedaxo\AiChat\Retrieval\RetrievalStrategyInterface;
 use FriendsOfRedaxo\AiChat\Retrieval\VectorMath;
@@ -850,13 +851,14 @@ class ChatQueryService
             }
         }
 
-        // Strategie einmal pro Aufruf waehlen: natives MariaDB-Vektor-Retrieval, wenn
-        // verfuegbar (siehe VectorCapability - ab 11.7/11.8, Spalte/Index werden beim
-        // Indexieren gepflegt), sonst die immer verfuegbare PHP-Brute-Force-Variante.
-        // Beide bekommen exakt dasselbe WHERE-Fragment, damit Scope-/Profil-/URL-Filterung
-        // nicht unabhaengig voneinander gepflegt werden muss.
+        // Strategie einmal pro Aufruf waehlen: Hybrid-Search (RRF), natives MariaDB-
+        // Vektor-Retrieval oder die immer verfuegbare PHP-Brute-Force-Variante (siehe
+        // resolveRetrievalStrategy()). Alle drei bekommen exakt dasselbe WHERE-Fragment,
+        // damit Scope-/Profil-/URL-Filterung nicht unabhaengig voneinander gepflegt
+        // werden muss. $message wird nur von HybridRrfRetrieval genutzt (Volltext-
+        // Ranking), die anderen beiden ignorieren den Parameter.
         $strategy = $this->resolveRetrievalStrategy();
-        $results = $strategy->findCandidates($userEmbedding, $whereSql, $params, $candidateLimit);
+        $results = $strategy->findCandidates($userEmbedding, $whereSql, $params, $candidateLimit, $message);
 
         $labelDescriptions = $this->buildSourceLabelDescriptions($profile);
         $timelyLabels = $this->buildTimelyLabelSet($profile);
@@ -929,7 +931,11 @@ class ChatQueryService
 
         $uniqueResults = $this->trimLowSignalResults($uniqueResults, $candidateCutoff);
 
-        if ($this->isRerankEnabled() && count($uniqueResults) > $limit) {
+        // HybridRrfRetrieval hat Volltext- und Vektor-Ranking bereits SQL-seitig fusioniert -
+        // die PHP-Heuristik in rerankResults() (normalisierte Similarity + grober
+        // Wort-Ueberdeckungs-Zaehler) wuerde darauf nur ein zweites, redundantes
+        // Re-Ranking mit schwaecheren Signalen legen.
+        if (!$strategy instanceof HybridRrfRetrieval && $this->isRerankEnabled() && count($uniqueResults) > $limit) {
             $uniqueResults = $this->rerankResults($uniqueResults, $message);
         }
 
@@ -1115,7 +1121,29 @@ class ChatQueryService
 
     private function resolveRetrievalStrategy(): RetrievalStrategyInterface
     {
-        return VectorCapability::isSupported() ? new NativeVectorRetrieval() : new BruteForceRetrieval();
+        if (!VectorCapability::isSupported()) {
+            return new BruteForceRetrieval();
+        }
+
+        if ($this->isHybridSearchEnabled() && $this->isFulltextIndexReady()) {
+            return new HybridRrfRetrieval();
+        }
+
+        return new NativeVectorRetrieval();
+    }
+
+    private function isHybridSearchEnabled(): bool
+    {
+        return (bool) rex_addon::get('ai_chat')->getConfig('hybrid_search_enabled', false);
+    }
+
+    // Cached in install.php, sobald der FULLTEXT-Index (siehe HybridRrfRetrieval) erfolgreich
+    // angelegt wurde - schuetzt vor einem stillen SQL-Fehler, falls ein Nutzer den Hybrid-
+    // Search-Schalter auf einer Installation aktiviert, deren install.php diesen Schritt noch
+    // nicht durchlaufen hat (z.B. Downgrade auf eine sehr alte Addon-Version dazwischen).
+    private function isFulltextIndexReady(): bool
+    {
+        return (bool) rex_addon::get('ai_chat')->getConfig('fulltext_index_ready', false);
     }
 
     /**
@@ -2417,7 +2445,7 @@ class ChatQueryService
      * Bewusst nur fuer den einen Aufrufer in process() gedacht, nicht fuer die Keyword-Suche
      * (mode=search) - dort gibt es weder Embeddings noch Re-Ranking zu protokollieren.
      *
-     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, source_label?: string}> $context
+     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, source_label?: string, rrf_score_raw?: float, fulltext_rank?: ?int, vector_rank?: ?int}> $context
      */
     private function logRetrievalDebug(string $scope, ?int $profileId, string $query, array $context, bool $sufficientContext): void
     {
@@ -2426,8 +2454,9 @@ class ChatQueryService
         }
 
         $entries = [];
+        $hybridSearchUsed = false;
         foreach ($context as $item) {
-            $entries[] = [
+            $entry = [
                 'source_type' => $item['source_type'],
                 'source_id' => $item['source_id'],
                 'source_label' => (string) ($item['source_label'] ?? ''),
@@ -2436,6 +2465,18 @@ class ChatQueryService
                 'similarity' => round($item['similarity'], 4),
                 'snippet' => mb_substr($item['content'], 0, 200),
             ];
+
+            // fulltext_rank/vector_rank/rrf_score_raw sind nur gesetzt, wenn dieses Item aus
+            // HybridRrfRetrieval stammt (siehe RetrievalStrategyInterface) - die Keys werden
+            // unveraendert durch findSimilarContent()/ensure*Context*() durchgereicht.
+            if (array_key_exists('rrf_score_raw', $item)) {
+                $hybridSearchUsed = true;
+                $entry['fulltext_rank'] = $item['fulltext_rank'] ?? null;
+                $entry['vector_rank'] = $item['vector_rank'] ?? null;
+                $entry['rrf_score_raw'] = round((float) $item['rrf_score_raw'], 6);
+            }
+
+            $entries[] = $entry;
         }
 
         $table = rex::getTable('ai_chat_retrieval_log');
@@ -2446,6 +2487,7 @@ class ChatQueryService
         $sql->setValue('context_count', count($entries));
         $sql->setValue('sufficient_context', $sufficientContext ? 1 : 0);
         $sql->setValue('rerank_enabled', $this->isRerankEnabled() ? 1 : 0);
+        $sql->setValue('hybrid_search_used', $hybridSearchUsed ? 1 : 0);
         $sql->setValue('context_json', json_encode($entries, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $sql->setValue('profile_id', $profileId);
         $sql->setValue('created_at', date('Y-m-d H:i:s'));
@@ -3042,14 +3084,6 @@ class ChatQueryService
             return '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10.5a2 2 0 0 0 1.414-.586l3.5-3.5A2 2 0 0 0 21 15.5V5a2 2 0 0 0-2-2H5Zm0 2h14v10h-3.5a1.5 1.5 0 0 0-1.5 1.5V20H5V5Zm2 3h8a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2Zm0 4h8a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2Z"/></svg>';
         }
 
-        if ($sourceType === 'addon_docs') {
-            return '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2h11A2.5 2.5 0 0 1 20 4.5v15a1 1 0 0 1-1.447.894L15 18.618l-3.553 1.776a1 1 0 0 1-.894 0L7 18.618l-3.553 1.776A1 1 0 0 1 2 19.5v-15ZM6.5 4a.5.5 0 0 0-.5.5v13.382l1.553-.776a1 1 0 0 1 .894 0L11 18.382l2.553-1.276a1 1 0 0 1 .894 0L17 18.382V4.5a.5.5 0 0 0-.5-.5h-10Zm2.5 3h5a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Zm0 4h6a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"/></svg>';
-        }
-
-        if ($sourceType === 'github_docs') {
-            return '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.162 19.487c.5.092.682-.217.682-.482 0-.237-.009-.867-.014-1.701-2.776.603-3.363-1.338-3.363-1.338-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.607.069-.607 1.003.07 1.53 1.03 1.53 1.03.892 1.53 2.341 1.088 2.91.832.091-.647.349-1.088.635-1.338-2.217-.252-4.551-1.109-4.551-4.937 0-1.09.39-1.983 1.029-2.681-.103-.253-.446-1.272.098-2.65 0 0 .84-.269 2.75 1.024A9.564 9.564 0 0 1 12 6.844a9.56 9.56 0 0 1 2.504.337c1.909-1.293 2.748-1.024 2.748-1.024.546 1.378.203 2.397.1 2.65.64.698 1.028 1.591 1.028 2.681 0 3.837-2.338 4.682-4.562 4.93.359.309.678.918.678 1.85 0 1.336-.012 2.415-.012 2.744 0 .267.18.579.688.481A10.002 10.002 0 0 0 12 2Z"/></svg>';
-        }
-
         if ($sourceType === 'forcal_entry') {
             return '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm13 8H4v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9ZM5 6a1 1 0 0 0-1 1v1h16V7a1 1 0 0 0-1-1H5Z"/></svg>';
         }
@@ -3438,8 +3472,6 @@ class ChatQueryService
             'sitemap_url' => 'Seiten',
             'article' => 'Artikel der Website',
             'forcal_entry' => 'Termine',
-            'addon_docs' => 'AddOn Dokumentation',
-            'github_docs' => 'GitHub Dokumentation',
         ];
 
         $providerLabels = (new ContentProviderRegistry())->getSourceTypeLabels(rex_addon::get('ai_chat'));

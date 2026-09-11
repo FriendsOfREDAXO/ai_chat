@@ -90,31 +90,27 @@ class CloudflareService implements AiServiceInterface
     }
 
     /**
-     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * Baut den kompletten System-Prompt-Text (ohne den angehaengten Kontext, siehe
+     * buildChatPayload()) - oeffentlich, damit die Systemprompt-Transparenz-Ansicht
+     * (siehe pages/profiles.php) den fuer diesen Provider TATSAECHLICH genutzten Text
+     * zeigen kann, ohne einen echten API-Call auszuloesen. Bewusst weiterhin dupliziert
+     * statt auf PromptBuilder::buildSystemPrompt() umgestellt (siehe TODO.md "Direkte
+     * Provider vereinheitlichen") - reine Extraktion der bestehenden Logik, kein
+     * Verhaltens-Refactoring.
+     *
      * @param array<string, mixed>|null $personalization
-     * @return array<string, mixed>
      */
-    private function buildChatPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    public function buildSystemPromptText(?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): string
     {
-        if (empty($this->accountId) || empty($this->apiToken)) {
-            throw new \Exception('Cloudflare Account ID or API Token is missing.');
-        }
-
-        // Construct the prompt with context
-        $contextText = "";
-        foreach ($context as $item) {
-            $contextText .= PromptBuilder::formatContextPrefix($item) . $item['content'] . "\n\n";
-        }
-
         $systemInstruction = "Wichtiger Zeit-Kontext: " . SystemToolService::getDateTimeContext() . "\n\n";
 
         // Profil-eigener Prompt geht vor der globalen Einstellung.
         $addon = rex_addon::get('ai_chat');
         $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
         if (!empty($customPrompt)) {
-            $systemInstruction = $customPrompt;
+            $systemInstruction .= $customPrompt;
         } else {
-            $systemInstruction = "Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.";
+            $systemInstruction .= "Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.";
         }
 
         $addressingMode = $addressingModeOverride ?? 'auto';
@@ -148,7 +144,27 @@ class CloudflareService implements AiServiceInterface
             $systemInstruction .= "\n\nZusätzliche Informationen:\n" . $additionalContext;
         }
 
-        $systemPrompt = $systemInstruction . " Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction() . "\n\n" . $contextText;
+        return $systemInstruction . " Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction();
+    }
+
+    /**
+     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * @param array<string, mixed>|null $personalization
+     * @return array<string, mixed>
+     */
+    private function buildChatPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    {
+        if (empty($this->accountId) || empty($this->apiToken)) {
+            throw new \Exception('Cloudflare Account ID or API Token is missing.');
+        }
+
+        // Construct the prompt with context
+        $contextText = "";
+        foreach ($context as $item) {
+            $contextText .= PromptBuilder::formatContextPrefix($item) . $item['content'] . "\n\n";
+        }
+
+        $systemPrompt = $this->buildSystemPromptText($personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride) . "\n\n" . $contextText;
 
         return [
             'messages' => [

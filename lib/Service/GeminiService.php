@@ -141,18 +141,19 @@ class GeminiService implements AiServiceInterface
     }
 
     /**
-     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * Baut den kompletten System-Prompt-Text (Zeit-Kontext, Custom-Prompt/Default,
+     * Anrede, feste Regeln, Zusatzinfo, Sprach-/Markdown-Anweisung) - oeffentlich, damit
+     * die Systemprompt-Transparenz-Ansicht (siehe pages/profiles.php) den fuer diesen
+     * Provider TATSAECHLICH genutzten Text zeigen kann, ohne einen echten API-Call
+     * auszuloesen. Bewusst weiterhin dupliziert statt auf PromptBuilder::
+     * buildSystemPrompt() umgestellt (siehe TODO.md "Direkte Provider vereinheitlichen") -
+     * diese Methode ist nur eine Extraktion der bestehenden Logik in eine eigene, von
+     * aussen aufrufbare Stelle, kein Verhaltens-Refactoring.
+     *
      * @param array<string, mixed>|null $personalization
-     * @return array<string, mixed>
      */
-    private function buildGenerationPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    public function buildSystemPromptText(?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): string
     {
-        // Construct the prompt with context
-        $contextText = "";
-        foreach ($context as $item) {
-            $contextText .= PromptBuilder::formatContextPrefix($item) . $item['content'] . "\n\n";
-        }
-
         $systemPrompt = "Wichtiger Zeit-Kontext: " . SystemToolService::getDateTimeContext() . "\n\n";
 
         // Ein Profil-eigener Prompt (siehe ChatProfile::$customPrompt) geht vor der
@@ -160,9 +161,9 @@ class GeminiService implements AiServiceInterface
         $addon = rex_addon::get('ai_chat');
             $customPrompt = $systemPromptOverride ?? $addon->getConfig('frontend_prompt');
             if (!empty($customPrompt)) {
-                $systemPrompt = $customPrompt;
+                $systemPrompt .= $customPrompt;
             } else {
-                $systemPrompt = "Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.";
+                $systemPrompt .= "Du bist ein hilfreicher Assistent für diese Website. Nutze den folgenden Kontext, um die Frage des Nutzers zu beantworten.";
             }
 
             $addressingMode = $addressingModeOverride ?? 'auto';
@@ -198,7 +199,25 @@ class GeminiService implements AiServiceInterface
 
         $instruction = "Wenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . " " . PromptBuilder::markdownFormattingInstruction();
 
-        $fullPrompt = $systemPrompt . " " . $instruction . "\n\n" .
+        return $systemPrompt . " " . $instruction;
+    }
+
+    /**
+     * @param array<int, array{content: string, url?: string, title?: string, similarity?: float, source_label?: ?string, source_label_description?: ?string, source_label_is_timely?: bool}> $context
+     * @param array<string, mixed>|null $personalization
+     * @return array<string, mixed>
+     */
+    private function buildGenerationPayload(string $prompt, array $context, string $scope, ?array $personalization, ?string $systemPromptOverride = null, ?string $addressingModeOverride = null, ?string $answerLanguageOverride = null): array
+    {
+        // Construct the prompt with context
+        $contextText = "";
+        foreach ($context as $item) {
+            $contextText .= PromptBuilder::formatContextPrefix($item) . $item['content'] . "\n\n";
+        }
+
+        $systemInstructionText = $this->buildSystemPromptText($personalization, $systemPromptOverride, $addressingModeOverride, $answerLanguageOverride);
+
+        $fullPrompt = $systemInstructionText . "\n\n" .
                       $contextText .
                       "Frage des Nutzers: " . $prompt;
 

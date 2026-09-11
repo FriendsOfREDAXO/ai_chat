@@ -1,5 +1,57 @@
 # Changelog
 
+## [Unreleased]
+
+### Hinzugefügt
+- **Hybrid-Suche (Reciprocal Rank Fusion).** Neue optionale Retrieval-Strategie
+  `HybridRrfRetrieval`, die MariaDBs natives Volltext-Ranking
+  (`MATCH() AGAINST()`, neuer `FULLTEXT INDEX` auf `title`/`content`) mit dem
+  bestehenden Vektor-Ranking (`VEC_DISTANCE_COSINE()`) fusioniert (`1/(k+rank)`-
+  Formel), statt nur eines der beiden zu nutzen - Treffer, die inhaltlich stark,
+  aber embedding-technisch nur mittelmäßig ähnlich sind (z.B. bei exakten
+  Eigennamen/Fachbegriffen), bekommen so eine faire Chance. Ersetzt bei
+  Aktivierung die bisherige PHP-Re-Ranking-Heuristik (kein doppeltes Sortieren).
+  Neuer Schalter „Hybrid-Suche" unter Einstellungen → Chunking & Cache. Nur
+  wirksam mit nativem MariaDB-Vektor-Retrieval (ab 11.7/11.8) - sonst
+  automatischer Rückfall auf die bisherige Vektorsuche + Re-Ranking-Heuristik,
+  kein Bedarf für einen PHP-Fallback-Nachbau. **Bestehende Installationen
+  behalten nach dem Update ihr bisheriges Verhalten** (Opt-in), neue
+  Installationen starten direkt mit aktivierter Hybrid-Suche.
+- **Systemprompt-Transparenz.** Auf der Profil-Seite (Bearbeiten-Ansicht) zeigt
+  ein neues, zugeklapptes Panel "System-Prompt anzeigen (Debug)" den
+  kompletten, für den aktuell konfigurierten KI-Provider TATSÄCHLICH
+  zusammengesetzten System-Prompt des gespeicherten Profils - inklusive der
+  fest im Code verankerten Zusatzregeln (Markdown-Formatierung, Themen-
+  Trennung, etc.), die bisher nirgends im Backend einsehbar waren. Provider-
+  genau: berücksichtigt die jeweils tatsächlich abweichende Payload-Struktur
+  von Gemini/Cloudflare/OpenAI-kompatibel/ai_platform statt nur einer
+  repräsentativen Version.
+
+### Geändert
+- **`ai_platform` ist jetzt der empfohlene Provider, die drei direkten Provider
+  gelten als veraltet.** Google Gemini, Cloudflare Workers AI und OpenAI-
+  kompatibel bleiben vollständig funktionsfähig (kein Breaking Change, keine
+  neue Pflichtabhängigkeit in `package.yml`) - sind aber im Provider-Select
+  (Einstellungen → Provider & Parameter) und in der "Einfach"-Übersicht klar
+  als veraltet gekennzeichnet, `ai_platform` steht bei Verfügbarkeit an erster
+  Stelle. README und Sidebar-Tipps entsprechend aktualisiert.
+
+### Behoben
+- **Fehlender Zeit-Kontext bei Gemini/Cloudflare/OpenAI-kompatibel.** Der
+  System-Prompt-Aufbau dieser drei Provider baute den Satz "Wichtiger
+  Zeit-Kontext: ..." (aktuelles Datum/Uhrzeit), überschrieb ihn aber sofort
+  wieder durch den Custom-/Default-Prompt (`=` statt `.=`) - die KI bekam das
+  aktuelle Datum bei diesen drei Providern nie tatsächlich mitgeteilt, obwohl
+  der Code das vorsah. Nur `ai_platform` (über `PromptBuilder`) war korrekt.
+  Beim Bau der neuen Systemprompt-Transparenz-Ansicht entdeckt und behoben.
+
+### Entfernt
+- **Tote `addon_docs`/`github_docs`-Reste aufgeräumt.** Diese `source_type`-Werte
+  stammten aus dem inzwischen entfernten Developer-Chat (GitHub-/AddOn-Docs-
+  Indexierung) und wurden von nichts mehr erzeugt - die zugehörigen SVG-Icons,
+  Label-Einträge und Doku-Beispiele in den Einstellungs-Hinweistexten waren
+  seitdem funktionslos. Rein kosmetisch, keine Verhaltensänderung.
+
 ## [2.1.1] - 2026-09-11
 
 ### Behoben

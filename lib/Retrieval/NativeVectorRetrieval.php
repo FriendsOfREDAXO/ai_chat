@@ -26,7 +26,7 @@ use rex_sql;
  */
 final class NativeVectorRetrieval implements RetrievalStrategyInterface
 {
-    public function findCandidates(array $userEmbedding, string $whereSql, array $whereParams, int $candidateLimit): array
+    public function findCandidates(array $userEmbedding, string $whereSql, array $whereParams, int $candidateLimit, ?string $searchText = null): array
     {
         $column = VectorIndexInstaller::columnName();
         $vectorLiteral = json_encode(array_values($userEmbedding));

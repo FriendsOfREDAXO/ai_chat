@@ -4,6 +4,7 @@ use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
+use FriendsOfRedaxo\AiChat\Service\AiServiceFactory;
 
 require __DIR__ . '/settings.shared.php';
 
@@ -112,6 +113,33 @@ if ('add' === $func || 'edit' === $func) {
                     $testCopyAttr
                 )
                 . '</div></div>';
+        }
+    }
+
+    // Systemprompt-Transparenz (siehe TODO.md "Feste Systemprompt-Zusatzregeln einsehbar
+    // machen"): zeigt READ-ONLY den kompletten, fuer den aktuell konfigurierten Provider
+    // TATSAECHLICH zusammengesetzten System-Prompt-Text dieses Profils - inklusive der fest
+    // im Code verankerten Zusatzregeln (Markdown-Formatierung, Themen-Trennung, etc.), die
+    // sonst nirgends im Backend einsehbar sind. Bewusst als zugeklapptes <details> statt
+    // permanent sichtbarem Panel - reine Debug-/Transparenz-Hilfe, kein taeglich benoetigtes
+    // Formularfeld. Testet wie das "Profil testen"-Widget oben den GESPEICHERTEN Stand.
+    $systemPromptPreviewHtml = '';
+    if ('edit' === $func && $id > 0) {
+        $previewProfile = (new ProfileRepository())->find($id);
+        if (null !== $previewProfile) {
+            $previewText = AiServiceFactory::previewSystemPrompt(
+                $previewProfile->customPrompt,
+                $previewProfile->addressingMode,
+                $previewProfile->answerLanguage,
+            );
+
+            $systemPromptPreviewHtml = '<div class="panel panel-default">'
+                . '<details>'
+                . '<summary class="panel-heading" style="cursor:pointer;"><div class="panel-title"><i class="rex-icon fa-eye"></i> System-Prompt anzeigen (Debug)</div></summary>'
+                . '<div class="panel-body">'
+                . '<p class="help-block" style="margin-top:0;">Der komplette, für den aktuell konfigurierten KI-Provider tatsächlich gesendete System-Prompt dieses (gespeicherten) Profils - inklusive der fest im Addon verankerten Zusatzregeln. Die Anrede/Personalisierung durch den jeweiligen Besucher (z.B. Name, Du/Sie-Erkennung) ist zur Laufzeit dynamisch und hier nicht simuliert.</p>'
+                . '<pre style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">' . rex_escape($previewText) . '</pre>'
+                . '</div></details></div>';
         }
     }
 
@@ -721,14 +749,16 @@ if ('add' === $func || 'edit' === $func) {
 ');
 
     $content = $form->get();
-    if ('' !== $testWidgetHtml) {
+    $sidebarHtml = $testWidgetHtml . ('' !== $systemPromptPreviewHtml ? '<div style="margin-top:20px;">' . $systemPromptPreviewHtml . '</div>' : '');
+    if ('' !== $sidebarHtml) {
         // Zweispaltig, sobald es ein gespeichertes Profil zu testen gibt: Formular links,
-        // Live-Test rechts - siehe $testWidgetHtml oben (bewusst nicht Teil von $form). Das
+        // Live-Test + System-Prompt-Vorschau rechts - siehe $testWidgetHtml/
+        // $systemPromptPreviewHtml oben (bewusst nicht Teil von $form). Das
         // "row"/"col-md-*"-Grid dieses Backend-Themes ist float-basiert (keine automatische
         // Höhenangleichung der Spalten) - ohne display:flex bliebe die rechte Spalte nur so
         // hoch wie ihr eigener Inhalt und position:sticky hätte dadurch keinen Raum, in dem es
         // beim Scrollen tatsächlich "kleben" könnte (es würde direkt mit hochscrollen).
-        $content = '<div class="row" style="display:flex;flex-wrap:wrap;"><div class="col-md-8" style="min-width:0;">' . $content . '</div><div class="col-md-4" style="min-width:280px;">' . $testWidgetHtml . '</div></div>';
+        $content = '<div class="row" style="display:flex;flex-wrap:wrap;"><div class="col-md-8" style="min-width:0;">' . $content . '</div><div class="col-md-4" style="min-width:280px;">' . $sidebarHtml . '</div></div>';
     }
 
     $fragment = new rex_fragment();

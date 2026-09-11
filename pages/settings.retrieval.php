@@ -126,6 +126,23 @@ if ($isConfigUnset($field->getValue())) {
     $field->setValue(800);
 }
 
+// defaultWhenUnset=false (nicht true wie sonst bei "an sich aktiven" Einstellungen ueblich):
+// die Formular-Voranzeige muss zum tatsaechlichen Laufzeit-Default passen. Ob der Schalter
+// bei einer neuen Installation von Anfang an "an" ist, entscheidet ausschliesslich
+// install.php (rex_config::set() nur bei frischer Installation) - siehe dortiger Kommentar.
+$addBoolSelectField($form, 'hybrid_search_enabled', $addon->i18n('config_hybrid_search_enabled'), $addon->i18n('config_hybrid_search_enabled_notice'), false);
+
+$field = $form->addSelectField('hybrid_search_rrf_k');
+$field->setLabel($tooltipLabel($addon->i18n('config_hybrid_search_rrf_k'), 'config_hybrid_search_rrf_k_notice'));
+$field->setNotice($addon->i18n('config_hybrid_search_rrf_k_notice'));
+$select = $field->getSelect();
+$select->addOption('10 – starke Gewichtung der Top-Treffer', 10);
+$select->addOption('60 – Standard (empfohlen)', 60);
+$select->addOption('100 – gleichmäßigere Gewichtung', 100);
+if ($isConfigUnset($field->getValue())) {
+    $field->setValue(60);
+}
+
 $addBoolSelectField($form, 'rerank_enabled', $addon->i18n('config_rerank_enabled'), $addon->i18n('config_rerank_enabled_notice'), true);
 
 $field = $form->addSelectField('rerank_candidate_count');

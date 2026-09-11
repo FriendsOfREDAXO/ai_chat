@@ -5,24 +5,19 @@ Hauptprofil/globaler Shared Pool, Developer-Chat entfernt - siehe CHANGELOG.md
 für Details). Die alte TODO.md beschrieb ausschließlich den längst
 abgeschlossenen `klxmchat` → `ai_chat`-Rebrand und ist nicht mehr relevant.
 
-## Offene Entscheidung: forcal
+## Entschieden: forcal bleibt global (vorerst)
 
-`forcal` (Kalendereinträge) ist aktuell der letzte verbliebene **globale**,
+`forcal` (Kalendereinträge) bleibt der letzte verbliebene **globale**,
 profil-unabhängige Content-Provider (`ContentProviderRegistry`,
-`Einstellungen → Indexierungs-Quellen`) - ein Rest aus der Zeit vor der
-Profil-Entflechtung. Noch nicht entschieden, wie es weitergehen soll:
-
-- **Option A - global bleiben**: forcal indexiert weiterhin alle
-  Kalendereinträge unabhängig von Profilen (Status quo), Zeilen bekommen
-  `profile_id = NULL` und sind für jedes Profil sichtbar (siehe
-  `ChatQueryService::buildScopeVisibilityWhere()`s Kommentar dazu).
-- **Option B - je Profil**: forcal-Kategorien werden wie Sitemap-/
-  Struktur-Gruppen ein Profil-Feld (welche Kalender-Kategorien DIESES Profil
-  sehen soll), analog zum bereits umgesetzten Muster bei Sitemap-/
-  Struktur-Bereichen. Größerer Umbau: `ForcalContentProvider`,
-  `ChatProfile`, `pages/profiles.php`, `install.php` betroffen.
-
-Bis zur Entscheidung bleibt es wie es ist (Option A, unverändert).
+`Einstellungen → Indexierungs-Quellen`) - Zeilen behalten `profile_id = NULL`
+und sind für jedes Profil sichtbar (siehe
+`ChatQueryService::buildScopeVisibilityWhere()`s Kommentar dazu). Bewusste
+Entscheidung (2026-09-11): **kein** Umbau auf ein Profil-Feld analog zu
+Sitemap-/Struktur-Gruppen. Stattdessen soll die Kalender-Indexierung
+mittelfristig komplett aus `ai_chat` heraus- und ins `forcal`-Addon selbst
+verlagert werden (eigener Content-Provider von dort aus registriert, über
+`AI_CHAT_CONTENT_PROVIDERS` o.ä. - noch nicht spezifiziert). Bis dahin bleibt
+`ForcalContentProvider` unverändert in `ai_chat`.
 
 ## Entschieden: kein natives MySQL-Feature-Parity-Ziel
 
@@ -70,34 +65,23 @@ Noch offen:
   nicht umgesetzt - die Nutzerfrage geht unverändert (nur um die letzten 4
   Gesprächsturns ergänzt) ins Embedding, keine Umformulierung in eine
   präzisere Suchanfrage, keine mehreren Suchvarianten.
-- **Echtes Hybrid-Search via MariaDB Reciprocal Rank Fusion (RRF), statt der
-  aktuellen PHP-Heuristik.** Recherche (2026-09-06, siehe MariaDB-Doku zu
-  Vektoren/RRF sowie nevercodealone.de-Blogpost zu MariaDB Vector) ergab: MariaDB
-  unterstuetzt eine native RRF-Query fuer genau dieses Problem - zwei
-  Kandidaten-CTEs (ein `MATCH() AGAINST()`-Volltext-Ranking, ein
-  `VEC_DISTANCE_COSINE()`-Vektor-Ranking), je mit `RANK() OVER()` bewertet, per
-  `1/(k+rank)`-Formel gemergt (`FULL OUTER JOIN`-Ersatz via `LEFT JOIN` +
-  `UNION` + `IFNULL()`). Das ersetzt `ChatQueryService::rerankResults()`s
-  aktuelle Mischung aus normalisierter Similarity und grobem
-  Stichwort-Treffer-Zaehler (`extractRelevantTokens()`/`tokenMatchesText()`)
-  durch echtes TF-IDF-artiges Volltext-Ranking statt reinem Wort-Overlap -
-  adressiert direkt das dokumentierte "thematisch zufaelliger Treffer schlaegt
-  tatsaechlich passendere Seite"-Problem. Voraussetzungen bereits erfuellt:
-  Instanz laeuft auf MariaDB 11.8.9 (RRF-Window-Functions seit 10.2,
-  `VEC_DISTANCE_COSINE()`/`VECTOR INDEX` seit 11.7 verfuegbar), `embedding_vector`-
-  Spalte + `VECTOR INDEX` existieren bereits (`NativeVectorRetrieval.php`) - es
-  fehlt nur ein `FULLTEXT INDEX` auf `content`/`title` in `ai_chat_index`
-  (aktuell nur BTREE-Indizes, siehe `install.php`), den es noch nie gab (die
-  bisherige Stichwort-Suche in `search()`/`extractSearchTerms()` nutzt reines
-  `LIKE '%term%'`, also ohnehin ungeindext). Aufwand: neue
-  `FULLTEXT INDEX`-Migration, eine neue/erweiterte Retrieval-Strategie-Klasse
-  (nur fuer den ohnehin schon MariaDB-exklusiven `NativeVectorRetrieval`-Pfad,
-  siehe Entscheidung oben - kein Bedarf, das im PHP-Fallback nachzubauen),
-  plus Nachziehen im Retrieval-Log (RRF-Teilscores mitprotokollieren waere fuer
-  die Fehlersuche wertvoll). Zu beachten: der Blogpost nennt ~4096 Dimensionen
-  als praktisch getestete Obergrenze - unsere Embeddings laufen exakt bei
-  4096, also am oberen Rand des Erprobten (aktuell kein bekanntes Problem,
-  aber im Auge behalten).
+- ~~Echtes Hybrid-Search via MariaDB Reciprocal Rank Fusion (RRF)~~ - **umgesetzt
+  (siehe CHANGELOG "Unreleased").** `lib/Retrieval/HybridRrfRetrieval.php`
+  fusioniert `MATCH() AGAINST()`-Volltext-Ranking und `VEC_DISTANCE_COSINE()`-
+  Vektor-Ranking per `1/(k+rank)`-Formel, ersetzt bei Aktivierung
+  `NativeVectorRetrieval` komplett (nicht nur `rerankResults()`) und liefert
+  bereits SQL-seitig fusionierte, auf die bestehende 0-1-Similarity-Skala
+  normalisierte Ergebnisse - `rerankResults()` wird uebersprungen, wenn RRF
+  aktiv ist. Opt-in per Einstellung "Hybrid-Suche" (Chunking & Cache), Default
+  nur bei frischer Installation automatisch an (`install.php`), bestehende
+  Installationen bleiben nach einem Update unveraendert. Live getestet
+  (Vergleich beider Modi per direktem API-Call, Retrieval-Log zeigt
+  `fulltext_rank`/`vector_rank`/`rrf_score_raw` pro Kontext-Item, ein
+  vektoriell schwacher aber lexikalisch starker Treffer schaffte es dank RRF
+  in den Top-5-Kontext). Embedding-Dimension dieser Installation bleibt bei
+  4096 (oberer Rand des in der urspruenglichen Recherche als erprobt
+  genannten Bereichs) - kein Performance-Problem beobachtet, aber weiter im
+  Auge zu behalten.
 - **Token-gated Seiten-Prompts**: Idee verworfen (siehe Diskussion) - Seiten
   sollten der KI eigene Hinweise mitgeben können, nur sichtbar für den
   authentifizierten Crawler (Header-Token). Nicht weiterverfolgt, da der
@@ -106,32 +90,44 @@ Noch offen:
 
 ## Ideen für später
 
-- **Feste Systemprompt-Zusatzregeln einsehbar/erweiterbar machen**: die
-  fest im Code verankerten Zusatzregeln (Markdown-Formatierung,
-  "[Bereich: ...]"-Regel, Metadaten-Zeilen-Regel, Themen-Trennungsregel -
-  siehe CHANGELOG 2026-09-06) sitzen ausschließlich in `PromptBuilder::
-  buildSystemPrompt()`/`markdownFormattingInstruction()`, identisch
-  dupliziert in `GeminiService`/`CloudflareService`/`OpenAiCompatibleService`.
-  Kein Backend-Einblick, keine Möglichkeit, sie pro Profil oder global zu
-  verfeinern/ergänzen, ohne Code zu ändern - bei der Fehlersuche zum
-  "HTML-Codeblock statt Liste"-Fall musste der komplette effektive
-  System-Prompt erst aus dem Code rekonstruiert werden. Idee: (a) eine
-  Einstellungs-/Debug-Seite, die den vollständig zusammengesetzten
-  System-Prompt für ein gewähltes Profil READ-ONLY anzeigt (Transparenz/
-  Fehlersuche), und/oder (b) ein Textfeld für zusätzliche, kuratierte
-  Zusatzregeln - additiv zum "Eigener Prompt"-Feld, nicht ersetzend -, die
-  ohne Codeänderung ergänzt werden können. Berührt dieselbe
-  4-Provider-Duplizierung wie der nächste Punkt - guter Anlass, beides
-  zusammen anzugehen.
-- **Direkte Provider (Gemini/Cloudflare/OpenAI-kompatibel) vereinheitlichen**:
-  bewusst nicht Teil der letzten Entflechtung (Nutzer-Entscheidung: "Provider-
-  Wahl bleibt bestehen"). Falls später doch auf `ai_platform` als einzigen
-  Provider reduziert werden soll, dupliziert sich aktuell noch dieselbe
-  Anrede-Fallback-Logik über vier Klassen (`PromptBuilder`, `GeminiService`,
-  `CloudflareService`, `OpenAiCompatibleService`).
-- **Aufräumen**: `search_source_type_labels`-Default-Konfigurationstext auf
-  bereits laufenden Installationen kann noch `addon_docs=`/`github_docs=`-Zeilen
-  aus der Zeit vor der GitHub-/AddOn-Docs-Entfernung enthalten - rein
-  kosmetisch (Anzeige der Suchfilter-Bezeichnungen), keine Funktion mehr
-  dahinter, aber es lohnt sich, das bei Gelegenheit auf der jeweiligen
-  Installation zu bereinigen.
+- ~~Systemprompt-Transparenz (READ-ONLY-Ansicht)~~ - **umgesetzt (siehe
+  CHANGELOG "Unreleased").** Zugeklapptes Panel auf `pages/profiles.php`
+  ("System-Prompt anzeigen (Debug)") zeigt provider-genau den tatsächlich
+  gesendeten System-Prompt eines gespeicherten Profils
+  (`AiServiceFactory::previewSystemPrompt()`, delegiert an je eine neue
+  `buildSystemPromptText()`-Methode in `GeminiService`/`CloudflareService`/
+  `OpenAiCompatibleService`, bzw. `PromptBuilder::buildSystemPrompt()` fuer
+  `ai_platform`). Dabei einen bereits vorher bestehenden Bug gefunden und
+  behoben: die drei aelteren Provider ueberschrieben den Zeit-Kontext-Satz
+  sofort wieder (`=` statt `.=`), die KI bekam das aktuelle Datum dort nie
+  mitgeteilt. **Noch nicht umgesetzt** (bewusst nicht Teil dieser Aenderung):
+  Teil (b) der urspruenglichen Idee - ein zusaetzliches, kuratiertes
+  Freitextfeld additiv zum "Eigener Prompt". Die zugrunde liegende
+  4-Provider-Textduplizierung (`buildSystemPromptText()` existiert jetzt
+  dreifach fast identisch) bleibt bestehen, siehe naechster Punkt.
+- ~~Direkte Provider (Gemini/Cloudflare/OpenAI-kompatibel) vereinheitlichen~~ -
+  **Nutzer-Entscheidung (2026-09-11): nicht Code-vereinheitlichen, sondern
+  `ai_platform` als empfohlenen Weg kennzeichnen** (siehe CHANGELOG
+  "Unreleased"). Die drei direkten Provider gelten jetzt als veraltet
+  (Provider-Select, "Einfach"-Übersicht, README), bleiben aber vollständig
+  funktionsfähig und unverändert im Code - **kein** Zusammenführen der
+  Anrede-/Prompt-Logik in eine gemeinsame Stelle. `package.yml` bekommt
+  bewusst **keine** Pflichtabhängigkeit auf `ai_platform` (geprüft und
+  verworfen) - Installationen ohne `ai_platform` bleiben unverändert
+  lauffähig. Die 4-fache Textduplizierung (`buildSystemPromptText()` in
+  `PromptBuilder`/`GeminiService`/`CloudflareService`/
+  `OpenAiCompatibleService`) bleibt technisch bestehen, wird aber nicht mehr
+  als zu lösendes Problem verfolgt - die drei älteren Provider bekommen
+  ohnehin keine neuen Features mehr.
+- **Aufräumen (Code-Teil erledigt, siehe CHANGELOG "Unreleased")**: die toten
+  `addon_docs`/`github_docs`-Fallcases in `ChatQueryService::
+  getDefaultSourceTypeIconSvg()`/`getSourceTypeLabels()` sowie die
+  entsprechenden Beispielzeilen in den Einstellungs-Hinweistexten
+  (`lang/de_de.lang`) sind entfernt. **Weiterhin offen**: der
+  `search_source_type_labels`-Konfigurationswert auf bereits laufenden
+  Installationen (individuell in `rex_config` gespeicherter Freitext) kann
+  noch `addon_docs=`/`github_docs=`-Zeilen aus der Zeit vor der
+  GitHub-/AddOn-Docs-Entfernung enthalten - rein kosmetisch (Anzeige der
+  Suchfilter-Bezeichnungen), keine Funktion mehr dahinter, aber lässt sich
+  nicht zentral bereinigen, nur bei Gelegenheit auf der jeweiligen
+  Installation.
