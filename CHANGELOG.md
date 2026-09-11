@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.0-beta1] - 2026-09-11
 
 ### Hinzugefügt
 - **Hybrid-Suche (Reciprocal Rank Fusion).** Neue optionale Retrieval-Strategie
