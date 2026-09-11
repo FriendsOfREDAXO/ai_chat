@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.1] - 2026-09-11
+
+### Behoben
+- **„Einfach"-Übersicht meldete fälschlich fehlende Zugangsdaten** beim Provider
+  OpenWebUI/OpenAI-kompatibel, wenn nur ein API-Key ohne Base-URL hinterlegt war
+  (z.B. für das offizielle OpenAI - die Base-URL ist dort bewusst leer zu lassen).
+  Die Prüfung akzeptiert jetzt API-Key ODER Base-URL statt zwingend Base-URL.
+
 ## [2.1.0] - 2026-09-07
 
 ### Hinzugefügt

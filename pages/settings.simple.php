@@ -33,7 +33,11 @@ $providerLabel = $providerLabels[$provider] ?? $provider;
 $providerReady = match ($provider) {
     'gemini' => '' !== trim((string) $addon->getConfig('gemini_api_key', '')),
     'cloudflare' => '' !== trim((string) $addon->getConfig('cloudflare_account_id', '')) && '' !== trim((string) $addon->getConfig('cloudflare_api_token', '')),
-    'openai' => '' !== trim((string) $addon->getConfig('openai_base_url', '')),
+    // Base-URL ist bewusst optional (leer = offizielles OpenAI, siehe Notice-Text
+    // auf der Provider-Seite) - "konfiguriert" heisst also API-Key ODER Base-URL,
+    // nicht zwingend beides. Reine Base-URL-Pruefung meldete faelschlich "keine
+    // Zugangsdaten", obwohl nur ein API-Key fuer das offizielle OpenAI hinterlegt war.
+    'openai' => '' !== trim((string) $addon->getConfig('openai_api_key', '')) || '' !== trim((string) $addon->getConfig('openai_base_url', '')),
     'ai_platform' => '' !== trim((string) $addon->getConfig('ai_platform_text_profile_id', '')) && '' !== trim((string) $addon->getConfig('ai_platform_embedding_profile_id', '')),
     default => false,
 };
