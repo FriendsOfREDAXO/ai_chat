@@ -150,6 +150,48 @@
         if (d) d.innerHTML = html;
     }
 
+    // ── Live-Log (aufklappbares <details> unter dem Statusband) ────────────────
+    // Eine Zeile pro abgeschlossenem Task (Erfolg/Fehler) - nicht jeder Zwischenschritt
+    // (z.B. "wird verarbeitet…"), sonst waere das Log bei jedem Task doppelt so lang wie
+    // noetig. Client-seitig auf die letzten LOG_MAX_LINES begrenzt (aeltere Zeilen werden
+    // am Kopf entfernt), damit auch ein sehr grosser Lauf (mehrere tausend Seiten) das DOM
+    // nicht unbegrenzt waechst - das komplette Bild sieht man ohnehin am Ende in der
+    // Zusammenfassung, das Log ist fuer "was lief gerade" waehrend/kurz nach dem Lauf.
+    const LOG_MAX_LINES = 500;
+    let logLineCount = 0;
+
+    function appendLog(text, isError) {
+        const body = el('ai-chat-live-log');
+        if (!body) return;
+
+        const line = document.createElement('span');
+        line.className = 'klxm-index-live-log-line' + (isError ? ' klxm-log-error' : '');
+        line.textContent = text;
+        body.appendChild(line);
+        ++logLineCount;
+
+        while (logLineCount > LOG_MAX_LINES && body.firstChild) {
+            body.removeChild(body.firstChild);
+            --logLineCount;
+        }
+
+        // Nur automatisch mitscrollen, wenn der Nutzer ohnehin schon am unteren Rand war -
+        // sonst reisst ein neuer Eintrag mitten aus dem manuellen Nachlesen heraus.
+        const wasAtBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+        if (wasAtBottom) {
+            body.scrollTop = body.scrollHeight;
+        }
+    }
+
+    function clearLog() {
+        const body = el('ai-chat-live-log');
+        if (body) body.innerHTML = '';
+        logLineCount = 0;
+
+        // <details> beim Start eines neuen Laufs bewusst NICHT automatisch aufklappen -
+        // wer es vorher aufgeklappt hatte, behaelt seine Wahl (kein "open" gesetzt/entfernt).
+    }
+
     // Start/Start-Hintergrund/Refresh gemeinsam sperren, solange irgendein Lauf
     // aktiv ist - verhindert, dass z.B. während einer laufenden Foreground-
     // Indexierung zusätzlich noch ein Hintergrundlauf gestartet wird.
@@ -417,6 +459,7 @@
         const btn = el('ai-chat-clear-btn');
         btn.disabled = true;
         showProgress(true);
+        clearLog();
         setStatus('Index wird geleert…', 'info');
         try {
             const data = await apiFetch(getApiBase() + '&action=clear');
@@ -592,6 +635,7 @@
         showProgress(true);
         updateProgress(0);
         setDetail('');
+        clearLog();
 
         const bar = el('ai-chat-progress-bar');
         if (bar) {
@@ -693,6 +737,7 @@
         showProgress(true);
         updateProgress(0);
         setDetail('');
+        clearLog();
 
         const bar = el('ai-chat-progress-bar');
         if (bar) {
@@ -753,6 +798,16 @@
     }
 
     function pollBackgroundStatus() {
+        // Der Hintergrund-Status liefert pro Poll nur den GERADE laufenden Task
+        // (current_label), keine Titel/Chunk-Zahlen abgeschlossener Tasks - anders als der
+        // Foreground-Modus, wo processNextTask() jeden Task selbst abschliesst. Trotzdem
+        // sinnvolle Log-Zeilen moeglich: sobald sich "processed" seit dem letzten Poll erhoeht
+        // hat, ist der davor angezeigte current_label-Task fertig; neue Eintraege in
+        // error_log werden ebenfalls nachgezogen.
+        let lastLoggedProcessed = currentTaskIndex;
+        let lastCurrentLabel = null;
+        let lastLoggedErrorCount = errorLog.length;
+
         return new Promise((resolve, reject) => {
             const poll = async () => {
                 if (cancelled) {
@@ -793,8 +848,27 @@
                     setStatus('Aufgaben werden gesammelt (Hintergrund)…', '');
                 }
 
+                if (currentTaskIndex > lastLoggedProcessed) {
+                    const finishedCount = currentTaskIndex - lastLoggedProcessed;
+                    if (lastCurrentLabel) {
+                        appendLog('✓ ' + lastCurrentLabel + (finishedCount > 1 ? ' (+' + (finishedCount - 1) + ' weitere)' : ''), false);
+                    } else {
+                        appendLog('✓ ' + finishedCount + ' Aufgabe(n) abgeschlossen — ' + indexedChunks + ' Abschnitte insgesamt', false);
+                    }
+                    lastLoggedProcessed = currentTaskIndex;
+                }
+
+                if (errorLog.length > lastLoggedErrorCount) {
+                    for (let i = lastLoggedErrorCount; i < errorLog.length; i++) {
+                        const entry = errorLog[i];
+                        appendLog('✗ ' + (entry.label || '?') + ' — ' + (entry.error || 'Unbekannter Fehler'), true);
+                    }
+                    lastLoggedErrorCount = errorLog.length;
+                }
+
                 if (data.current_label) {
                     setDetail('<span class="text-muted">&#8987; ' + data.current_label + ' – wird verarbeitet…</span>');
+                    lastCurrentLabel = data.current_label;
                 }
 
                 if (data.status === 'error') {
@@ -842,6 +916,7 @@
         showProgress(true);
         updateProgress(0);
         setDetail('');
+        clearLog();
         startHeartbeat();
 
         const bar = el('ai-chat-progress-bar');
@@ -949,6 +1024,7 @@
                 indexedChunks += chunks;
                 updateIndexCountBadge(indexedChunks);
                 setDetail('&#10003; <strong>' + title + '</strong> &mdash; ' + chunks + ' Abschnitt(e) &mdash; insgesamt ' + indexedChunks + ' im Index');
+                appendLog('✓ ' + title + ' — ' + chunks + ' Abschnitt(e)', false);
             } else {
                 ++errorCount;
                 const errMsg = (data.error || 'Unbekannter Fehler');
@@ -958,6 +1034,7 @@
                     '<span class="text-danger">&#10007; ' + label + '</span>' +
                     ' &mdash; ' + errMsg
                 );
+                appendLog('✗ ' + label + ' — ' + errMsg, true);
             }
         } catch (e) {
             if (cancelled) return;
@@ -970,6 +1047,7 @@
                 '<span class="text-danger">&#10007; ' + label + '</span>' +
                 ' &mdash; ' + errMsg
             );
+            appendLog('✗ ' + label + ' — ' + errMsg, true);
         }
 
         ++currentTaskIndex;
@@ -1140,6 +1218,7 @@
         showProgress(true);
         updateProgress(0);
         setDetail('');
+        clearLog();
         showBackgroundHint(true);
         setStatus('Ein Hintergrundlauf ist bereits aktiv – Fortschritt wird geladen…', '');
 

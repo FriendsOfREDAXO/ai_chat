@@ -269,6 +269,72 @@ body.rex-theme-dark .ai-chat-success-copy {
     to { transform: rotate(360deg); }
 }
 
+/* ── Live-Log (aufklappbar unter dem Statusband) ─────────────────────── */
+.klxm-index-live-log {
+    margin-bottom: 14px;
+}
+.klxm-index-live-log > summary {
+    cursor: pointer;
+    font-size: 0.9em;
+    color: inherit;
+    opacity: 0.75;
+    list-style: none;
+}
+.klxm-index-live-log > summary::-webkit-details-marker {
+    display: none;
+}
+.klxm-index-live-log > summary::before {
+    content: '\25B8';
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 0.15s;
+}
+.klxm-index-live-log[open] > summary::before {
+    transform: rotate(90deg);
+}
+.klxm-index-live-log-body {
+    margin-top: 8px;
+    padding: 10px 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.82em;
+    line-height: 1.5;
+    background: rgba(120, 130, 140, 0.06);
+    border: 1px solid rgba(120, 130, 140, 0.25);
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.klxm-index-live-log-body:empty::before {
+    content: attr(data-empty-hint);
+    opacity: 0.5;
+    font-family: inherit;
+}
+.klxm-index-live-log-line {
+    display: block;
+    padding: 1px 0;
+}
+.klxm-index-live-log-line.klxm-log-error {
+    color: #d9534f;
+}
+body.rex-theme-dark .klxm-index-live-log-body {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+body.rex-theme-dark .klxm-index-live-log-line.klxm-log-error {
+    color: #e0574a;
+}
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .klxm-index-live-log-body {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+    body:not(.rex-theme-light) .klxm-index-live-log-line.klxm-log-error {
+        color: #e0574a;
+    }
+}
+
 /* ── Aktions-Gruppen (Indexierung/Wartung) ───────────────────────────── */
 .klxm-index-actiongroup {
     margin-top: 18px;

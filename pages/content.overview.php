@@ -214,6 +214,16 @@ $content .= '<div class="klxm-index-statusbar">'
     . ' <i class="rex-icon fa-question-circle text-muted" title="' . rex_escape($addon->i18n('index_current_size_hint')) . '"></i>'
     . '</div>';
 
+// Aufklappbares Live-Log direkt unter dem Statusband: eine Zeile pro abgeschlossenem
+// Task (Titel + Anzahl Abschnitte) bzw. Fehler, siehe ai-chat-indexer.js appendLog().
+// Bewusst <details> (zugeklappt per Default, kein extra JS fuer das Auf-/Zuklappen
+// noetig) statt eines eigenen Panels - reines Debugging/Nachvollziehen waehrend/nach
+// einem Lauf, nicht staendig relevant.
+$content .= '<details id="ai-chat-live-log-details" class="klxm-index-live-log">'
+    . '<summary>' . $addon->i18n('index_live_log_summary') . '</summary>'
+    . '<div id="ai-chat-live-log" class="klxm-index-live-log-body"></div>'
+    . '</details>';
+
 // Warnt, wenn das RAG-Kandidatenfenster kleiner ist als der Index – dann werden beim
 // Ähnlichkeitsvergleich nicht alle Inhalte berücksichtigt (führt zu unpassenden Antworten/Links).
 // Gilt NUR fuer BruteForceRetrieval (ORDER BY id ASC LIMIT vor der eigentlichen Aehnlichkeits-

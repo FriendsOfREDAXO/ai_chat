@@ -46,6 +46,27 @@ $fragment = new rex_fragment();
 $fragment->setVar('content', $systemCheckBody, false);
 echo $fragment->parse('core/page/section.php');
 
+// Zuverlaessigkeits-Analyse: ob ein GESTARTETER Hintergrundlauf auch ueber laengere
+// Laufzeiten hinweg durchhaelt (PHP-FPM-Zeitlimit, set_time_limit()-Verfuegbarkeit) -
+// komplementaer zum "Hintergrundlauf-Start"-Check oben (der prueft nur, ob ueberhaupt
+// gestartet werden kann) und zum "Selbstaufruf testen"-Tool weiter unten (das prueft nur
+// die Netzwerk-Erreichbarkeit, nicht die Prozess-Laufzeit).
+$reliabilityBody = '<table class="table table-striped klxmchat-stat-table">'
+    . '<thead><tr><th style="width:220px;">Prüfung</th><th style="width:90px;">Status</th><th>Details</th></tr></thead><tbody>';
+foreach (SystemCheckService::analyzeBackgroundReliability() as $finding) {
+    $reliabilityBody .= '<tr>'
+        . '<td>' . rex_escape($finding['label']) . '</td>'
+        . '<td><span class="label ' . $statusBadgeClass[$finding['status']] . '">' . $statusLabel[$finding['status']] . '</span></td>'
+        . '<td>' . rex_escape($finding['message']) . '</td>'
+        . '</tr>';
+}
+$reliabilityBody .= '</tbody></table>';
+
+$reliabilityFragment = new rex_fragment();
+$reliabilityFragment->setVar('title', 'Hintergrund-Indexierung: Zuverlässigkeit bei längeren Läufen', false);
+$reliabilityFragment->setVar('content', $reliabilityBody, false);
+echo $reliabilityFragment->parse('core/page/section.php');
+
 // Diagnose fuer "Im Hintergrund indexieren" (pages/content.php): der Mechanismus dahinter
 // ist ein self-curl/wget-Aufruf gegen die eigene, oeffentliche URL (siehe
 // ChatIndex::handleStartBackground()), KEIN PHP-CLI-Aufruf - auf Plesk & Co. betrifft ein

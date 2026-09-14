@@ -222,6 +222,7 @@ ai_chat_config_faq_precache_questions_notice = Diese Fragen werden für das opti
 
 ai_chat_index_provider_hint = Hinweis: Wenn Sie den KI-Provider wechseln (z.B. von Gemini zu OpenAI), müssen Sie den 'Index leeren' und neu erstellen, da die Vektoren (Embeddings) nicht kompatibel sind.
 
+ai_chat_index_live_log_summary = Live-Log anzeigen
 ai_chat_index_current_size = Aktuelle Indexgröße (Abschnitte)
 ai_chat_index_current_size_hint = Ein Abschnitt (Chunk) ist ein Textstück einer Seite/eines Artikels – eine einzelne Seite kann in mehrere Abschnitte zerlegt werden. Diese Zahl ist deshalb meist höher als die Anzahl der Seiten/Artikel selbst und wird während einer laufenden Indexierung live aktualisiert.
 ai_chat_index_rag_limit_warning = Dein Index enthält %d Textabschnitte, das RAG-Kandidatenfenster ist aber nur auf %d gestellt. Manche Inhalte werden dadurch beim Ähnlichkeitsvergleich gar nicht erst berücksichtigt – das kann zu unpassend wirkenden Antworten/Links führen.

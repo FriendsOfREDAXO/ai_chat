@@ -5,6 +5,7 @@ use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\AiServiceFactory;
+use FriendsOfRedaxo\AiChat\Service\SystemCheckService;
 
 require __DIR__ . '/settings.shared.php';
 
@@ -427,15 +428,27 @@ if ('add' === $func || 'edit' === $func) {
     }
 
     if (rex_addon::get('mediapool')->isAvailable()) {
-        MediaPoolContentProvider::renderSourceFields(
-            $form,
-            'pdf_media_ids',
-            'Eigene PDF-Dokumente',
-            'Für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
-            'pdf_category_ids',
-            'PDFs aus Medienpool-Kategorien',
-            'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.',
-        );
+        // Felder nur anbieten, wenn PDFs auf diesem Server ueberhaupt zu Text verarbeitet
+        // werden koennen (pdftotext ODER die PHP-Fallback-Bibliothek, siehe
+        // SystemCheckService::isPdfExtractionAvailable()) - sonst wuerden hier gewaehlte
+        // PDFs beim Indexieren still ohne jeden Text landen, ohne dass der Redakteur das
+        // an dieser Stelle erfahren wuerde.
+        if (SystemCheckService::isPdfExtractionAvailable()) {
+            MediaPoolContentProvider::renderSourceFields(
+                $form,
+                'pdf_media_ids',
+                'Eigene PDF-Dokumente',
+                'Für dieses Profil indexierte PDF-Dateien aus dem Medienpool. Nur PDFs werden verarbeitet, andere Dateitypen in der Auswahl werden ignoriert.',
+                'pdf_category_ids',
+                'PDFs aus Medienpool-Kategorien',
+                'Alle PDF-Dateien in diesen Medienpool-Kategorien (nicht rekursiv in Unterkategorien) werden zusätzlich zu den oben einzeln gewählten Dokumenten indexiert.',
+            );
+        } else {
+            $form->addRawField(
+                '<p class="help-block"><i class="rex-icon fa-exclamation-triangle"></i> PDF-Indexierung ist auf diesem Server nicht verfügbar (weder <code>pdftotext</code> noch die PHP-Bibliothek <code>smalot/pdfparser</code> gefunden) - Details unter <a href="'
+                . rex_url::backendPage('ai_chat/settings/systemcheck') . '">Einstellungen → Check &amp; Debug</a>.</p>'
+            );
+        }
     }
 
     $form->addRawField('</div>');

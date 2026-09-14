@@ -1,5 +1,41 @@
 # Changelog
 
+## [2.2.0-beta2] - 2026-09-14
+
+### Hinzugefügt
+- **Aufklappbares Live-Log auf der Indexierungs-Seite**, direkt unter dem
+  Statusband. Zeigt pro Lauf eine Zeile je abgeschlossenem Task (Titel +
+  Anzahl Abschnitte) bzw. Fehler - sowohl im Browser-gesteuerten als auch im
+  Hintergrund-Modus. Zugeklappt per Default (`<details>`, kein zusätzliches
+  JS fürs Auf-/Zuklappen), client-seitig auf die letzten 500 Zeilen begrenzt.
+- **Zuverlässigkeits-Analyse für die Hintergrund-Indexierung** unter
+  Einstellungen → Check & Debug: prüft, ob ein bereits gestarteter
+  Hintergrundlauf auch bei längerer Laufzeit durchhalten kann (PHP-SAPI-Typ,
+  `set_time_limit()`-Verfügbarkeit, `max_execution_time`) - komplementär zum
+  bestehenden Start-Check und Selbstaufruf-Test, die beide nur prüfen, ob ein
+  Lauf überhaupt beginnt/den Server erreicht, nicht ob er durchläuft. Weist
+  explizit auf PHP-FPMs `request_terminate_timeout` hin, das `set_time_limit()`
+  unabhängig aushebeln kann und von PHP aus nicht auslesbar ist - inklusive
+  Empfehlung, bei Unsicherheit auf den inkrementellen Modus mit Cronjob
+  auszuweichen statt eines einzelnen langen Laufs.
+
+### Behoben
+- **`open_basedir`-Warnung im Systemcheck auf eingeschränktem Shared-Hosting.**
+  `SystemCheckService::resolveBinary()` prüfte bei fehlgeschlagenem
+  PATH-Lookup zusätzlich feste Standardpfade (`/usr/bin/`, `/bin/`, etc.) per
+  `is_executable()` - liegt `open_basedir` außerhalb dieser Pfade (typisch bei
+  Shared-Hosting, z.B. nur das eigene Webroot erlaubt), wirft PHP dafür eine
+  Warnung ("open_basedir restriction in effect"). Wird jetzt vorab geprüft und
+  übersprungen, keine Verhaltensänderung sonst.
+
+### Geändert
+- **PDF-Auswahlfelder auf der Profil-Seite werden ausgeblendet, wenn PDF-Text-
+  extraktion auf dem Server ohnehin nicht verfügbar ist** (weder `pdftotext`
+  noch die PHP-Bibliothek `smalot/pdfparser` gefunden, siehe Einstellungen →
+  Check & Debug) - statt PDFs auswählen zu lassen, die beim Indexieren dann
+  still ohne Text landen. Zeigt stattdessen einen Hinweis mit Link zum
+  Systemcheck.
+
 ## [2.2.0-beta1] - 2026-09-11
 
 ### Hinzugefügt
