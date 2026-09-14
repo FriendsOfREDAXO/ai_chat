@@ -327,6 +327,7 @@ if (rex::isFrontend()) {
         $frontendTheme = ProfileTheme::resolveTheme($frontendProfile, $addon);
         $position = ProfileTheme::resolvePosition($frontendProfile, $addon);
         $primaryColor = ProfileTheme::resolvePrimaryColor($frontendTheme);
+        $openAnimation = ProfileTheme::resolveOpenAnimation($frontendTheme);
         $mode = $addon->getConfig('frontend_mode', 'bubble');
         $avatarUrl = ProfileTheme::resolveAvatarUrl($frontendTheme);
         $frontendResetAttr = $frontendResetCountdown > 0 ? ' reset-countdown="' . $frontendResetCountdown . '"' : '';
@@ -341,7 +342,7 @@ if (rex::isFrontend()) {
         $styleAttr = '' !== $themeStyleAttr ? ' style="' . rex_escape($themeStyleAttr, 'html_attr') . '"' : '';
 
         $tag = sprintf(
-            '<ai-chat api-url="%s" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" profile-id="%d" ui-language="%s"%s%s%s></ai-chat>',
+            '<ai-chat api-url="%s" title="Website Chat" search-current-page-only="%s" greeting="%s" position="%s" primary-color="%s" avatar-url="%s" mode="%s" personalization-mode="%s" stream-enabled="%s" max-length-frontend="%d" profile-id="%d" ui-language="%s" open-animation="%s"%s%s%s></ai-chat>',
             rex_escape($apiUrl, 'html_attr'),
             $searchCurrentPageOnly,
             rex_escape($greeting, 'html_attr'),
@@ -354,6 +355,7 @@ if (rex::isFrontend()) {
             (int) $addon->getConfig('max_message_length_frontend', 2000),
             $profileIdAttrValue,
             rex_escape($uiLanguage, 'html_attr'),
+            $openAnimation,
             $frontendResetAttr,
             $frontendCopyAttr,
             $styleAttr

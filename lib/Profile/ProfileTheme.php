@@ -50,6 +50,21 @@ final class ProfileTheme
     }
 
     /**
+     * Wert fuer das "open-animation"-Attribut auf dem <ai-chat>-Element (siehe
+     * assets/ai-chat.js, :host([open-animation="..."])-Regeln). Whitelist statt Direkt-
+     * Durchreichen, damit ein manipulierter/veralteter DB-Wert nie ein beliebiges,
+     * nicht existierendes CSS-Attribut erzeugt - Fallback ist "fade_slide" (bisheriges,
+     * einziges Verhalten vor diesem Feature).
+     */
+    public static function resolveOpenAnimation(?ChatTheme $theme): string
+    {
+        $value = trim((string) $theme?->openAnimation);
+        $allowed = ['fade_slide', 'zoom', 'slide_up', 'flip_3d'];
+
+        return in_array($value, $allowed, true) ? $value : 'fade_slide';
+    }
+
+    /**
      * Baut den Inhalt fuer ein style="..."-Attribut auf dem <ai-chat>-Element (CSS-Custom-
      * Properties durchdringen die Shadow-DOM-Grenze und muessen daher nicht per <style>-Tag
      * mit Selektor gesetzt werden - ein Inline-Attribut reicht, da pro Seite ohnehin nur ein
@@ -87,6 +102,10 @@ final class ProfileTheme
         $addColorVar('--ai-chat-input-bg', $theme?->inputBgColor);
         $addColorVar('--ai-chat-input-text', $theme?->inputTextColor);
         $addColorVar('--ai-chat-input-border', $theme?->inputBorderColor);
+        // Fehlt dieser Wert, greift im Widget-CSS die Fallback-Kette auf --ai-chat-primary
+        // (assets/ai-chat.js .chat-toggle) - die Bubble war bisher fest an dieselbe Farbe
+        // wie jedes andere Akzent-Element gekoppelt, jetzt unabhaengig davon themebar.
+        $addColorVar('--ai-chat-bubble', $theme?->bubbleColor);
 
         // Bewusst KEIN ?: - PHP behandelt den String "0" als falsy, ein bewusst eingegebener
         // Eckenradius von 0 (eckige Ecken) wuerde damit wie "leer" behandelt.
@@ -95,7 +114,57 @@ final class ProfileTheme
             $vars[] = '--ai-chat-radius:' . $radius . 'px';
         }
 
+        $bubbleShadow = self::resolveShadow($theme?->bubbleShadowColor, $theme?->bubbleShadowIntensity, 'rgba(0,0,0,0.15)', [
+            'light' => '0 2px 6px',
+            'medium' => '0 4px 12px',
+            'strong' => '0 6px 20px',
+        ]);
+        if ('' !== $bubbleShadow) {
+            $vars[] = '--ai-chat-bubble-shadow:' . $bubbleShadow;
+        }
+
+        $containerShadow = self::resolveShadow($theme?->containerShadowColor, $theme?->containerShadowIntensity, 'rgba(0,0,0,0.2)', [
+            'light' => '0 3px 10px',
+            'medium' => '0 5px 20px',
+            'strong' => '0 8px 32px',
+        ]);
+        if ('' !== $containerShadow) {
+            $vars[] = '--ai-chat-container-shadow:' . $containerShadow;
+        }
+
+        // Nur sichtbar, wenn --ai-chat-bg (s.o.) zusaetzlich transparent/teiltransparent ist
+        // (Alpha im Colorpicker) - siehe Notice-Text im Theme-Editor.
+        $blur = trim((string) $theme?->backdropBlur);
+        if ('' !== $blur && preg_match('/^\d{1,3}$/', $blur)) {
+            $vars[] = '--ai-chat-backdrop-filter:blur(' . $blur . 'px)';
+        }
+
         return implode(';', $vars);
+    }
+
+    /**
+     * Baut einen fertigen "box-shadow"-Wert aus einer vom Colorpicker gewaehlten Farbe
+     * (mit Alpha) + einer festen Intensitaetsstufe (Blur/Offset vordefiniert, siehe
+     * $offsetsByIntensity) statt einzelner Zahlenfelder fuer jeden Schatten-Parameter.
+     * "none" liefert den CSS-Literalwert "none" (Schatten explizit deaktiviert), eine
+     * unbekannte/leere Stufe liefert '' (keine CSS-Var gesetzt, der bisherige
+     * Hartcode-Fallback im Widget-CSS greift dann unveraendert weiter).
+     *
+     * @param array<string, string> $offsetsByIntensity Schluessel "light"/"medium"/"strong"
+     */
+    private static function resolveShadow(?string $color, ?string $intensity, string $defaultColor, array $offsetsByIntensity): string
+    {
+        $intensity = trim((string) $intensity);
+        if ('' === $intensity) {
+            $intensity = 'medium';
+        }
+        if ('none' === $intensity || !isset($offsetsByIntensity[$intensity])) {
+            return 'none' === $intensity ? 'none' : '';
+        }
+
+        $resolvedColor = self::firstValidHexColor($color) ?? $defaultColor;
+
+        return $offsetsByIntensity[$intensity] . ' ' . $resolvedColor;
     }
 
     /**

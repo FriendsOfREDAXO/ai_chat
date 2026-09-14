@@ -28,6 +28,13 @@ final class ChatTheme
         public readonly ?string $inputTextColor,
         public readonly ?string $inputBorderColor,
         public readonly ?string $borderRadius,
+        public readonly ?string $bubbleColor,
+        public readonly ?string $openAnimation,
+        public readonly ?string $bubbleShadowColor,
+        public readonly ?string $bubbleShadowIntensity,
+        public readonly ?string $containerShadowColor,
+        public readonly ?string $containerShadowIntensity,
+        public readonly ?string $backdropBlur,
         public readonly ?string $avatar,
     ) {
     }
@@ -52,6 +59,13 @@ final class ChatTheme
             inputTextColor: self::nullableString($row['input_text_color'] ?? null),
             inputBorderColor: self::nullableString($row['input_border_color'] ?? null),
             borderRadius: self::nullableString($row['border_radius'] ?? null),
+            bubbleColor: self::nullableString($row['bubble_color'] ?? null),
+            openAnimation: self::nullableString($row['open_animation'] ?? null),
+            bubbleShadowColor: self::nullableString($row['bubble_shadow_color'] ?? null),
+            bubbleShadowIntensity: self::nullableString($row['bubble_shadow_intensity'] ?? null),
+            containerShadowColor: self::nullableString($row['container_shadow_color'] ?? null),
+            containerShadowIntensity: self::nullableString($row['container_shadow_intensity'] ?? null),
+            backdropBlur: self::nullableString($row['backdrop_blur'] ?? null),
             avatar: self::nullableString($row['avatar'] ?? null),
         );
     }

@@ -2430,6 +2430,18 @@ class ChatQueryService
         if ($mode === 'search') {
             $this->rememberPartialTypingStat($scope, $normalized, (int) $sql->getLastId());
         }
+
+        // Kein separater Cron/Menuepunkt fuer die Bereinigung - dasselbe "gelegentlich
+        // beim Schreiben mitputzen"-Muster wie beim Retrieval-Debug-Log (siehe
+        // logRetrievalDebug()) und bei ai_chat_ratelimit. Anders als das Retrieval-Log
+        // (bewusst kurzlebig, nur bei aktiviertem Debug-Flag) laeuft die Statistik-
+        // Erfassung immer - die Aufbewahrungsdauer ist deshalb konfigurierbar statt
+        // hart auf 7 Tage gesetzt.
+        if (random_int(1, 20) === 1) {
+            $retentionDays = max(1, (int) rex_addon::get('ai_chat')->getConfig('stats_retention_days', 90));
+            $cutoff = date('Y-m-d H:i:s', time() - $retentionDays * 86400);
+            $sql->setQuery('DELETE FROM ' . rex::getTable('ai_chat_stats') . ' WHERE created_at < ?', [$cutoff]);
+        }
     }
 
     private function isRetrievalDebugLoggingEnabled(): bool

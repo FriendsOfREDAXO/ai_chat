@@ -1,5 +1,55 @@
 # Changelog
 
+## [2.2.0-beta5] - 2026-09-14
+
+### Hinzugefügt
+- **Automatische Bereinigung der Statistik-Tabelle**: alte Statistik-Einträge
+  (`ai_chat_stats`) werden jetzt gelegentlich beim Schreiben automatisch
+  entfernt, sobald sie älter als die konfigurierte Aufbewahrungsdauer sind
+  (Standard: 90 Tage, einstellbar direkt auf der Statistik-Seite) - vorher
+  wuchs die Tabelle unbegrenzt.
+- **`docs/EXTENDING.md`**: alle vier eigenen Extension Points
+  (`AI_CHAT_PROFILE_CANDIDATES`, `AI_CHAT_CONTENT_PROVIDERS`,
+  `AI_CHAT_WIDGET_TRANSLATIONS`, `AI_CHAT_REGISTER_PROVIDERS`) sind jetzt an
+  einer zentralen Stelle mit Subject, Parametern, Code-Beispiel und
+  Fallstricken dokumentiert.
+- **Theme-Editor: eigenständige Bubble-Farbe, Einblend-Animationen,
+  Schatten-Editor, Hintergrund-Weichzeichner**. Die schwebende Chat-Bubble
+  teilte sich bisher zwangsweise die Akzentfarbe mit Buttons/Links - hat jetzt
+  ein eigenes Farbfeld (leer = folgt weiterhin der Akzentfarbe). Neue Auswahl
+  "Einblend-Animation" beim Öffnen des Chats (Standard, Zoom, von unten
+  einschieben, 3D-Flip), inklusive "Animation testen"-Button in der
+  Live-Vorschau. Bubble- und Fenster-Schatten sind jetzt einzeln über Farbe
+  (mit Alpha) + Intensitätsstufe (kein Schatten/leicht/mittel/stark)
+  einstellbar statt fest im Widget-CSS verdrahtet. Neuer
+  "Hintergrund-Weichzeichner"-Regler erzeugt einen Glassmorphism-Effekt
+  (`backdrop-filter: blur(...)`), sichtbar sobald der Chat-Hintergrund
+  zusätzlich transparent/teiltransparent eingestellt ist. Alle neuen Felder
+  sind optional - bestehende Themes sehen ohne Änderung identisch aus.
+- **Theme-Editor zeigt jetzt auch die Bubble selbst**: die Live-Vorschau läuft
+  nicht mehr im permanent geöffneten Inline-Modus, sondern exakt wie im
+  echten Frontend - als schwebende, unten rechts fixierte Bubble, die beim
+  Scrollen durch das (jetzt deutlich längere) Formular an derselben
+  Bildschirmposition bleibt und sich per Klick öffnen/schließen lässt. Bisher
+  war die Bubble-Farbe im Editor nirgends zu sehen.
+- **Theme-Editor neu gruppiert**: Felder sind jetzt nach sichtbarem Bereich
+  sortiert (Akzentfarbe, Bubble, Chat-Fenster, Nachrichten, Eingabefeld)
+  statt nach Feldtyp - deutlich übersichtlicher bei der inzwischen
+  gewachsenen Anzahl an Einstellungen.
+
+### Geändert
+- **`StatisticsService` konsolidiert**: die bisher ungenutzte, unvollständige
+  Service-Klasse übernimmt jetzt die komplette Statistik-Logik von
+  `pages/statistics.php` (Profil-Filterung, Profil-Übersicht) - reines
+  Refactoring ohne beabsichtigte Verhaltensänderung.
+- **Statistik-Reset jetzt mit CSRF-Schutz auch in der Service-Methode**:
+  `StatisticsService::resetStats()` verlangt jetzt ein gültiges CSRF-Token
+  (vorher nur in `pages/statistics.php` selbst geprüft, die Service-Methode
+  war ungenutzt und hätte den Schutz umgangen).
+- **Statistik-Seite jetzt nur noch für Chat-Admins sichtbar**
+  (`ai_chat[chatadmin]`), konsistent mit Profile/Themes/Einstellungen/Index -
+  vorher für jeden mit allgemeinem Addon-Zugriff sichtbar.
+
 ## [2.2.0-beta4] - 2026-09-14
 
 ### Behoben

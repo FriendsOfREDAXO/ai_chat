@@ -363,6 +363,22 @@ rex_sql_table::get(rex::getTable('ai_chat_theme'))
     ->ensureColumn(new rex_sql_column('input_text_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('input_border_color', 'varchar(20)', true))
     ->ensureColumn(new rex_sql_column('border_radius', 'varchar(10)', true))
+    // NULL = folgt weiterhin primary_color (bisheriges Verhalten) - die Bubble teilte sich
+    // bislang zwangsweise die Akzentfarbe mit Buttons/Links/Fokus-Zustaenden.
+    ->ensureColumn(new rex_sql_column('bubble_color', 'varchar(20)', true))
+    // NULL/leer = 'fade_slide' (bisheriges, einziges Verhalten) - siehe
+    // ProfileTheme::resolveOpenAnimation() fuer die Whitelist erlaubter Werte.
+    ->ensureColumn(new rex_sql_column('open_animation', 'varchar(20)', true))
+    // Schatten-Editor: Farbe (mit Alpha) + feste Intensitaetsstufe statt einzelner
+    // Blur/Spread/Offset-Felder - siehe ProfileTheme::resolveShadow(). NULL/leer bei
+    // beiden Spalten = bisheriges Hartcode-Verhalten (medium-aequivalent).
+    ->ensureColumn(new rex_sql_column('bubble_shadow_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('bubble_shadow_intensity', 'varchar(10)', true))
+    ->ensureColumn(new rex_sql_column('container_shadow_color', 'varchar(20)', true))
+    ->ensureColumn(new rex_sql_column('container_shadow_intensity', 'varchar(10)', true))
+    // NULL/leer = deaktiviert (bisheriges Verhalten, backdrop-filter existierte vorher gar
+    // nicht) - nur sichtbar, wenn chat_bg_color zusaetzlich transparent/teiltransparent ist.
+    ->ensureColumn(new rex_sql_column('backdrop_blur', 'varchar(10)', true))
     ->ensureColumn(new rex_sql_column('avatar', 'varchar(255)', true))
     ->ensureColumn(new rex_sql_column('createdate', 'datetime'))
     ->ensureColumn(new rex_sql_column('updatedate', 'datetime'))

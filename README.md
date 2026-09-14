@@ -42,6 +42,10 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 - **Eigene Textfarben für Bot- und Nutzer-Sprechblase**, unabhängig von der Kopfzeilen-Textfarbe – wichtig z. B. bei einer hellen Akzentfarbe (weißer Text darauf ist kaum lesbar) oder einem bewusst dunkel gehaltenen Theme.
 - **Eingabefeld-Theming** (Hintergrund/Textfarbe/Rahmen), damit das Eingabefeld bei einem dunklen Theme nicht wie ein vergessenes, weiß gebliebenes UI-Element wirkt.
 - **Live-Vorschau mit der echten Chat-Komponente**: die Vorschau bettet dieselbe `<ai-chat>`-Webcomponente ein, die auch im echten Betrieb läuft (nicht nachgebaut) – sieht dadurch exakt wie der spätere Chat aus und bleibt automatisch korrekt, auch wenn sich das Widget-Design künftig ändert.
+- **Eigene Bubble-Farbe**, unabhängig von der Akzentfarbe – leer = folgt weiterhin der Akzentfarbe (bisheriges Verhalten).
+- **Einblend-Animation** beim Öffnen des Chats wählbar (Standard, Zoom, von unten einschieben, 3D-Flip), inklusive „Animation testen"-Button direkt in der Vorschau.
+- **Schatten-Editor** für Bubble und Chat-Fenster getrennt: Farbe (mit Alpha) + Intensitätsstufe (kein Schatten/leicht/mittel/stark) statt fest im Widget-CSS verdrahteter Werte.
+- **Hintergrund-Weichzeichner** (`backdrop-filter: blur(...)`, „Glassmorphism") – sichtbar, sobald der Chat-Hintergrund zusätzlich transparent/teiltransparent eingestellt ist (Alpha im Colorpicker).
 - Die Widget-Position (unten rechts/links) ist bewusst **kein** Theme-Bestandteil, sondern bleibt ein eigenes, unabhängiges Override – global und je Profil.
 
 ### Suche
@@ -598,7 +602,7 @@ rex_extension::register('AI_CHAT_CONTENT_PROVIDERS', function (rex_extension_poi
 
 Das ist der vorgesehene Weg für Fälle wie GitHub-Repo- oder Addon-Dokumentations-Indexierung: ein Dritt-Addon meldet dafür einfach einen eigenen `ContentProviderInterface` an, statt auf ein Core-Feature angewiesen zu sein.
 
-Weitere Extension Points: `AI_CHAT_REGISTER_PROVIDERS` (eigene KI-Provider-Implementierung unter einem eigenen Schlüssel), `AI_CHAT_PROFILE_CANDIDATES` (Profil-Auswahl vor der finalen Entscheidung filtern/umsortieren) und `AI_CHAT_WIDGET_TRANSLATIONS` (zusätzliche Sprachen/Schlüssel für die Widget-Oberfläche nachliefern, ohne den Core-Ordner anzufassen).
+Weitere Extension Points: `AI_CHAT_REGISTER_PROVIDERS` (eigene KI-Provider-Implementierung unter einem eigenen Schlüssel), `AI_CHAT_PROFILE_CANDIDATES` (Profil-Auswahl vor der finalen Entscheidung filtern/umsortieren) und `AI_CHAT_WIDGET_TRANSLATIONS` (zusätzliche Sprachen/Schlüssel für die Widget-Oberfläche nachliefern, ohne den Core-Ordner anzufassen). Ausführlich mit Subject/Parametern/Code-Beispiel/Fallstricken je Extension Point: [docs/EXTENDING.md](docs/EXTENDING.md).
 
 ### Ablauf im Überblick
 

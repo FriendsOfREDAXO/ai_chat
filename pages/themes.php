@@ -28,7 +28,6 @@ if ('add' === $func || 'edit' === $func) {
     $field->setNotice('Nur intern sichtbar, zur Wiedererkennung in der Profil-Auswahl und der Themes-Liste.');
 
     $form->addRawField('<div id="ai-chat-theme-preview-wrapper" class="ai-chat-settings-box">');
-    $form->addRawField('<p class="ai-chat-settings-box-title">Farben</p>');
 
     $colorField = static function (rex_form_base $form, string $column, string $label, string $inputId, string $placeholder) use ($func) {
         $field = $form->addTextField($column);
@@ -61,28 +60,43 @@ if ('add' === $func || 'edit' === $func) {
         return $field;
     };
 
+    $shadowField = static function (rex_form_base $form, string $colorColumn, string $intensityColumn, string $label, string $colorInputId, string $intensitySelectId) use ($colorField) {
+        $colorField($form, $colorColumn, $label . ' – Farbe', $colorInputId, '');
+
+        $field = $form->addSelectField($intensityColumn);
+        $field->setLabel($label . ' – Intensität');
+        $field->setAttribute('id', $intensitySelectId);
+        $select = $field->getSelect();
+        $select->addOption('Kein Schatten', 'none');
+        $select->addOption('Leicht', 'light');
+        $select->addOption('Mittel (Standard)', 'medium');
+        $select->addOption('Stark', 'strong');
+        if ('' === (string) $field->getValue()) {
+            $field->setValue('medium');
+        }
+    };
+
+    // Gruppierung nach sichtbarem Bereich statt nach Feldtyp ("Farben"/"Eingabefeld") -
+    // Bubble/Fenster/Nachrichten/Eingabefeld sind die vier optisch getrennten Bereiche
+    // des Widgets, in genau dieser Reihenfolge auch in der Vorschau von aussen nach
+    // innen sichtbar (Bubble -> Fensterrahmen -> Nachrichtenverlauf -> Eingabefeld).
+    $form->addRawField('<p class="ai-chat-settings-box-title">Akzentfarbe</p>');
     $colorField($form, 'primary_color', 'Akzentfarbe', 'ai-chat-theme-primary', '#007bff');
-    $followupColorField = $colorField($form, 'followup_color', 'Folgefragen (Farbe)', 'ai-chat-theme-followup', '');
-    $followupColorField->setNotice('Farbe der Folgefragen-Chips nach einer Antwort. Leer = folgt der Akzentfarbe (bisheriges Verhalten).');
+    $form->addRawField('<p class="help-block">Fällt überall dort ein, wo kein spezifischeres Feld unten gesetzt ist (Bubble, Folgefragen, Rahmen/Fokus-Effekte).</p>');
+
+    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Bubble (Öffnen-Button)</p>');
+    $bubbleColorField = $colorField($form, 'bubble_color', 'Farbe', 'ai-chat-theme-bubble', '');
+    $bubbleColorField->setNotice('Leer = folgt der Akzentfarbe (bisheriges Verhalten).');
+    $shadowField($form, 'bubble_shadow_color', 'bubble_shadow_intensity', 'Schatten', 'ai-chat-theme-bubble-shadow-color', 'ai-chat-theme-bubble-shadow-intensity');
+    $field = $form->addMediaField('avatar');
+    $field->setLabel('Avatar');
+    $field->setNotice('Erscheint auf der Bubble statt des Standard-Icons.');
+
+    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Chat-Fenster</p>');
     $colorField($form, 'header_bg_color', 'Kopfzeile Hintergrund', 'ai-chat-theme-header-bg', '#f8f9fa');
-    $colorField($form, 'chat_bg_color', 'Chat-Hintergrund', 'ai-chat-theme-chat-bg', '#ffffff');
     $colorField($form, 'text_color', 'Textfarbe (Kopfzeile)', 'ai-chat-theme-text', '#333333');
-    $colorField($form, 'bot_message_bg_color', 'Bot-Sprechblase Hintergrund', 'ai-chat-theme-bot-bg', '#f1f3f5');
-    // Vorher teilte sich die Bot-Sprechblase die Textfarbe mit der Kopfzeile (dasselbe
-    // Feld), und die Nutzer-Sprechblase hatte ueberhaupt kein Textfarb-Feld (im
-    // Widget-CSS fest auf "white" verdrahtet) - bei einer hellen Akzentfarbe war der
-    // Text darin praktisch unlesbar. Beide sind jetzt eigene, unabhaengige Felder.
-    $colorField($form, 'bot_message_text_color', 'Bot-Sprechblase Textfarbe', 'ai-chat-theme-bot-text', '#333333');
-    $colorField($form, 'user_message_text_color', 'Nutzer-Sprechblase Textfarbe', 'ai-chat-theme-user-text', '#ffffff');
-
-    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Eingabefeld</p>');
-    // --ai-chat-input-* existierten im Widget-CSS schon vorher, waren aber bislang von
-    // keinem Theme-Feld aus befuellbar - ein dunkles Theme bekam dadurch trotz dunklem
-    // Chat-/Kopfzeilen-Hintergrund ein stur weisses Eingabefeld.
-    $colorField($form, 'input_bg_color', 'Hintergrund', 'ai-chat-theme-input-bg', '#ffffff');
-    $colorField($form, 'input_text_color', 'Textfarbe', 'ai-chat-theme-input-text', '#333333');
-    $colorField($form, 'input_border_color', 'Rahmen', 'ai-chat-theme-input-border', '#dddddd');
-
+    $chatBgColorField = $colorField($form, 'chat_bg_color', 'Fenster-Hintergrund', 'ai-chat-theme-chat-bg', '#ffffff');
+    $chatBgColorField->setNotice('Alpha-Wert im Colorpicker reduzieren, um den Hintergrund transparent zu machen - siehe "Hintergrund-Weichzeichner" unten für einen Glassmorphism-Effekt.');
     $field = $form->addTextField('border_radius');
     $field->setLabel('Eckenradius (px)');
     $field->setAttribute('type', 'number');
@@ -93,9 +107,44 @@ if ('add' === $func || 'edit' === $func) {
     if ('add' === $func && '' === (string) $field->getValue()) {
         $field->setValue(12);
     }
+    $field = $form->addTextField('backdrop_blur');
+    $field->setLabel('Hintergrund-Weichzeichner (px)');
+    $field->setNotice('Weichzeichnet alles hinter dem Chat-Fenster (Glassmorphism-Effekt) - nur sichtbar, wenn der Fenster-Hintergrund oben transparent/teiltransparent eingestellt ist (Alpha im Colorpicker). Leer = deaktiviert.');
+    $field->setAttribute('type', 'number');
+    $field->setAttribute('min', '0');
+    $field->setAttribute('max', '30');
+    $field->setAttribute('style', 'width:80px;');
+    $field->setAttribute('id', 'ai-chat-theme-backdrop-blur');
+    $shadowField($form, 'container_shadow_color', 'container_shadow_intensity', 'Schatten', 'ai-chat-theme-container-shadow-color', 'ai-chat-theme-container-shadow-intensity');
+    $field = $form->addSelectField('open_animation');
+    $field->setLabel('Einblend-Animation');
+    $field->setNotice('Wie sich das Chat-Fenster beim Öffnen der Bubble einblendet.');
+    $field->setAttribute('id', 'ai-chat-theme-open-animation');
+    $animationSelect = $field->getSelect();
+    $animationSelect->addOption('Standard (Ein-/Ausblenden)', 'fade_slide');
+    $animationSelect->addOption('Zoom', 'zoom');
+    $animationSelect->addOption('Von unten einschieben', 'slide_up');
+    $animationSelect->addOption('3D-Flip', 'flip_3d');
+    $form->addRawField('<p class="help-block"><button type="button" class="btn btn-default btn-xs" id="ai-chat-theme-animation-test">Animation testen</button></p>');
 
-    $field = $form->addMediaField('avatar');
-    $field->setLabel('Avatar');
+    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Nachrichten</p>');
+    $colorField($form, 'bot_message_bg_color', 'Bot-Sprechblase Hintergrund', 'ai-chat-theme-bot-bg', '#f1f3f5');
+    // Vorher teilte sich die Bot-Sprechblase die Textfarbe mit der Kopfzeile (dasselbe
+    // Feld), und die Nutzer-Sprechblase hatte ueberhaupt kein Textfarb-Feld (im
+    // Widget-CSS fest auf "white" verdrahtet) - bei einer hellen Akzentfarbe war der
+    // Text darin praktisch unlesbar. Beide sind jetzt eigene, unabhaengige Felder.
+    $colorField($form, 'bot_message_text_color', 'Bot-Sprechblase Textfarbe', 'ai-chat-theme-bot-text', '#333333');
+    $colorField($form, 'user_message_text_color', 'Nutzer-Sprechblase Textfarbe', 'ai-chat-theme-user-text', '#ffffff');
+    $followupColorField = $colorField($form, 'followup_color', 'Folgefragen (Farbe)', 'ai-chat-theme-followup', '');
+    $followupColorField->setNotice('Farbe der Folgefragen-Chips nach einer Antwort. Leer = folgt der Akzentfarbe (bisheriges Verhalten).');
+
+    $form->addRawField('<p class="ai-chat-settings-box-title" style="margin-top:20px;">Eingabefeld</p>');
+    // --ai-chat-input-* existierten im Widget-CSS schon vorher, waren aber bislang von
+    // keinem Theme-Feld aus befuellbar - ein dunkles Theme bekam dadurch trotz dunklem
+    // Chat-/Kopfzeilen-Hintergrund ein stur weisses Eingabefeld.
+    $colorField($form, 'input_bg_color', 'Hintergrund', 'ai-chat-theme-input-bg', '#ffffff');
+    $colorField($form, 'input_text_color', 'Textfarbe', 'ai-chat-theme-input-text', '#333333');
+    $colorField($form, 'input_border_color', 'Rahmen', 'ai-chat-theme-input-border', '#dddddd');
 
     $form->addRawField('</div>');
 
@@ -105,16 +154,24 @@ if ('add' === $func || 'edit' === $func) {
     // echten Widget-CSS und bei jeder Design-Aenderung an assets/ai-chat.js erneut
     // pflegepflichtig) wird hier die ECHTE <ai-chat>-Webcomponent eingebettet - exakt das
     // gleiche Vorgehen wie schon beim bestehenden "Profil testen"-Vorschaufenster in
-    // pages/profiles.php (dort mode="inline", einmalig serverseitig aufgeloest statt
-    // live). connectedCallback() der Komponente macht beim Einhaengen KEINEN
+    // pages/profiles.php. connectedCallback() der Komponente macht beim Einhaengen KEINEN
     // Netzwerk-Aufruf (siehe assets/ai-chat.js) - erst ein tatsaechliches Absenden einer
     // Nachricht wuerde einen echten API-Request ausloesen, was hier ueber einen
     // Submit-Blocker im Init-Script unterbunden wird, da die Vorschau rein optisch sein
     // soll und keinem echten Profil zugeordnet ist.
+    //
+    // mode="bubble" (statt des frueheren, permanent offenen mode="inline") zeigt den Chat
+    // GENAU so, wie er im echten Frontend erscheint: als schwebende Bubble unten rechts,
+    // per "position: fixed" relativ zum GESAMTEN Browser-Fenster (assets/ai-chat.js,
+    // :host { position: fixed; ... }) - bewusst OHNE einen einsperrenden Vorschau-Kasten
+    // (kein "transform" auf einem umschliessenden Element, das position:fixed sonst auf
+    // diesen Kasten umlenken wuerde). Die Bubble bleibt dadurch beim Scrollen durch das
+    // lange Formular immer an derselben Stelle sichtbar, exakt wie im echten Frontend -
+    // kein zusaetzliches CSS/JS zum "Kleben" noetig, das Widget kann das schon selbst.
     $previewHtml = '
 <div class="klxmchat-theme-preview-wrapper">
-    <p class="help-block">Live-Vorschau (aktualisiert sich beim Ändern der Felder links)</p>
-    <ai-chat id="ai-chat-theme-preview" mode="inline" title="Website Chat" greeting="Hallo! Wie kann ich Ihnen helfen?" ui-language="de" style="display:block;max-width:320px;--ai-chat-height:440px;"></ai-chat>
+    <p class="help-block">Live-Vorschau: unten rechts auf dieser Seite, genau wie im echten Frontend (aktualisiert sich beim Ändern der Felder links).</p>
+    <ai-chat id="ai-chat-theme-preview" mode="bubble" title="Website Chat" greeting="Hallo! Wie kann ich Ihnen helfen?" ui-language="de" style="--ai-chat-width:320px;--ai-chat-height:440px;"></ai-chat>
 </div>';
 
     $content = '<div class="row" style="display:flex;flex-wrap:wrap;"><div class="col-md-8" style="min-width:0;">' . $content . '</div><div class="col-md-4" style="min-width:280px;">' . $previewHtml . '</div></div>';
@@ -228,8 +285,32 @@ if ('add' === $func || 'edit' === $func) {
             inputBg: document.getElementById("ai-chat-theme-input-bg"),
             inputText: document.getElementById("ai-chat-theme-input-text"),
             inputBorder: document.getElementById("ai-chat-theme-input-border"),
-            radius: document.getElementById("ai-chat-theme-radius")
+            radius: document.getElementById("ai-chat-theme-radius"),
+            bubble: document.getElementById("ai-chat-theme-bubble"),
+            backdropBlur: document.getElementById("ai-chat-theme-backdrop-blur"),
+            openAnimation: document.getElementById("ai-chat-theme-open-animation"),
+            bubbleShadowColor: document.getElementById("ai-chat-theme-bubble-shadow-color"),
+            bubbleShadowIntensity: document.getElementById("ai-chat-theme-bubble-shadow-intensity"),
+            containerShadowColor: document.getElementById("ai-chat-theme-container-shadow-color"),
+            containerShadowIntensity: document.getElementById("ai-chat-theme-container-shadow-intensity")
         };
+
+        var shadowOffsets = {
+            bubble: { light: "0 2px 6px", medium: "0 4px 12px", strong: "0 6px 20px" },
+            container: { light: "0 3px 10px", medium: "0 5px 20px", strong: "0 8px 32px" }
+        };
+        var shadowDefaultColor = {
+            bubble: "rgba(0,0,0,0.15)",
+            container: "rgba(0,0,0,0.2)"
+        };
+
+        function buildShadow(kind, colorField, intensityField) {
+            var intensity = (intensityField && intensityField.value) || "medium";
+            if (intensity === "none") return "none";
+            var offsets = shadowOffsets[kind][intensity] || shadowOffsets[kind].medium;
+            var color = (colorField && colorField.value) || shadowDefaultColor[kind];
+            return offsets + " " + color;
+        }
 
         var lastValues = {};
 
@@ -262,6 +343,16 @@ if ('add' === $func || 'edit' === $func) {
             if (fields.inputText) preview.style.setProperty("--ai-chat-input-text", fields.inputText.value || "#333333");
             if (fields.inputBorder) preview.style.setProperty("--ai-chat-input-border", fields.inputBorder.value || "#dddddd");
             if (fields.radius) preview.style.setProperty("--ai-chat-radius", (fields.radius.value || "12") + "px");
+            if (fields.bubble && fields.bubble.value) preview.style.setProperty("--ai-chat-bubble", fields.bubble.value);
+            if (fields.backdropBlur) {
+                var blurValue = fields.backdropBlur.value;
+                preview.style.setProperty("--ai-chat-backdrop-filter", blurValue ? "blur(" + blurValue + "px)" : "none");
+            }
+            if (fields.openAnimation && fields.openAnimation.value) {
+                preview.setAttribute("open-animation", fields.openAnimation.value);
+            }
+            preview.style.setProperty("--ai-chat-bubble-shadow", buildShadow("bubble", fields.bubbleShadowColor, fields.bubbleShadowIntensity));
+            preview.style.setProperty("--ai-chat-container-shadow", buildShadow("container", fields.containerShadowColor, fields.containerShadowIntensity));
 
             // --ai-chat-primary wird von der Komponente dagegen NUR aus dem
             // "primary-color"-Attribut heraus in ihr eigenes :host { --ai-chat-primary: ... }
@@ -271,6 +362,14 @@ if ('add' === $func || 'edit' === $func) {
             // setupEventListeners() der Komponente selbst (unschaedlich, siehe
             // Kommentar an der <ai-chat>-Definition oben - kein Netzwerk-Aufruf darin).
             if (changed.primary && fields.primary) {
+                // render() baut den Shadow-DOM komplett neu und faellt dabei immer auf den
+                // geschlossenen Ausgangszustand zurueck (siehe render(), Zeile ~1480 in
+                // assets/ai-chat.js) - im jetzigen mode="bubble" (anders als im frueheren,
+                // permanent offenen mode="inline") wuerde eine gerade GEOEFFNETE Vorschau
+                // beim Aendern der Akzentfarbe sichtbar wieder zuklappen. Offenen Zustand
+                // deshalb merken und nach dem Neu-Rendern wiederherstellen.
+                var wasOpen = !!preview.shadowRoot.querySelector(".chat-container.open");
+
                 preview.setAttribute("primary-color", fields.primary.value || "#007bff");
                 preview.render();
                 preview.setupEventListeners();
@@ -284,11 +383,45 @@ if ('add' === $func || 'edit' === $func) {
                 // Vorschau ihren Titel bei der ersten Farbaenderung wieder.
                 var headerTitle = preview.shadowRoot.querySelector(".chat-title");
                 if (headerTitle) headerTitle.textContent = preview.getAttribute("title") || "Website Chat";
+
+                if (wasOpen) {
+                    var toggleBtn = preview.shadowRoot.querySelector(".chat-toggle");
+                    var reopenedContainer = preview.shadowRoot.querySelector(".chat-container");
+                    if (reopenedContainer) reopenedContainer.classList.add("open");
+                    if (toggleBtn) toggleBtn.classList.add("open");
+                }
             }
         }
 
         apply();
         setInterval(apply, 150);
+
+        // Vorschau laeuft bereits im echten mode="bubble" - der Testbutton muss dafuer
+        // nicht mehr umschalten, sondern spielt nur einmal Zu-/Aufklappen durch (per
+        // .open-Klasse direkt, statt ueber preview.toggleChat() - so bleibt der
+        // tatsaechliche Oeffnen/Schliessen-Zustand der Vorschau fuer den Redakteur
+        // unangetastet, falls er sie gerade selbst per Klick geoeffnet hatte).
+        var animationTestBtn = document.getElementById("ai-chat-theme-animation-test");
+        if (animationTestBtn) {
+            animationTestBtn.addEventListener("click", function () {
+                var container = preview.shadowRoot.querySelector(".chat-container");
+                var toggleBtn = preview.shadowRoot.querySelector(".chat-toggle");
+                if (!container) return;
+                var wasOpen = container.classList.contains("open");
+                container.classList.remove("open");
+                if (toggleBtn) toggleBtn.classList.remove("open");
+                window.setTimeout(function () {
+                    container.classList.add("open");
+                    if (toggleBtn) toggleBtn.classList.add("open");
+                }, 50);
+                if (!wasOpen) {
+                    window.setTimeout(function () {
+                        container.classList.remove("open");
+                        if (toggleBtn) toggleBtn.classList.remove("open");
+                    }, 1800);
+                }
+            });
+        }
     }
 
     // "rex:ready" feuert (wie DOMContentLoaded) nur einmal pro tatsaechlichem

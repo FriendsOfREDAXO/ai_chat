@@ -1,5 +1,5 @@
 package: ai_chat
-version: '2.2.0-beta4'
+version: '2.2.0-beta5'
 author: 'KLXM Crossmedia GmbH'
 supportpage: https://github.com/FriendsOfRedaxo/ai_chat
 
@@ -22,7 +22,7 @@ page:
                 triggers: { title: 'Trigger & Antworten' }
                 cache: { title: 'Cache-Fragen' }
                 retrieval_log: { title: 'Retrieval-Log' }
-        statistics: { title: 'Statistik' }
+        statistics: { title: 'Statistik', perm: 'ai_chat[chatadmin]' }
         themes: { title: 'Themes', perm: 'ai_chat[chatadmin]' }        
         demo: { title: 'Demos & Beispiele', itemClass: 'pull-right' }
         settings:

@@ -2,8 +2,10 @@
 
 use FriendsOfREDAXO\ECharts\ChartRenderer;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
+use FriendsOfRedaxo\AiChat\Service\StatisticsService;
 
 $addon = rex_addon::get('ai_chat');
+$statisticsService = new StatisticsService();
 
 // Der Systemcheck (Server-/Voraussetzungs-Diagnose) lebt jetzt unter Einstellungen ->
 // Systemcheck statt hier - eine Diagnose-Frage ("laeuft die Umgebung korrekt?"), keine
@@ -11,127 +13,42 @@ $addon = rex_addon::get('ai_chat');
 
 $resetToken = rex_csrf_token::factory('ai_chat_stats_reset');
 if (rex_request('reset_stats', 'string', '') !== '') {
-    if (!$resetToken->isValid()) {
-        echo rex_view::error('Die Sicherheitsprüfung für das Zurücksetzen der Statistik ist fehlgeschlagen. Bitte erneut versuchen.');
-    } else {
-        $sql = rex_sql::factory();
-        $sql->setQuery('TRUNCATE TABLE ' . rex::getTable('ai_chat_stats'));
+    if ($statisticsService->resetStats($resetToken)) {
         echo rex_view::success('Die Statistik wurde zurückgesetzt.');
+    } else {
+        echo rex_view::error('Die Sicherheitsprüfung für das Zurücksetzen der Statistik ist fehlgeschlagen. Bitte erneut versuchen.');
+    }
+}
+
+$retentionToken = rex_csrf_token::factory('ai_chat_stats_retention');
+if (rex_request('save_retention', 'string', '') !== '') {
+    if (!$retentionToken->isValid()) {
+        echo rex_view::error('Die Sicherheitsprüfung für das Speichern der Aufbewahrungsdauer ist fehlgeschlagen. Bitte erneut versuchen.');
+    } else {
+        $retentionDays = max(1, rex_request('stats_retention_days', 'int', 90));
+        $addon->setConfig('stats_retention_days', $retentionDays);
+        echo rex_view::success('Aufbewahrungsdauer gespeichert.');
     }
 }
 
 $days = (int) rex_request('days', 'int', 30);
-$periodOptions = [
-    0 => 'Alle Daten',
-    7 => '7 Tage',
-    30 => '30 Tage',
-    90 => '90 Tage',
-];
-
-// '' = alle Profile, '0' = explizit "kein Profil" (globaler Fallback ohne aufgeloestes
-// Profil, siehe ChatQueryService::process()), sonst eine echte Profil-ID. Zeilen von vor
-// der Einfuehrung dieser Spalte haben ebenfalls profile_id NULL und landen damit unter "0".
 $profileFilterRaw = rex_request('profile', 'string', '');
+
 $allProfiles = (new ProfileRepository())->getAll();
 $profileNamesById = [];
 foreach ($allProfiles as $profileEntry) {
     $profileNamesById[$profileEntry->id] = $profileEntry->name;
 }
 
-$profileClause = '';
-$profileParam = null;
-if ($profileFilterRaw === '0') {
-    $profileClause = ' AND profile_id IS NULL';
-} elseif ($profileFilterRaw !== '') {
-    $profileClause = ' AND profile_id = :profile_id';
-    $profileParam = (int) $profileFilterRaw;
-}
-
-$scopeLabels = [
-    'frontend' => 'Frontend',
-];
-$scopeModeLabels = [
-    'frontend' => [
-        'search' => 'Suchbegriffe',
-        'chat' => 'Fragen / Chat',
-    ],
-];
-
-$buildDateClause = static function (int $days): string {
-    return $days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . $days . ' DAY)' : '';
-};
-
-$buildScopeQuery = static function (rex_sql $sql, string $scope, int $days, string $mode = '', bool $onlyNoResult = false) use ($profileClause, $profileParam): array {
-    $statusClause = $onlyNoResult
-        ? "AND status IN ('search_no_result', 'chat_no_answer')"
-        : "AND status NOT IN ('request_started')";
-
-    $modeClause = $mode !== '' ? "AND mode = :mode" : '';
-    $dateClause = $days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : '';
-
-    return $sql->getArray(
-        'SELECT normalized_query AS query, COUNT(*) AS total
-         FROM ' . rex::getTable('ai_chat_stats') . '
-         WHERE scope = :scope
-           ' . $dateClause . '
-           AND COALESCE(normalized_query, \'\') <> \'\'
-           ' . $statusClause . '
-           ' . $modeClause . '
-           ' . $profileClause . '
-         GROUP BY normalized_query
-         ORDER BY total DESC',
-        array_filter([
-            'scope' => $scope,
-            'mode' => $mode !== '' ? $mode : null,
-            'profile_id' => $profileParam,
-        ], static fn ($value) => $value !== null)
-    );
-};
-
-$sql = rex_sql::factory();
-$topQueries = [];
-$noResultQueries = [];
-foreach ($scopeLabels as $scopeKey => $scopeName) {
-    $modeLabels = $scopeModeLabels[$scopeKey];
-    $topQueries[$scopeKey] = [];
-    $noResultQueries[$scopeKey] = [];
-
-    foreach (array_keys($modeLabels) as $modeKey) {
-        $topQueries[$scopeKey][$modeKey] = $buildScopeQuery($sql, $scopeKey, $days, $modeKey, false);
-        $noResultQueries[$scopeKey][$modeKey] = $buildScopeQuery($sql, $scopeKey, $days, $modeKey, true);
-    }
-}
-
-$scopeSummary = [];
-foreach ($scopeLabels as $scopeKey => $scopeName) {
-    $summaryRows = $sql->getArray(
-        'SELECT COUNT(*) AS total
-         FROM ' . rex::getTable('ai_chat_stats') . '
-         WHERE scope = :scope
-           AND status <> :started
-           ' . ($days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : '') . '
-           ' . $profileClause,
-        array_filter([
-            'scope' => $scopeKey,
-            'started' => 'request_started',
-            'profile_id' => $profileParam,
-        ], static fn ($value) => $value !== null)
-    );
-    $scopeSummary[$scopeKey] = (int) ($summaryRows[0]['total'] ?? 0);
-}
-
-// Immer ALLE Profile, unabhaengig vom oben gewaehlten Profil-Filter (der schraenkt nur die
-// Detail-Tabellen weiter unten ein) - diese Uebersicht soll auf einen Blick zeigen, wie sich
-// die Nutzung ueberhaupt auf die Profile verteilt.
-$profileSummaryRows = $sql->getArray(
-    'SELECT profile_id, COUNT(*) AS total
-     FROM ' . rex::getTable('ai_chat_stats') . '
-     WHERE status <> :started
-       ' . ($days > 0 ? ' AND created_at >= DATE_SUB(NOW(), INTERVAL ' . (int) $days . ' DAY)' : '') . '
-     GROUP BY profile_id
-     ORDER BY total DESC',
-    ['started' => 'request_started']
-);
+$dashboard = $statisticsService->buildDashboard($days, $profileFilterRaw);
+$periodOptions = $dashboard['periodOptions'];
+$scopeLabels = $dashboard['scopeLabels'];
+$scopeModeLabels = $dashboard['scopeModeLabels'];
+$topQueries = $dashboard['topQueries'];
+$noResultQueries = $dashboard['noResultQueries'];
+$scopeSummary = $dashboard['scopeSummary'];
+$profileSummaryRows = $dashboard['profileSummaryRows'];
+$hasAnyStats = $dashboard['hasAnyStats'];
 
 $buildOverviewChartOptions = static function (array $scopeSummary, string $title): array {
     $labels = [];
@@ -167,7 +84,7 @@ $buildOverviewChartOptions = static function (array $scopeSummary, string $title
 // "page" unten wuerde "?page=ai_chat/statistics" aus der action-URL beim Submit
 // verloren gehen und REDAXO mangels erkanntem "page"-Parameter auf der
 // Standardseite (Struktur) landen, statt auf dieser Seite zu bleiben.
-$currentStatsPage = rex_url::backendPage('ai_chat/statistics');
+$currentStatsPage = $dashboard['currentStatsPage'];
 $periodHtml = '<form id="klxmchat-stats-period-form" method="get" action="' . $currentStatsPage . '" class="form-inline" style="display:inline-block; margin:0; vertical-align:top;">'
     . '<input type="hidden" name="page" value="ai_chat/statistics">'
     . '<div class="form-group" style="margin-right:15px;"><label for="profile" style="margin-right:6px;">Profil</label>'
@@ -193,8 +110,16 @@ $resetHtml = '<form method="post" style="display:inline-block; margin:0 0 0 15px
     . '<button type="submit" name="reset_stats" value="1" class="btn btn-danger btn-sm" onclick="return confirm(\'Die gesamte Statistik wirklich zurücksetzen?\');">Statistik zurücksetzen</button>'
     . '</form>';
 
+$currentRetentionDays = max(1, (int) $addon->getConfig('stats_retention_days', 90));
+$retentionHtml = '<form method="post" class="form-inline" style="display:inline-block; margin:0 0 0 15px; vertical-align:top;">'
+    . $retentionToken->getHiddenField()
+    . '<label for="stats_retention_days" style="margin-right:6px;" title="Statistik-Einträge werden automatisch gelöscht, sobald sie älter als diese Anzahl Tage sind.">Aufbewahrung (Tage)</label>'
+    . '<input type="number" id="stats_retention_days" name="stats_retention_days" class="form-control input-sm" style="width:80px;display:inline-block;" min="1" value="' . $currentRetentionDays . '">'
+    . ' <button type="submit" name="save_retention" value="1" class="btn btn-default btn-sm">Speichern</button>'
+    . '</form>';
+
 echo '<div class="klxmchat-statistics-shell">';
-echo '<div class="klxmchat-statistics-toolbar">' . $periodHtml . $resetHtml . '</div>';
+echo '<div class="klxmchat-statistics-toolbar">' . $periodHtml . $resetHtml . $retentionHtml . '</div>';
 
 $panel = new rex_fragment();
 $panel->setVar('title', 'Such- und Chat-Statistiken');
@@ -304,16 +229,6 @@ $body .= '</div>';
 $panel->setVar('body', $body, false);
 echo $panel->parse('core/page/section.php');
 echo '</div>';
-
-$hasAnyStats = false;
-foreach ($scopeLabels as $scopeKey => $scopeName) {
-    foreach (array_keys($scopeModeLabels[$scopeKey]) as $modeKey) {
-        if ($topQueries[$scopeKey][$modeKey] !== []) {
-            $hasAnyStats = true;
-            break 2;
-        }
-    }
-}
 
 if (!$hasAnyStats) {
     echo '<div class="alert alert-info">Es wurden noch keine passenden Such- oder Chat-Daten für den gewählten Zeitraum erfasst.</div>';

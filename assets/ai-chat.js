@@ -1539,11 +1539,11 @@ class AiChat extends HTMLElement {
                     width: 60px;
                     height: 60px;
                     border-radius: 30px;
-                    background: var(--ai-chat-primary, ${primaryColor});
+                    background: var(--ai-chat-bubble, var(--ai-chat-primary, ${primaryColor}));
                     color: white;
                     border: none;
                     cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    box-shadow: var(--ai-chat-bubble-shadow, 0 4px 12px rgba(0,0,0,0.15));
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -1576,7 +1576,9 @@ class AiChat extends HTMLElement {
                 .chat-container {
                     background: var(--ai-chat-bg, white);
                     border-radius: var(--ai-chat-radius, 12px);
-                    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+                    box-shadow: var(--ai-chat-container-shadow, 0 5px 20px rgba(0,0,0,0.2));
+                    backdrop-filter: var(--ai-chat-backdrop-filter, none);
+                    -webkit-backdrop-filter: var(--ai-chat-backdrop-filter, none);
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
@@ -1594,6 +1596,31 @@ class AiChat extends HTMLElement {
                     opacity: 1;
                     pointer-events: all;
                     transform: translateY(0);
+                }
+
+                /* Einblend-Animationen (siehe ProfileTheme::resolveOpenAnimation()) - das
+                   "open-animation"-Host-Attribut ueberschreibt gezielt nur transform/
+                   transform-origin des geschlossenen bzw. offenen Zustands, alle anderen
+                   .chat-container-Eigenschaften (Groesse/Position/Schatten/etc.) bleiben
+                   unveraendert. "fade_slide" (Default) braucht keine eigene Regel - das
+                   ist bereits das Basisverhalten oben. */
+                :host([open-animation="zoom"]) .chat-container {
+                    transform: scale(0.85);
+                }
+                :host([open-animation="zoom"]) .chat-container.open {
+                    transform: scale(1);
+                }
+
+                :host([open-animation="slide_up"]) .chat-container {
+                    transform: translateY(40px);
+                }
+
+                :host([open-animation="flip_3d"]) .chat-container {
+                    transform: perspective(800px) rotateX(-15deg) translateY(10px);
+                    transform-origin: bottom center;
+                }
+                :host([open-animation="flip_3d"]) .chat-container.open {
+                    transform: perspective(800px) rotateX(0deg) translateY(0);
                 }
 
                 :host([mode="inline"]) .chat-container {

@@ -99,7 +99,7 @@ if ('add' === $func || 'edit' === $func) {
                 . '<div class="panel-body">'
                 . '<p class="help-block" style="margin-top:0;">Testet den <strong>gespeicherten</strong> Stand dieses Profils live - ungespeicherte Änderungen links zuerst speichern, dann diese Seite neu laden.</p>'
                 . sprintf(
-                    '<ai-chat id="ai-chat-profile-test-widget" mode="inline" style="%s" api-url="%s" scope="frontend" title="%s" greeting="%s" primary-color="%s" avatar-url="%s" position="%s" personalization-mode="%s" stream-enabled="%s" profile-id="%d" ui-language="%s"%s%s></ai-chat>',
+                    '<ai-chat id="ai-chat-profile-test-widget" mode="inline" style="%s" api-url="%s" scope="frontend" title="%s" greeting="%s" primary-color="%s" avatar-url="%s" position="%s" personalization-mode="%s" stream-enabled="%s" profile-id="%d" ui-language="%s" open-animation="%s"%s%s></ai-chat>',
                     rex_escape($testInlineStyle, 'html_attr'),
                     rex_escape($apiUrl, 'html_attr'),
                     rex_escape($testProfile->name, 'html_attr'),
@@ -111,6 +111,7 @@ if ('add' === $func || 'edit' === $func) {
                     $testStreamEnabled ? 'true' : 'false',
                     $testProfile->id,
                     rex_escape($testProfile->uiLanguage, 'html_attr'),
+                    ProfileTheme::resolveOpenAnimation($testTheme),
                     $testResetAttr,
                     $testCopyAttr
                 )
