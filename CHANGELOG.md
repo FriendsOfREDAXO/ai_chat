@@ -88,10 +88,12 @@
   Änderungsdatums der Quelle** - alle in einem Reindex-Lauf verarbeiteten
   Treffer erschienen dadurch mit demselben, irreführenden Datum. Artikel
   nutzen jetzt `rex_article::getUpdateDate()`, Medienpool-Dateien ihr
-  tatsächliches Änderungsdatum aus dem Medienpool. Nur bei Sitemap-URLs
-  bleibt es beim Indexierungszeitpunkt (kein zuverlässiges Änderungsdatum
-  ohne zusätzlichen HTTP-Overhead verfügbar). **Wirkt erst nach einer
-  erneuten Indexierung.**
+  tatsächliches Änderungsdatum aus dem Medienpool, Sitemap-URLs das
+  `<lastmod>`-Element aus der ohnehin bereits geladenen Sitemap-XML (sofern
+  vorhanden - sonst weiterhin der Indexierungszeitpunkt als Fallback).
+  Nebeneffekt: der inkrementelle Reindex kann jetzt auch für Sitemap-URLs
+  echte Änderungen erkennen, statt sie bei jedem Lauf blind neu zu
+  verarbeiten. **Wirkt erst nach einer erneuten Indexierung.**
 - **Aktive Typ-/Bereichs-Filter wurden von der erweiterten Suche wieder
   aufgeweicht**: die zusätzliche Vektorsuche durchsucht immer den gesamten
   Index und ignorierte dabei aktive Filter komplett - ein bereits

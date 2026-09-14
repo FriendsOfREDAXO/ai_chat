@@ -112,6 +112,8 @@ class IndexerService
 
             if ([] !== $profile->sitemapGroups) {
                 foreach ($profile->sitemapGroups as $group) {
+                    // URL => lastmod|null - array_merge() dedupliziert bereits ueber den
+                    // String-Key, eine spaetere Sitemap gewinnt bei doppelter URL.
                     $groupUrls = [];
                     foreach ($group['urls'] as $sitemapUrl) {
                         $groupUrls = array_merge($groupUrls, $this->fetchSitemapUrls($sitemapUrl));
@@ -120,10 +122,11 @@ class IndexerService
                     // NULL) - konsistent mit "keine Gruppe" fuer bereits migrierte Alt-Profile
                     // (siehe install.php-Migration) und mit dem Shared Pool.
                     $label = '' !== $group['label'] ? $group['label'] : null;
-                    foreach (array_unique($groupUrls) as $url) {
+                    foreach ($groupUrls as $url => $lastmod) {
                         $tasks[] = [
                             'type' => 'url',
                             'url' => $url,
+                            'lastmod' => $lastmod,
                             'chat_profile_id' => $profile->id,
                             'source_label' => $label,
                         ];
@@ -271,12 +274,11 @@ class IndexerService
                 } elseif ($task['type'] === 'url') {
                     $sourceType = 'sitemap_url';
                     $sourceId = $task['url'];
-                    // URLs are harder to check for update without fetching.
-                    // For now, we assume if it's in the index, it's fine.
-                    // Or we could always update URLs? 
-                    // Let's check if it exists in DB. If yes, we skip for performance, 
-                    // unless it's a "force" or "clear" run.
-                    $currentUpdateDate = 0; // We don't have it easily
+                    // lastmod kommt aus dem <lastmod>-Element der Sitemap selbst (siehe
+                    // fetchSitemapUrls()) - null, wenn die Sitemap kein lastmod liefert; in dem
+                    // Fall bleibt es beim alten Verhalten (0 = "unbekannt", jeder Lauf
+                    // reindexiert die URL neu, da kein verlaesslicher Vergleich moeglich ist).
+                    $currentUpdateDate = is_int($task['lastmod'] ?? null) ? $task['lastmod'] : 0;
                 } elseif ($task['type'] === 'provider_item') {
                     $sourceType = (string) ($task['source_type'] ?? 'provider_item');
                     $sourceId = (string) ($task['source_id'] ?? '');
@@ -383,7 +385,8 @@ class IndexerService
             } elseif ($type === 'url') {
                 $result['title'] = $task['url'];
                 $sourceLabel = isset($task['source_label']) && is_string($task['source_label']) && '' !== $task['source_label'] ? $task['source_label'] : null;
-                $result['chunks'] = $this->indexUrl($task['url'], $chatProfileId, $sourceLabel);
+                $lastmod = is_int($task['lastmod'] ?? null) ? $task['lastmod'] : null;
+                $result['chunks'] = $this->indexUrl($task['url'], $chatProfileId, $sourceLabel, $lastmod);
             } elseif ($type === 'provider_item') {
                 $result['title'] = (string) ($task['title'] ?? ((string) ($task['source_id'] ?? 'Provider-Element')));
                 $result['chunks'] = $this->indexProviderTask($task, $chatProfileId);
@@ -589,7 +592,7 @@ class IndexerService
         };
     }
 
-    private function indexUrl(string $url, ?int $chatProfileId = null, ?string $sourceLabel = null): int
+    private function indexUrl(string $url, ?int $chatProfileId = null, ?string $sourceLabel = null, ?int $lastmod = null): int
     {
         $chunkCount = 0;
         try {
@@ -662,11 +665,12 @@ class IndexerService
                     $sql->setValue('url', $url);
                     $sql->setValue('profile_id', $chatProfileId);
                     $sql->setValue('source_label', $sourceLabel);
-                    // Anders als bei Artikeln/Medienpool-Dateien gibt es fuer eine beliebige
-                    // Sitemap-URL kein zuverlaessig verfuegbares echtes Aenderungsdatum ohne
-                    // zusaetzlichen HTTP-Overhead (Last-Modified-Header auswerten, <lastmod>
-                    // aus der Sitemap selbst parsen) - bleibt bewusst der Indexierungszeitpunkt.
-                    $sql->setDateTimeValue('updatedate', time());
+                    // Echtes <lastmod> aus der Sitemap (siehe fetchSitemapUrls()), falls
+                    // vorhanden - NICHT der Indexierungszeitpunkt, sonst zeigen alle Treffer
+                    // eines Reindex-Laufs faelschlich dasselbe Datum (gleiches Prinzip wie bei
+                    // Artikeln/Medienpool-Dateien). Fallback auf time(), wenn die Sitemap kein
+                    // lastmod fuer diese URL liefert.
+                    $sql->setDateTimeValue('updatedate', $lastmod ?? time());
                     $sql->insert();
                     ++$chunkCount;
                 }
@@ -679,7 +683,16 @@ class IndexerService
     }
 
     /**
-     * @return list<string>
+     * Liest neben der URL auch das <lastmod>-Element jedes <url>-Eintrags aus, sofern die
+     * Sitemap es liefert (Standard-Sitemap-Protokoll-Feld, yrewrite fuellt es z.B. mit dem
+     * echten Artikel-Aenderungsdatum) - kein zusaetzlicher HTTP-Aufruf noetig, das Feld steht
+     * bereits in der ohnehin schon geladenen Sitemap-XML. Wird fuer zwei Dinge gebraucht:
+     * das echte updatedate in der Suche/im Datumsfilter (statt des Indexierungszeitpunkts,
+     * siehe indexUrl()) und den inkrementellen Reindex-Vergleich (siehe processQueue(),
+     * vorher IMMER 0 = "nicht bekannt", jeder Lauf reindexierte deshalb jede Sitemap-URL neu).
+     *
+     * @return array<string, int|null> URL => lastmod als Unix-Timestamp, oder null wenn die
+     *         Sitemap fuer diese URL kein <lastmod> hat/es sich nicht parsen liess
      */
     private function fetchSitemapUrls(string $sitemapUrl): array
     {
@@ -688,14 +701,28 @@ class IndexerService
             $socket = \rex_socket::factoryUrl($sitemapUrl);
             $response = $socket->doGet();
             if (!$response->isOk()) return [];
-            
+
             $xml = $response->getBody();
             $sitemap = new \SimpleXMLElement($xml);
-            
+
             foreach ($sitemap->url as $url) {
-                $urls[] = (string) $url->loc;
+                $loc = (string) $url->loc;
+                if ('' === $loc) {
+                    continue;
+                }
+
+                $lastmod = null;
+                $lastmodRaw = trim((string) ($url->lastmod ?? ''));
+                if ('' !== $lastmodRaw) {
+                    $timestamp = strtotime($lastmodRaw);
+                    if (false !== $timestamp) {
+                        $lastmod = $timestamp;
+                    }
+                }
+
+                $urls[$loc] = $lastmod;
             }
-            
+
             // Handle sitemap index
             if (isset($sitemap->sitemap)) {
                 foreach ($sitemap->sitemap as $subSitemap) {
@@ -705,10 +732,8 @@ class IndexerService
         } catch (\Exception $e) {
             \rex_logger::logError(E_USER_WARNING, 'AiChat: Failed to fetch sitemap ' . $sitemapUrl . ': ' . $e->getMessage(), __FILE__, __LINE__);
         }
-        /** @var list<string> $uniqueUrls */
-        $uniqueUrls = array_values(array_unique($urls));
 
-        return $uniqueUrls;
+        return $urls;
     }
 
     /**
