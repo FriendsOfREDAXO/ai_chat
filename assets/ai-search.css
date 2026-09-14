@@ -464,6 +464,27 @@ body.rex-theme-dark #ai-search-root {
   background: color-mix(in srgb, var(--ai-search-accent) 5%, transparent);
 }
 
+#ai-search-root .ai-search-item-has-thumb {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+#ai-search-root .ai-search-item-thumb {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+#ai-search-root .ai-search-item-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+}
+
 #ai-search-root .ai-search-item-meta {
   display: flex;
   align-items: center;

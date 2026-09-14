@@ -94,6 +94,11 @@ $field->setLabel($tooltipLabel($addon->i18n('config_embedding_metainfo_fields'),
 $field->setNotice($addon->i18n('config_embedding_metainfo_fields_notice'));
 $field->setAttribute('placeholder', 'art_meta_keywords, art_kurzbeschreibung');
 
+$field = $form->addTextField('title_image_metainfo_field');
+$field->setLabel($tooltipLabel($addon->i18n('config_title_image_metainfo_field'), 'config_title_image_metainfo_field_notice'));
+$field->setNotice($addon->i18n('config_title_image_metainfo_field_notice'));
+$field->setAttribute('placeholder', 'art_titelbild');
+
 $form->addRawField('</div>');
 
 // RAG-Abruf: wie viele/aus wie vielen Kandidaten der Kontext fuer JEDE Anfrage ausgewaehlt

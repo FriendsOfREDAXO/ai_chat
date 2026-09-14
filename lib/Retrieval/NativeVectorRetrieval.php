@@ -39,7 +39,7 @@ final class NativeVectorRetrieval implements RetrievalStrategyInterface
             $conditions[] = $whereSql;
         }
 
-        $query = 'SELECT content, url, title, source_type, source_id, source_label, VEC_DISTANCE_COSINE(' . $column . ', VEC_FromText(?)) AS distance FROM '
+        $query = 'SELECT content, url, title, source_type, source_id, source_label, image_url, VEC_DISTANCE_COSINE(' . $column . ', VEC_FromText(?)) AS distance FROM '
             . rex::getTable('ai_chat_index')
             . ' WHERE ' . implode(' AND ', $conditions)
             . ' ORDER BY distance ASC LIMIT ' . $candidateLimit;
@@ -53,6 +53,7 @@ final class NativeVectorRetrieval implements RetrievalStrategyInterface
             $similarity = is_numeric($distance) ? 1.0 - (float) $distance : 0.0;
 
             $sourceLabel = trim((string) $row->getValue('source_label'));
+            $imageUrl = trim((string) $row->getValue('image_url'));
             $results[] = [
                 'content' => (string) $row->getValue('content'),
                 'url' => (string) $row->getValue('url'),
@@ -61,6 +62,7 @@ final class NativeVectorRetrieval implements RetrievalStrategyInterface
                 'source_type' => (string) $row->getValue('source_type'),
                 'source_id' => (string) $row->getValue('source_id'),
                 'source_label' => '' !== $sourceLabel ? $sourceLabel : null,
+                'image_url' => '' !== $imageUrl ? $imageUrl : null,
             ];
         }
 

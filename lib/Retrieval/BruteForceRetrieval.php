@@ -20,7 +20,7 @@ final class BruteForceRetrieval implements RetrievalStrategyInterface
     {
         $queryMagnitude = VectorMath::magnitude($userEmbedding);
 
-        $query = 'SELECT content, embedding, embedding_norm, url, title, source_type, source_id, source_label FROM ' . rex::getTable('ai_chat_index');
+        $query = 'SELECT content, embedding, embedding_norm, url, title, source_type, source_id, source_label, image_url FROM ' . rex::getTable('ai_chat_index');
         if ('' !== $whereSql) {
             $query .= ' WHERE ' . $whereSql;
         }
@@ -49,6 +49,7 @@ final class BruteForceRetrieval implements RetrievalStrategyInterface
             );
 
             $sourceLabel = trim((string) $row->getValue('source_label'));
+            $imageUrl = trim((string) $row->getValue('image_url'));
             $results[] = [
                 'content' => (string) $row->getValue('content'),
                 'url' => (string) $row->getValue('url'),
@@ -57,6 +58,7 @@ final class BruteForceRetrieval implements RetrievalStrategyInterface
                 'source_type' => (string) $row->getValue('source_type'),
                 'source_id' => (string) $row->getValue('source_id'),
                 'source_label' => '' !== $sourceLabel ? $sourceLabel : null,
+                'image_url' => '' !== $imageUrl ? $imageUrl : null,
             ];
         }
 

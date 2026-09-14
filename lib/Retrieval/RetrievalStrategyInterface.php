@@ -30,7 +30,7 @@ interface RetrievalStrategyInterface
      *        BruteForceRetrieval/NativeVectorRetrieval reine Vektorsuche sind und den Text
      *        nicht brauchen. Bewusst ein eigener Parameter statt Teil von $whereSql, weil ein
      *        Volltext-Score keine WHERE-Filterbedingung, sondern ein zweites Ranking ist.
-     * @return list<array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, source_label: ?string, rrf_score_raw?: float, fulltext_rank?: ?int, vector_rank?: ?int}>
+     * @return list<array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, source_label: ?string, image_url: ?string, rrf_score_raw?: float, fulltext_rank?: ?int, vector_rank?: ?int}>
      */
     public function findCandidates(array $userEmbedding, string $whereSql, array $whereParams, int $candidateLimit, ?string $searchText = null): array;
 

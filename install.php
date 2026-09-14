@@ -27,6 +27,13 @@ rex_sql_table::get(rex::getTable('ai_chat_index'))
     // source_type, weil "Typ" (sitemap_url) und "vom Admin frei vergebener Name" zwei
     // unabhaengige Dimensionen sind - siehe ChatQueryService::search()-Facetten.
     ->ensureColumn(new rex_sql_column('source_label', 'varchar(190)', true))
+    // Vorschaubild-URL: PDF-Erstseiten-Thumbnail (via pdfout, falls installiert) fuer
+    // mediapool_pdf, oder das konfigurierte Titelbild-Metainfo-Feld fuer article - siehe
+    // MediaPoolContentProvider::prepareDocument()/IndexerService::indexArticle(). NULL,
+    // wenn keine Bildquelle vorhanden/kein Renderer verfuegbar war - kein Reindex-Zwang,
+    // bleibt bis zum naechsten Lauf einfach ohne Vorschaubild (gleiches "NULL = noch nicht
+    // berechnet"-Prinzip wie bei embedding/embedding_norm fuer Altzeilen).
+    ->ensureColumn(new rex_sql_column('image_url', 'varchar(255)', true))
     ->ensureIndex(new rex_sql_index('source', ['source_type', 'source_id']))
     ->ensureIndex(new rex_sql_index('profile_source', ['profile_id', 'source_type']))
     // Fuer Hybrid-Search (Reciprocal Rank Fusion, siehe HybridRrfRetrieval): MariaDBs
@@ -36,6 +43,62 @@ rex_sql_table::get(rex::getTable('ai_chat_index'))
     // noetig.
     ->ensureIndex(new rex_sql_index('content_fulltext', ['title', 'content'], rex_sql_index::FULLTEXT))
     ->ensure();
+
+// EIN gemeinsamer Media-Manager-Type fuer beide Bildvorschauen (Artikel-Titelbild UND
+// PDF-Erstseiten-Thumbnail): pdfout's "pdf_thumbnail"-Effekt ist bei jeder Nicht-PDF-Datei
+// ein reines No-Op (siehe rex_effect_pdf_thumbnail::execute(), fruehe Rueckkehr bei
+// $ext !== 'pdf') und laesst das Bild unveraendert an den nachfolgenden resize-Effekt
+// durchreichen - ein einziger Type funktioniert deshalb fuer beide Quellarten, siehe
+// MediaPoolContentProvider::generateThumbnailUrl(). Der pdf_thumbnail-Effekt wird nur
+// eingebunden, wenn pdfout installiert ist - ohne pdfout bleibt der Type ein reiner
+// Resize-Type (funktioniert dann fuer Artikel-Titelbilder weiterhin normal, liefert fuer
+// PDFs aber keine Vorschau, da PDFs ohne pdfout fuer den Media-Manager kein Bildformat sind).
+$sql = rex_sql::factory();
+$sql->setQuery('SELECT id FROM ' . rex::getTable('media_manager_type') . ' WHERE name = ?', ['ai_chat_thumbnail']);
+
+if (0 === $sql->getRows()) {
+    $sql = rex_sql::factory();
+    $sql->setTable(rex::getTable('media_manager_type'));
+    $sql->setValue('name', 'ai_chat_thumbnail');
+    $sql->setValue('description', 'AI Chat Suche - Vorschaubild 300x200 (Artikel-Titelbild bzw. PDF-Erstseite via pdfout)');
+    $sql->setValue('status', 0);
+    $sql->addGlobalCreateFields();
+    $sql->addGlobalUpdateFields();
+    $sql->insert();
+
+    $typeId = $sql->getLastId();
+
+    $priority = 1;
+
+    if (rex_addon::get('pdfout')->isAvailable()) {
+        $sql = rex_sql::factory();
+        $sql->setTable(rex::getTable('media_manager_type_effect'));
+        $sql->setValue('type_id', $typeId);
+        $sql->setValue('effect', 'pdf_thumbnail');
+        $sql->setValue('priority', $priority++);
+        $sql->setValue('parameters', '{}');
+        $sql->addGlobalCreateFields();
+        $sql->addGlobalUpdateFields();
+        $sql->insert();
+    }
+
+    $sql = rex_sql::factory();
+    $sql->setTable(rex::getTable('media_manager_type_effect'));
+    $sql->setValue('type_id', $typeId);
+    $sql->setValue('effect', 'resize');
+    $sql->setValue('priority', $priority);
+    $sql->setValue('parameters', json_encode([
+        'rex_effect_resize' => [
+            'rex_effect_resize_width' => '300',
+            'rex_effect_resize_height' => '200',
+            'rex_effect_resize_style' => 'maximum',
+            'rex_effect_resize_allow_enlarge' => 'not_enlarge',
+        ],
+    ]));
+    $sql->addGlobalCreateFields();
+    $sql->addGlobalUpdateFields();
+    $sql->insert();
+}
 
 // hybrid_search_enabled-Default: NUR bei einer frischen Installation automatisch auf
 // "an" setzen, damit neue Installationen sofort mit der besseren Konfiguration starten.
@@ -242,6 +305,13 @@ $profileTable
     // oben). varchar(10) bleibt (statt tinyint), um Alt-Daten ohne Typkonflikt zu uebernehmen.
     ->ensureColumn(new rex_sql_column('chat_enabled', 'varchar(10)', false, '1'))
     ->ensureColumn(new rex_sql_column('search_enabled', 'varchar(10)', false, '1'))
+    // Steuert NUR die erweiterte (vektorbasierte) Suche - explizites Abschicken per
+    // Enter/Suchen-Button im JS-Overlay bzw. jeder Aufruf der neuen paginierten
+    // Suchseite (siehe ChatQueryService::search()/searchPaginated()). Die reine
+    // Keyword-Suche selbst bleibt von diesem Schalter unberuehrt, sie braucht ohnehin
+    // keinen KI-Provider. Default '1' (aktiviert), damit bestehende Profile ohne
+    // Aenderung ihr bisheriges Verhalten behalten.
+    ->ensureColumn(new rex_sql_column('search_extended_enabled', 'varchar(10)', false, '1'))
     ->ensureColumn(new rex_sql_column('domains', 'text', true)) // |domain1|domain2|
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
     // use_shared_scope und extra_source gehoeren konzeptionell zusammen (beide

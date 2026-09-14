@@ -50,12 +50,18 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 
 ### Suche
 
-- Vektorbasierte semantische Suche über den Index, nicht auf exakte Wörter angewiesen
-- Live-Suche mit kurzer Verzögerung beim Tippen, plus expliziter Suchen-Button für alle, die lieber gezielt auslösen
+- Live-Suche mit kurzer Verzögerung beim Tippen: schnelle Keyword-Suche inkl. deutschem Stemming (findet z. B. „Häuser" auch in Seiten, die nur „Haus" enthalten), läuft komplett ohne KI-Provider
+- Erweiterte Suche bei explizitem Auslösen (Enter oder Suchen-Button): ergänzt die Keyword-Treffer um eine echte, vektorbasierte semantische Suche über den Index – findet dadurch auch thematisch verwandte, aber wortverschiedene Treffer. Fällt der KI-Provider aus, liefert die Suche still die Keyword-Treffer zurück statt zu scheitern. Pro Profil abschaltbar, wenn nur die schnelle Keyword-Suche gewünscht ist
+- Bildvorschauen in den Suchergebnissen: PDF-Erstseiten-Thumbnail (nutzt das `pdfout`-Addon, sofern installiert) sowie ein konfigurierbares Artikel-Titelbild
+- Klassische, serverseitig gerenderte Suchseite mit Paginierung, Typ-/Bereichs-Filtern und Datumsfilter als eigenständiges REDAXO-Modul – Alternative zum bestehenden Spotlight-Suchfenster, für eine dauerhafte, teilbare Such-URL
 - Facetten-Filterung nach Quellentyp (Artikel, Sitemap-Seite, PDF, YForm-Datensatz, …) sowie nach benannten Sitemap-/Struktur-Gruppen (siehe unten)
 - Erkennung von Fragen auch ohne Fragezeichen – bei erkannter Frage ergänzt eine KI-Antwort automatisch die Trefferliste, ohne die Trefferliste selbst zu verzögern
 - Optionale, separat nachgeladene KI-Zusammenstellung über mehrere Bereiche hinweg, wenn Treffer aus mehreren benannten Sitemap-/Struktur-Gruppen stammen (deaktiviert per Standard, da ein zusätzlicher KI-Aufruf pro Suche)
 - Datenschutz-Guard für sensible Eingaben (E-Mail, IBAN, Passwörter/PINs) sowie Schutz gegen Prompt-Injection- und Code-Injection-Versuche
+
+### Paginierte Suchseite (Modul)
+
+Neben dem bestehenden Spotlight-Suchfenster gibt es jetzt ein eigenständiges REDAXO-Modul „AI Chat Suchseite" – für eine klassische, serverseitig gerenderte Ergebnisseite mit eigener, teilbarer URL statt eines Overlays. Modul im Backend anlegen (Inhalt aus `install/module/input.php`/`output.php` übernehmen) und als Slice in einen Artikel einfügen, z. B. unter `/suche/`. Bringt eigene Paginierung, Typ-/Bereichs-Filter-Chips und optionale Datumsfilter-Felder mit, alles über GET-Parameter (`q`, `page`, `type[]`, `label[]`, `date_from`, `date_to`) – jede Ergebnisansicht ist dadurch eine normale, bookmarkbare URL. Styling läuft über CSS-Variablen (`assets/ai-search-page.css`) oder durch Kopieren der Fragments (`fragments/ai_chat/*.php`) ins eigene Projekt.
 
 ### Chat
 
@@ -77,6 +83,7 @@ Statt Farben/Avatar/Eckenradius in jedem Profil einzeln zu pflegen, verwaltet �
 - Optionale Embedding-Kontext-Hinweise und Fokus-Regeln (Format `Label|Begriff1|Begriff2`), um bestimmten Themen zusätzliches Gewicht zu geben, sowie automatische Auswertung von JSON-LD (`Person`, `Organization`, `ContactPoint`, `LocalBusiness`, `BreadcrumbList`, `FAQPage`, Öffnungszeiten) als strukturierte, eindeutige Faktenquelle – hilfreich, damit der Chat Zuständigkeiten/Ansprechpartner nicht versehentlich verwechselt oder kombiniert
 - **Kategorie-Pfad als Embedding-Kontext**: jeder Textabschnitt bekommt vor dem Embedding zusätzlich seine Einordnung mitgegeben – bei Struktur-Inhalten die echte REDAXO-Kategorie-Hierarchie (z. B. „Agentur > Leistungen > Webentwicklung"), bei Sitemap-/YForm-/Provider-Inhalten ohne REDAXO-Kategorie ersatzweise die aus der URL abgeleitete Ordnerstruktur. Abschaltbar, Standard: an.
 - **Konfigurierbare Metainfo-Felder**: eigene Metainfo-Spalten (z. B. eine „Meta-Keywords"-Spalte) lassen sich als zusätzlicher Kontext-Hinweis vor dem Embedding jedes Artikels einbeziehen – Feldnamen sind pro Installation frei vergeben, deshalb konfigurierbar statt fest verdrahtet.
+- **Artikel-Titelbild für die Suche**: ein ebenfalls frei konfigurierbares Metainfo-/Artikelfeld (z. B. das von yrewrite mitgebrachte `yrewrite_image`) liefert das Vorschaubild eines Artikels in den Suchergebnissen – über denselben Media-Manager-Type wie die PDF-Vorschau, daher ohne zusätzliche Konfiguration in passender Größe.
 - **Re-Ranking**: die Top-Kandidaten der Ähnlichkeitssuche (Standard: 20) werden vor der finalen Auswahl zusätzlich nach Stichwort-Überdeckung mit der Frage neu sortiert – korrigiert Fälle, in denen die reine Vektor-Ähnlichkeit einen thematisch zufälligen, aber embedding-technisch naheliegenden Treffer vor eine tatsächlich passendere Seite stellt. Ohne zusätzlichen KI-Aufruf, keine spürbare Verzögerung.
 - Cache-Warmup für häufig gestellte Fragen (siehe FAQ-Vorcaching), je Profil mit eigener Fragenliste
 

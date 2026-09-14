@@ -1,5 +1,6 @@
 {
     "require": {
-        "smalot/pdfparser": "^2.12"
+        "smalot/pdfparser": "^2.12",
+        "wamania/php-stemmer": "^3.0"
     }
 }

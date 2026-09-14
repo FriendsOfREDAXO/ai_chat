@@ -15,6 +15,7 @@ use FriendsOfRedaxo\AiChat\Retrieval\RetrievalStrategyInterface;
 use FriendsOfRedaxo\AiChat\Retrieval\VectorMath;
 use rex;
 use rex_addon;
+use rex_addon_interface;
 use rex_backend_login;
 use rex_clang;
 use rex_logger;
@@ -104,6 +105,7 @@ class ChatQueryService
                 'mode' => 'search',
                 'query' => '',
                 'hits' => [],
+                'total' => 0,
                 'filters' => ['source_types' => []],
             ];
         }
@@ -315,6 +317,7 @@ class ChatQueryService
                         'mode' => 'search',
                         'query' => '',
                         'hits' => [],
+                        'total' => 0,
                         'filters' => ['source_types' => []],
                     ];
                 }
@@ -347,6 +350,7 @@ class ChatQueryService
                     'mode' => 'search',
                     'query' => trim($message),
                     'hits' => [],
+                    'total' => 0,
                     'filters' => [
                         'source_types' => [],
                     ],
@@ -373,6 +377,7 @@ class ChatQueryService
                     'mode' => 'search',
                     'query' => trim($message),
                     'hits' => [],
+                    'total' => 0,
                     'filters' => [
                         'source_types' => [],
                     ],
@@ -399,6 +404,7 @@ class ChatQueryService
                     'mode' => 'search',
                     'query' => trim($message),
                     'hits' => [],
+                    'total' => 0,
                     'filters' => [
                         'source_types' => [],
                     ],
@@ -441,6 +447,7 @@ class ChatQueryService
                     'mode' => 'search',
                     'query' => trim($message),
                     'hits' => [],
+                    'total' => 0,
                     'filters' => [
                         'source_types' => [],
                     ],
@@ -467,6 +474,7 @@ class ChatQueryService
                     'mode' => 'search',
                     'query' => trim($message),
                     'hits' => [],
+                    'total' => 0,
                     'filters' => [
                         'source_types' => [],
                     ],
@@ -817,7 +825,7 @@ class ChatQueryService
 
     /**
      * @param float[] $userEmbedding
-        * @return array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string}>
+        * @return array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, image_url?: ?string}>
      */
     private function findSimilarContent(array $userEmbedding, int $limit = 3, string $scope = 'frontend', ?string $currentUrl = null, string $message = '', ?ChatProfile $profile = null): array
     {
@@ -2670,6 +2678,108 @@ class ChatQueryService
     }
 
     /**
+     * Schlanker Einstiegspunkt fuer die serverseitig gerenderte, paginierte Suchseite
+     * (install/module/output.php) - bewusst NICHT process() wiederverwendet, dessen voller
+     * Guard-Stack (Datenschutz-/Prompt-/Code-Injection-Schutz, Nachrichtenlaengen-Validierung,
+     * History-Verarbeitung) auf den Chat-Pfad zugeschnitten ist und fuer eine reine
+     * Keyword-Suche ueber einen GET-Parameter unnoetigen Overhead/unpassende Reaktionen
+     * bedeuten wuerde (z.B. wuerde der Code-Injection-Guard bei einer Suche nach echtem
+     * Code-Vokabular anschlagen, das in einer Chat-Nachricht verdaechtig waere, in einer
+     * Websitesuche aber ein legitimer Suchbegriff ist). Durchlaeuft NUR Rate-Limit und
+     * Spam-/Nonsense-Erkennung (Nutzer-Entscheidung), plus dieselbe Profil-Aufloesung/
+     * Frontend-Zugriffskontrolle wie process() - sonst koennte die neue Seite Inhalte eines
+     * fuer die aktuelle Domain/Rolle gar nicht sichtbaren Profils durchsuchbar machen.
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public function searchPaginated(array $input): array
+    {
+        $message = (string) ($input['message'] ?? '');
+
+        [$ipGateConfigured, $ipAllowed] = self::resolveIpTestGate();
+        $ipTestModeActive = $ipGateConfigured && $ipAllowed;
+
+        // Gleiche Profil-Aufloesung wie process() (Zeile ~252-265) fuer einen echten
+        // Website-Besucher: Domain/Sprache/Rolle bestimmen, welches Profil (und damit
+        // welcher Wissens-Scope) sichtbar ist. Die Suchseite hat keinen authentifizierten
+        // Backend-Nutzer/keine Client-profile_id wie der Chat-Test-Dialog - sie laeuft
+        // immer als "echter Besucher an dieser Stelle".
+        $profile = (new ProfileResolver())->resolveForFrontend(
+            self::resolveCurrentFrontendDomain(),
+            rex_clang::getCurrentId(),
+            self::getAuthenticatedBackendUser(),
+            $ipTestModeActive,
+        );
+
+        if ($ipGateConfigured && !$ipAllowed && null === self::getAuthenticatedBackendUser()) {
+            return [
+                'mode' => 'search',
+                'query' => '',
+                'hits' => [],
+                'total' => 0,
+                'filters' => ['source_types' => [], 'labels' => []],
+            ];
+        }
+
+        $frontendDenial = $this->resolveFrontendAccessDenial('search', $profile);
+        if (null !== $frontendDenial) {
+            $frontendDenial['total'] = 0;
+
+            return $frontendDenial;
+        }
+
+        try {
+            $this->checkRateLimit();
+        } catch (\Exception $e) {
+            return [
+                'mode' => 'search',
+                'query' => trim($message),
+                'hits' => [],
+                'total' => 0,
+                'filters' => ['source_types' => [], 'labels' => []],
+                'privacy_warning_message' => $e->getMessage(),
+            ];
+        }
+
+        if ($this->looksLikeNonsenseQuery($message)) {
+            return [
+                'mode' => 'search',
+                'query' => trim($message),
+                'hits' => [],
+                'total' => 0,
+                'filters' => ['source_types' => [], 'labels' => []],
+                'nonsense_query' => true,
+            ];
+        }
+
+        $spamGuard = $this->evaluateSpamGuard($message);
+        if ($spamGuard['blocked']) {
+            return [
+                'mode' => 'search',
+                'query' => trim($message),
+                'hits' => [],
+                'total' => 0,
+                'filters' => ['source_types' => [], 'labels' => []],
+                'privacy_warning_message' => $spamGuard['message'],
+            ];
+        }
+
+        // Anders als das JS-Overlay (Live-Tippen vs. explizites Abschicken) gibt es auf der
+        // serverseitig gerenderten Seite kein "Live-Tippen" - jeder Seitenaufruf mit einem
+        // Suchbegriff ist bereits ein bewusstes Abschicken (Formular-Submit/Link-Klick).
+        // Die erweiterte Vektorsuche wird deshalb hier immer aktiviert, sofern ein
+        // AI-Provider konfiguriert ist - AiServiceFactory::create() liefert bei fehlendem
+        // Provider intern eine no-op-taugliche Instanz, search()s bestehender
+        // Try/Catch-Fallback (siehe dortiger Kommentar) faengt einen Provider-Ausfall
+        // ohnehin lautlos ab.
+        $aiService = AiServiceFactory::create();
+        $input['extended'] = true;
+
+        return $this->search($message, $input, 'frontend', $profile, $aiService);
+    }
+
+    /**
      * @param array<string, mixed> $input
      * @return array<string, mixed>
      */
@@ -2678,7 +2788,13 @@ class ChatQueryService
         $needle = trim($query);
         $limit = (int) ($input['limit'] ?? 20);
         $limit = max(5, min($limit, 50));
-        $terms = $this->extractSearchTerms($needle);
+        // Offset ist unabhaengig vom Limit (Modul/Seite reicht z.B. page=2,limit=20
+        // als offset=20 durch) - siehe searchPaginated() fuer den Aufrufer, der das
+        // aus einer Seitenzahl berechnet. Das bestehende JS-Overlay schickt nie
+        // einen offset, faellt also immer auf 0 zurueck (identisches Verhalten wie
+        // vor dieser Erweiterung).
+        $offset = max(0, (int) ($input['offset'] ?? 0));
+        $terms = $this->extractStemmedSearchTerms($needle);
 
         $allowedSourceTypes = [];
         if ($scope === 'frontend') {
@@ -2695,6 +2811,7 @@ class ChatQueryService
                 'mode' => 'search',
                 'query' => $needle,
                 'hits' => [],
+                'total' => 0,
                 'filters' => [
                     'source_types' => [],
                     'labels' => [],
@@ -2711,6 +2828,7 @@ class ChatQueryService
                 'mode' => 'search',
                 'query' => '',
                 'hits' => [],
+                'total' => 0,
                 'filters' => [
                     'source_types' => [],
                     'labels' => [],
@@ -2734,11 +2852,23 @@ class ChatQueryService
             $params[] = $like;
         } else {
             foreach ($terms as $term) {
-                $like = '%' . $term . '%';
+                $like = '%' . $term['original'] . '%';
                 $textClauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
                 $params[] = $like;
                 $params[] = $like;
                 $params[] = $like;
+
+                // Stamm zusaetzlich als eigene Klausel, NICHT als Ersatz fuer das
+                // Original - "Waermepumpen" soll weiterhin exakt "Waermepumpen"
+                // treffen UND zusaetzlich "Waermepumpe" (siehe scoreSearchHit(), das
+                // einen reinen Stamm-Treffer niedriger gewichtet als einen exakten).
+                if (null !== $term['stem']) {
+                    $stemLike = '%' . $term['stem'] . '%';
+                    $textClauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
+                    $params[] = $stemLike;
+                    $params[] = $stemLike;
+                    $params[] = $stemLike;
+                }
             }
         }
 
@@ -2753,12 +2883,30 @@ class ChatQueryService
             $params = array_merge($params, $visibleProfileIds);
         }
 
+        // Nur von der neuen paginierten Suchseite genutzt (install/module/output.php) -
+        // das bestehende JS-Overlay schickt nie date_from/date_to, $dateWhere bleibt dort
+        // immer leer (No-Op, identisches Verhalten wie vor diesem Feature). Anders als beim
+        // Offset ist ein Datumsfilter direkt in der SQL-Query unproblematisch: er schraenkt
+        // den Kandidatenpool selbst ein, statt eine nachtraegliche Seiten-Zaehlung zu
+        // verfaelschen - Seite 1 und Seite 2 einer datumsgefilterten Suche sehen dieselbe,
+        // bereits eingeschraenkte Grundgesamtheit.
+        [$dateFrom, $dateTo] = $this->extractDateRange($input);
+        $dateWhere = '';
+        if (null !== $dateFrom) {
+            $dateWhere .= ' AND updatedate >= ?';
+            $params[] = $dateFrom . ' 00:00:00';
+        }
+        if (null !== $dateTo) {
+            $dateWhere .= ' AND updatedate <= ?';
+            $params[] = $dateTo . ' 23:59:59';
+        }
+
         $rows = $sql->getArray(
             'SELECT id, source_type, title, content, url, updatedate
-                                        , source_id, source_label
+                                        , source_id, source_label, image_url
              FROM ' . $table . '
              WHERE source_type IN (' . $typePlaceholders . ')
-               AND (' . $textWhere . ')' . $profileWhere . '
+               AND (' . $textWhere . ')' . $profileWhere . $dateWhere . '
              ORDER BY updatedate DESC, id DESC
              LIMIT 300',
             $params,
@@ -2839,11 +2987,16 @@ class ChatQueryService
                 'icon_svg' => $providerRegistry->getSearchIconSvgForSourceType($addon, $sourceType),
                 'title' => $title,
                 'url' => $url,
-                'snippet' => $this->createSnippet($content, $needle, $terms),
+                // Snippet-Hervorhebung nutzt bewusst nur die Original-Wortformen, nicht
+                // die Staemme: der Nutzer sieht im Snippet den echten Seitentext, ein
+                // Highlighting auf dem (moeglicherweise gar nicht als eigenstaendiges
+                // Wort vorkommenden) Stamm waere verwirrend statt hilfreich.
+                'snippet' => $this->createSnippet($content, $needle, array_column($terms, 'original')),
                 'updatedate' => (string) ($row['updatedate'] ?? ''),
                 'score' => $score,
                 'source_id' => $sourceId,
                 'label' => '' !== $sourceLabel ? $sourceLabel : null,
+                'image_url' => '' !== trim((string) ($row['image_url'] ?? '')) ? (string) $row['image_url'] : null,
             ];
 
             if (trim($candidate['icon_svg']) === '') {
@@ -2881,14 +3034,58 @@ class ChatQueryService
             return $b['score'] <=> $a['score'];
         });
 
+        // "Erweiterte Suche" (explizit abgeschickt per Enter/Button, siehe assets/
+        // ai-search.js) ergaenzt die rein lexikalische Live-Suche oben um eine echte
+        // Vektorsuche (dieselbe Retrieval-Pipeline wie der Chat, findSimilarContent()) -
+        // findet dadurch auch thematisch verwandte, aber wortverschiedene Treffer, die
+        // SQL-LIKE grundsaetzlich nie erreichen kann. Bewusst NICHT bei jedem
+        // Tastendruck (Latenz/Kosten pro Embedding-Aufruf), nur bei explizitem Trigger.
+        //
+        // Bei aktivem Datumsfilter wird die Vektorsuche bewusst uebersprungen:
+        // findSimilarContent() kennt keinen Datumsfilter und ihr Rueckgabeformat fuehrt
+        // kein updatedate, ueber das man einen neu entstandenen Kandidaten nachtraeglich
+        // pruefen koennte (anders als beim Typ-Filter oben, wo source_type im
+        // Rueckgabeformat vorhanden ist) - ein rein per Vektor gefundener Treffer ausserhalb
+        // des gewaehlten Zeitraums koennte sonst nicht ausgeschlossen werden.
+        //
+        // Ohne aufgeloestes Profil (z.B. reiner Shared-Pool-Kontext ohne Profil-Feature)
+        // bleibt das bisherige Verhalten (aktiviert) unveraendert - der Schalter ist ein
+        // EINSCHRAENKENDES Profil-Feature, kein neuer globaler Default.
+        $extendedSearchAllowedByProfile = null === $profile || $profile->searchExtendedEnabled;
+        if (true === ($input['extended'] ?? false) && null !== $aiService && null === $dateFrom && null === $dateTo && $extendedSearchAllowedByProfile) {
+            try {
+                $userEmbedding = $aiService->getEmbedding($needle);
+                $vectorContext = $this->findSimilarContent($userEmbedding, 20, $scope, null, $needle, $profile);
+                $candidates = $this->fuseSearchResults($candidates, $vectorContext, $addon, $providerRegistry, $selectedTypes);
+            } catch (\Throwable $e) {
+                // Stiller Fallback: die Suche bleibt auch bei einem Provider-Ausfall
+                // (falscher/fehlender API-Key, Netzwerkfehler, Timeout) vollstaendig
+                // nutzbar und liefert dann einfach nur die bereits vorhandenen
+                // Keyword-Treffer - "Suche braucht keinen Provider" gilt auch fuer die
+                // erweiterte Suche, nur eben ohne deren Zusatznutzen. Der Fehler wird
+                // trotzdem geloggt, damit ein dauerhaft kaputter Provider auffaellt.
+                rex_logger::logException($e);
+            }
+        }
+
         // "Alle" (kein Bereich-Filter aktiv): ohne Durchmischung wuerde ein grosser Bereich
         // (z.B. eine umfangreiche allgemeine Sitemap) einen kleineren, thematisch aber
         // relevanten Bereich (z.B. "News") im Ranking komplett verdraengen koennen. Bei einem
         // expliziten Label-Filter ist die Kandidatenliste ohnehin schon auf die gewaehlten
         // Bereiche eingeschraenkt - dort bleibt die reine Score-Sortierung unveraendert.
-        $hits = $selectedLabels === []
-            ? $this->diversifyCandidatesByLabel($candidates, $limit)
-            : array_slice($candidates, 0, $limit);
+        //
+        // Offset-Handling: diversifyCandidatesByLabel() kennt kein "ueberspringe die
+        // ersten N" - deshalb wird sie mit limit+offset aufgerufen (erzeugt den vollen,
+        // deterministischen Kopf der durchmischten Sequenz) und danach erst per
+        // array_slice() auf den angefragten Ausschnitt geschnitten. Kostet minimal CPU
+        // (Kandidatenpool ist auf 300 Zeilen gedeckelt), ist dafuer garantiert
+        // byte-identisch zu vorher fuer offset=0 (einziger Fall, den das bestehende
+        // JS-Overlay je anfragt).
+        $totalCount = count($candidates);
+        $diversified = $selectedLabels === []
+            ? $this->diversifyCandidatesByLabel($candidates, $limit + $offset)
+            : array_slice($candidates, 0, $limit + $offset);
+        $hits = array_slice($diversified, $offset, $limit);
 
         foreach ($hits as $index => $hit) {
             if (($hit['type'] ?? '') !== 'forcal_entry') {
@@ -2939,6 +3136,12 @@ class ChatQueryService
             'mode' => 'search',
             'query' => $needle,
             'hits' => $hits,
+            // Zaehlung der vollen, deduplizierten/gefilterten/fusionierten Kandidatenliste
+            // VOR dem Offset/Limit-Schnitt - NICHT count($hits). Wird fuer
+            // ceil(total / limit) auf der paginierten Seite gebraucht (siehe
+            // searchPaginated()); das bestehende JS-Overlay ignoriert dieses Feld
+            // einfach (liest nur bekannte Schluessel).
+            'total' => $totalCount,
             'filters' => [
                 'source_types' => $filterItems,
                 // Nur befuellt, wenn mindestens ein Treffer aus einer benannten Sitemap-Gruppe
@@ -3018,6 +3221,107 @@ class ChatQueryService
         }
 
         return $hits;
+    }
+
+    /**
+     * Fusioniert die bereits sortierten Keyword-Kandidaten (search(), Score-basiert)
+     * mit den Vektor-Kandidaten aus findSimilarContent() (Similarity-basiert) per
+     * Reciprocal Rank Fusion (RRF) - gleiches Grundprinzip wie
+     * Retrieval\HybridRrfRetrieval fuer den Chat-Pfad (dort SQL-seitig, hier PHP-seitig,
+     * weil beide Listen bereits fertige, unabhaengig sortierte PHP-Arrays sind statt
+     * zweier SQL-Rankings in derselben Query). $k=60 wie im Chat-Pfad (siehe
+     * HybridRrfRetrieval::getRrfK()). Ein Treffer, der nur in einer der beiden Listen
+     * vorkommt, bekommt fuer die fehlende Liste keinen Straf-Score (0 statt eines
+     * Abzugs) - konsistent mit demselben Prinzip dort.
+     *
+     * @param list<array<string, mixed>> $keywordCandidates bereits im finalen $candidate-Format (siehe search())
+     * @param array<int, array{content: string, url: string, title: string, similarity: float, source_type: string, source_id: string, image_url?: ?string}> $vectorContext Rueckgabeformat von findSimilarContent()
+     * @param list<string> $selectedTypes aktiver Typ-Filter (leer = kein Filter) - findSimilarContent() durchsucht
+     *        immer den GESAMTEN Index ohne Ruecksicht auf diesen Filter, ein rein per Vektor gefundener Treffer
+     *        eines abgewaehlten Typs darf die gefilterte Trefferliste/den total-Zaehler trotzdem nicht wieder
+     *        auffuellen - deshalb wird der Filter hier erneut angewendet, bevor ein NEUER Kandidat entsteht
+     *        (ein bereits vorhandener Keyword-Treffer wurde weiter oben in search() schon gefiltert).
+     * @return list<array<string, mixed>> im selben $candidate-Format wie $keywordCandidates, neu sortiert nach fusioniertem Score
+     */
+    private function fuseSearchResults(array $keywordCandidates, array $vectorContext, rex_addon_interface $addon, ContentProviderRegistry $providerRegistry, array $selectedTypes = []): array
+    {
+        if ($vectorContext === []) {
+            return $keywordCandidates;
+        }
+
+        $k = 60;
+        $fusedScoresBySourceKey = [];
+        $candidatesBySourceKey = [];
+
+        foreach ($keywordCandidates as $rankIndex => $candidate) {
+            $sourceKey = (string) $candidate['type'] . '|' . (string) $candidate['source_id'];
+            $fusedScoresBySourceKey[$sourceKey] = ($fusedScoresBySourceKey[$sourceKey] ?? 0.0) + 1.0 / ($k + $rankIndex + 1);
+            $candidatesBySourceKey[$sourceKey] = $candidate;
+        }
+
+        foreach (array_values($vectorContext) as $rankIndex => $vectorHit) {
+            $sourceType = $vectorHit['source_type'];
+            $sourceId = $vectorHit['source_id'];
+            $sourceKey = $sourceType . '|' . $sourceId;
+
+            // Bereits als Keyword-Treffer vorhanden - dessen Anzeige-Daten (Snippet mit
+            // Original-Wort-Highlighting etc.) bleiben massgeblich, nur der Score aendert
+            // sich durch die Fusion unten. Nur ein rein per Vektor gefundener Treffer
+            // braucht ein neues, aus dem Vektor-Kontext gebautes Anzeige-Candidate - und nur
+            // dafuer greift der Typ-Filter ueberhaupt (ein bereits vorhandener Keyword-Treffer
+            // hat den Filter im Hauptloop von search() schon durchlaufen).
+            if (isset($candidatesBySourceKey[$sourceKey])) {
+                $fusedScoresBySourceKey[$sourceKey] = ($fusedScoresBySourceKey[$sourceKey] ?? 0.0) + 1.0 / ($k + $rankIndex + 1);
+                continue;
+            }
+
+            if ($selectedTypes !== [] && !in_array($sourceType, $selectedTypes, true)) {
+                continue;
+            }
+
+            $fusedScoresBySourceKey[$sourceKey] = ($fusedScoresBySourceKey[$sourceKey] ?? 0.0) + 1.0 / ($k + $rankIndex + 1);
+
+            $title = trim($vectorHit['title']);
+            $url = trim($vectorHit['url']);
+            $content = $vectorHit['content'];
+
+            $iconSvg = $providerRegistry->getSearchIconSvgForSourceType($addon, $sourceType);
+            if (trim($iconSvg) === '') {
+                $iconSvg = $this->getDefaultSourceTypeIconSvg($sourceType);
+            }
+
+            $candidatesBySourceKey[$sourceKey] = [
+                'id' => $sourceId,
+                'type' => $sourceType,
+                'type_label' => $this->getSourceTypeLabel($sourceType),
+                'icon_svg' => $iconSvg,
+                'title' => '' !== $title ? $title : 'Ohne Titel',
+                'url' => $url,
+                // Kein Keyword-Match vorhanden, dessen Fundstelle man hervorheben koennte -
+                // ein reiner Textausschnitt vom Seitenanfang ist hier ehrlicher als ein
+                // Highlighting, das an einer zufaelligen Stelle landen wuerde.
+                'snippet' => $this->createSnippet($content, '', []),
+                'updatedate' => '',
+                'score' => 0.0,
+                'source_id' => $sourceId,
+                // findSimilarContent()s eigener Rueckgabetyp fuehrt source_label nicht -
+                // ein rein per Vektor gefundener Treffer erscheint daher ohne
+                // Bereichs-Label (kein Informationsverlust gegenueber dem, was hier
+                // ueberhaupt verfuegbar ist).
+                'label' => null,
+                'image_url' => isset($vectorHit['image_url']) && '' !== trim((string) $vectorHit['image_url']) ? (string) $vectorHit['image_url'] : null,
+            ];
+        }
+
+        $fused = array_values($candidatesBySourceKey);
+        usort($fused, static function (array $a, array $b) use ($fusedScoresBySourceKey): int {
+            $keyA = (string) $a['type'] . '|' . (string) $a['source_id'];
+            $keyB = (string) $b['type'] . '|' . (string) $b['source_id'];
+
+            return ($fusedScoresBySourceKey[$keyB] ?? 0.0) <=> ($fusedScoresBySourceKey[$keyA] ?? 0.0);
+        });
+
+        return $fused;
     }
 
     private function isSearchAiSummaryEnabled(): bool
@@ -3150,7 +3454,43 @@ class ChatQueryService
     }
 
     /**
-     * @param list<string> $terms
+     * Liest date_from/date_to aus dem Suche-Input (nur von der paginierten Suchseite
+     * gesetzt, siehe install/module/output.php). Ungueltige/unparsebare Daten werden
+     * ignoriert statt einen Fehler zu werfen - eine manipulierte/kaputte URL soll die
+     * Suche nicht zum Scheitern bringen, sondern einfach ohne diesen Filter weiterlaufen.
+     *
+     * @param array<string, mixed> $input
+     * @return array{0: ?string, 1: ?string} [from, to], je im Format YYYY-MM-DD oder null
+     */
+    private function extractDateRange(array $input): array
+    {
+        $normalize = static function ($raw): ?string {
+            if (!is_string($raw) || '' === trim($raw)) {
+                return null;
+            }
+
+            $timestamp = strtotime(trim($raw));
+            if (false === $timestamp) {
+                return null;
+            }
+
+            return date('Y-m-d', $timestamp);
+        };
+
+        $from = $normalize($input['date_from'] ?? null);
+        $to = $normalize($input['date_to'] ?? null);
+
+        // Ein vertauschtes Paar (von > bis) wuerde eine WHERE-Klausel erzeugen, die nie
+        // etwas trifft - lieber beide verwerfen als eine grundlos leere Trefferliste.
+        if (null !== $from && null !== $to && $from > $to) {
+            return [null, null];
+        }
+
+        return [$from, $to];
+    }
+
+    /**
+     * @param list<string>|list<array{original: string, stem: ?string}> $terms
      */
     private function scoreSearchHit(string $needle, string $title, string $content, string $url, array $terms = []): float
     {
@@ -3171,29 +3511,51 @@ class ChatQueryService
             $score += 2.0;
         }
 
-        $queryParts = $terms;
+        // $terms kommt entweder aus extractStemmedSearchTerms() (Live-Suche, jeder
+        // Eintrag traegt Original+Stamm) oder ist eine reine list<string> (Aufrufer
+        // ohne Stemming-Kontext) - beide Formen auf dieselbe interne Struktur normalisieren.
+        $queryParts = [];
+        foreach ($terms as $part) {
+            if (is_array($part)) {
+                $queryParts[] = ['original' => (string) $part['original'], 'stem' => null !== $part['stem'] ? (string) $part['stem'] : null];
+            } else {
+                $queryParts[] = ['original' => (string) $part, 'stem' => null];
+            }
+        }
         if ($queryParts === []) {
             $split = preg_split('/\s+/', $queryLower, -1, PREG_SPLIT_NO_EMPTY);
-            $queryParts = is_array($split) ? $split : [];
+            foreach ((is_array($split) ? $split : []) as $part) {
+                $queryParts[] = ['original' => (string) $part, 'stem' => null];
+            }
         }
 
         $tokenMatches = 0;
         foreach ($queryParts as $part) {
-            $term = mb_strtolower(trim((string) $part));
+            $term = mb_strtolower(trim($part['original']));
+            $stem = null !== $part['stem'] ? mb_strtolower(trim($part['stem'])) : null;
             if ($term === '') {
                 continue;
             }
 
-            if (str_contains($titleLower, $term)) {
-                $score += 1.5;
+            // Ein Treffer auf dem Original zaehlt voll; ein Treffer NUR auf dem Stamm
+            // (Original selbst kommt nicht vor) zaehlt reduziert (60%), damit z.B.
+            // "Pumpen" weiterhin Seiten mit dem exakten Wort "Pumpen" vor bloss
+            // stamm-verwandten Seiten rankt - Stemming soll zusaetzliche Treffer
+            // erschliessen, nicht bestehende exakte Treffer verdraengen.
+            $titleHit = str_contains($titleLower, $term) ? 1.0 : (null !== $stem && str_contains($titleLower, $stem) ? 0.6 : 0.0);
+            $contentHit = str_contains($contentLower, $term) ? 1.0 : (null !== $stem && str_contains($contentLower, $stem) ? 0.6 : 0.0);
+            $urlHit = str_contains($urlLower, $term) ? 1.0 : (null !== $stem && str_contains($urlLower, $stem) ? 0.6 : 0.0);
+
+            if ($titleHit > 0.0) {
+                $score += 1.5 * $titleHit;
                 $tokenMatches++;
             }
-            if (str_contains($contentLower, $term)) {
-                $score += 0.5;
+            if ($contentHit > 0.0) {
+                $score += 0.5 * $contentHit;
                 $tokenMatches++;
             }
-            if (str_contains($urlLower, $term)) {
-                $score += 0.8;
+            if ($urlHit > 0.0) {
+                $score += 0.8 * $urlHit;
                 $tokenMatches++;
             }
         }
@@ -3238,6 +3600,56 @@ class ChatQueryService
         $unique = array_values(array_unique($terms));
 
         return $unique;
+    }
+
+    /**
+     * Wie extractSearchTerms(), aber jeder Term traegt zusaetzlich seinen deutschen
+     * Wortstamm (wamania/php-stemmer, Snowball-"german"-Algorithmus) - NUR fuer die
+     * Live-Suche (search()) gedacht, deshalb eine eigene Methode statt
+     * extractSearchTerms() selbst zu aendern (das haette Chat-Retrieval-Fallbacks wie
+     * ensureKeywordMatchedContext() unbeabsichtigt mitbetroffen, die weiterhin die
+     * reine, ungestemmte Form nutzen sollen).
+     *
+     * Ohne Stemming faende "Waermepumpen" nie eine nur als "Waermepumpe" indexierte
+     * Seite - reines SQL-LIKE kennt keine Flexionsformen. Der Stamm wird nur zur
+     * Anfragezeit gebildet (kein Reindex/Schema-Aenderung noetig) und nur dann als
+     * zusaetzlicher Suchbegriff verwendet, wenn er sich vom Original unterscheidet UND
+     * mindestens 4 Zeichen lang ist (kuerzere Staemme treffen zu unspezifisch, z.B.
+     * wuerde ein 2-3-Zeichen-Stamm quer durch den halben Index matchen).
+     *
+     * @return list<array{original: string, stem: ?string}> stem ist null, wenn
+     *         Original und Stamm identisch sind ODER der Stamm zu kurz waere - der
+     *         Aufrufer soll dann NUR das Original verwenden, keine doppelte Klausel.
+     */
+    private function extractStemmedSearchTerms(string $needle): array
+    {
+        $terms = $this->extractSearchTerms($needle);
+        if ($terms === []) {
+            return [];
+        }
+
+        $stemmer = \Wamania\Snowball\StemmerFactory::create('de');
+
+        $result = [];
+        foreach ($terms as $term) {
+            $stem = null;
+            try {
+                $candidateStem = $stemmer->stem($term);
+                if ($candidateStem !== $term && mb_strlen($candidateStem, 'UTF-8') >= 4) {
+                    $stem = $candidateStem;
+                }
+            } catch (\Throwable $e) {
+                // Stemmer wirft laut eigener Schnittstelle theoretisch eine Exception -
+                // ein einzelnes unstembares Wort darf die gesamte Suche nicht abbrechen,
+                // sie laeuft dann fuer diesen Term einfach ungestemmt weiter (identisch
+                // zum bisherigen Verhalten vor diesem Feature).
+                rex_logger::logException($e);
+            }
+
+            $result[] = ['original' => $term, 'stem' => $stem];
+        }
+
+        return $result;
     }
 
     /**

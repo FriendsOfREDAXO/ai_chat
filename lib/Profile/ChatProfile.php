@@ -59,6 +59,10 @@ final class ChatProfile
         public readonly array $viewerRoles,
         public readonly bool $chatEnabled,
         public readonly bool $searchEnabled,
+        // Steuert NUR die erweiterte (vektorbasierte) Suche, nicht die reine Keyword-Suche
+        // selbst - siehe install.php-Kommentar bei der Spalte und
+        // ChatQueryService::search()/searchPaginated().
+        public readonly bool $searchExtendedEnabled,
         public readonly string $targetMode,
         public readonly array $domains,
         public readonly array $clangs,
@@ -108,6 +112,7 @@ final class ChatProfile
             viewerRoles: self::decodeStringList($row['viewer_roles'] ?? null),
             chatEnabled: '0' !== (string) ($row['chat_enabled'] ?? '1'),
             searchEnabled: '0' !== (string) ($row['search_enabled'] ?? '1'),
+            searchExtendedEnabled: '0' !== (string) ($row['search_extended_enabled'] ?? '1'),
             targetMode: (string) $row['target_mode'],
             domains: self::decodeStringList($row['domains'] ?? null),
             clangs: self::decodeIntList($row['clangs'] ?? null),

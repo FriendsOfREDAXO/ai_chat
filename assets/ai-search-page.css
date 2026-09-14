@@ -1,0 +1,297 @@
+/*
+ * AI Chat Suchseite - Styles fuer das REDAXO-Modul (install/module/output.php)
+ * und dessen Fragments (fragments/ai_chat/*.php). Getrennt von ai-search.css
+ * (Overlay-Widget), weil diese Seite server-gerendert im normalen Website-
+ * Frontend laeuft, nicht im REDAXO-Backend - kein rex-theme-dark/-light nötig,
+ * nur prefers-color-scheme.
+ *
+ * Anpassung: entweder nur die --ai-search-page-*-Variablen ueberschreiben
+ * (Farben/Abstaende/Radien, ohne eigenes Markup zu pflegen), oder zusaetzlich
+ * die Fragments unter fragments/ai_chat/ ins Projekt kopieren und das Markup
+ * selbst gestalten (Klassen sind bewusst einfach/semantisch gehalten).
+ */
+
+.ai-search-page-results,
+.ai-search-page-form {
+  --ai-search-page-text: #1f2937;
+  --ai-search-page-muted: #556179;
+  --ai-search-page-accent: #0b65d8;
+  --ai-search-page-border: rgba(0, 0, 0, 0.12);
+  --ai-search-page-surface: #ffffff;
+  --ai-search-page-chip-bg: #e5eaf2;
+  --ai-search-page-chip-active-bg: #0b65d8;
+  --ai-search-page-chip-active-text: #ffffff;
+  --ai-search-page-gap: 1.25rem;
+  --ai-search-page-radius: 10px;
+  --ai-search-page-thumb-size: 96px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-search-page-results,
+  .ai-search-page-form {
+    --ai-search-page-text: #e7edf4;
+    --ai-search-page-muted: #afbdcf;
+    --ai-search-page-accent: #56a8ff;
+    --ai-search-page-border: rgba(255, 255, 255, 0.14);
+    --ai-search-page-surface: #1f2731;
+    --ai-search-page-chip-bg: #334356;
+    --ai-search-page-chip-active-bg: #56a8ff;
+    --ai-search-page-chip-active-text: #0f1822;
+  }
+}
+
+.ai-search-page-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ai-search-page-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: var(--ai-search-page-gap);
+}
+
+.ai-search-page-form__input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0.6em 0.85em;
+  border: 1px solid var(--ai-search-page-border);
+  border-radius: var(--ai-search-page-radius);
+  color: var(--ai-search-page-text);
+  background: var(--ai-search-page-surface);
+  font-size: 1rem;
+}
+
+.ai-search-page-form__date-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  font-size: 0.85em;
+  color: var(--ai-search-page-muted);
+}
+
+.ai-search-page-form__date {
+  padding: 0.5em 0.6em;
+  border: 1px solid var(--ai-search-page-border);
+  border-radius: var(--ai-search-page-radius);
+  color: var(--ai-search-page-text);
+  background: var(--ai-search-page-surface);
+}
+
+.ai-search-page-form__submit {
+  padding: 0.6em 1.2em;
+  border: none;
+  border-radius: var(--ai-search-page-radius);
+  background: var(--ai-search-page-accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ai-search-page-count {
+  color: var(--ai-search-page-muted);
+  margin: 0 0 var(--ai-search-page-gap);
+}
+
+.ai-search-page-empty {
+  color: var(--ai-search-page-muted);
+  padding: 1.5em 0;
+}
+
+/* Facetten: zwei optisch unterschiedene Gruppen - "Typ" als rechteckige Chips,
+   "Bereich" als runde Pill-Chips - damit beide Facetten auch ohne das
+   Gruppen-Label auf einen Blick unterscheidbar sind. */
+.ai-search-page-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: var(--ai-search-page-gap);
+  padding-bottom: var(--ai-search-page-gap);
+  border-bottom: 1px solid var(--ai-search-page-border);
+}
+
+.ai-search-page-facet-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.ai-search-page-facet-group__label {
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ai-search-page-muted);
+  margin-right: 0.25em;
+}
+
+.ai-search-page-facet-group__values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-search-page-chip {
+  display: inline-block;
+  padding: 0.3em 0.85em;
+  background: var(--ai-search-page-chip-bg);
+  color: var(--ai-search-page-text);
+  text-decoration: none;
+  font-size: 0.9em;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ai-search-page-chip--type {
+  border-radius: 6px;
+}
+
+.ai-search-page-chip--label {
+  border-radius: 999px;
+}
+
+.ai-search-page-chip.is-active {
+  background: var(--ai-search-page-chip-active-bg);
+  color: var(--ai-search-page-chip-active-text);
+  font-weight: 600;
+}
+
+.ai-search-page-chip:hover {
+  filter: brightness(0.95);
+}
+
+.ai-search-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ai-search-page-gap);
+}
+
+.ai-search-page-hit {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: var(--ai-search-page-gap);
+  border-bottom: 1px solid var(--ai-search-page-border);
+}
+
+.ai-search-page-hit:last-child {
+  border-bottom: none;
+}
+
+.ai-search-page-hit__thumb {
+  flex: 0 0 var(--ai-search-page-thumb-size);
+  width: var(--ai-search-page-thumb-size);
+  height: var(--ai-search-page-thumb-size);
+  border-radius: var(--ai-search-page-radius);
+  overflow: hidden;
+  background: var(--ai-search-page-chip-bg);
+}
+
+.ai-search-page-hit__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ai-search-page-hit__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ai-search-page-hit__title {
+  margin: 0 0 0.3em;
+  font-size: 1.1rem;
+}
+
+.ai-search-page-hit__link {
+  color: var(--ai-search-page-accent);
+  text-decoration: none;
+}
+
+.ai-search-page-hit__link:hover {
+  text-decoration: underline;
+}
+
+.ai-search-page-hit__meta {
+  display: flex;
+  gap: 0.75em;
+  margin: 0 0 0.4em;
+  font-size: 0.8em;
+  color: var(--ai-search-page-muted);
+}
+
+.ai-search-page-hit__snippet {
+  margin: 0;
+  color: var(--ai-search-page-text);
+}
+
+.ai-search-page-hit__snippet mark {
+  background: color-mix(in srgb, var(--ai-search-page-accent) 30%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+
+.ai-search-page-pagination {
+  margin-top: var(--ai-search-page-gap);
+}
+
+.ai-search-page-pagination__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-search-page-pagination__link {
+  display: inline-block;
+  min-width: 2.2em;
+  padding: 0.35em 0.6em;
+  text-align: center;
+  border-radius: 6px;
+  background: var(--ai-search-page-chip-bg);
+  color: var(--ai-search-page-text);
+  text-decoration: none;
+}
+
+.ai-search-page-pagination__item--current .ai-search-page-pagination__link {
+  background: var(--ai-search-page-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ai-search-page-pagination__item--disabled .ai-search-page-pagination__link {
+  opacity: 0.4;
+}
+
+.ai-search-page-pagination__ellipsis {
+  display: inline-block;
+  padding: 0.35em 0.3em;
+  color: var(--ai-search-page-muted);
+}
+
+@media (max-width: 480px) {
+  .ai-search-page-hit {
+    flex-direction: column;
+  }
+
+  .ai-search-page-hit__thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+}

@@ -9,6 +9,7 @@ use rex_addon;
 use rex_form_base;
 use rex_media;
 use rex_media_category_select;
+use rex_media_manager;
 use rex_path;
 use rex_sql;
 use Smalot\PdfParser\Parser;
@@ -259,7 +260,31 @@ final class MediaPoolContentProvider implements ContentProviderInterface
             'content' => $content,
             'url' => $this->resolveAbsoluteUrl($media->getUrl()),
             'updatedate_ts' => $media->getUpdateDate(),
+            'image_url' => self::generateThumbnailUrl($filename),
         ];
+    }
+
+    /**
+     * Vorschaubild ueber den gemeinsamen Media-Manager-Type 'ai_chat_thumbnail' (siehe
+     * install.php): dessen "pdf_thumbnail"-Effekt (aus dem pdfout-Addon) konvertiert ein
+     * PDF zur Erstseiten-Vorschau und ist bei jeder Nicht-PDF-Datei ein reines No-Op -
+     * derselbe Type funktioniert deshalb unveraendert auch fuer Artikel-Titelbilder (siehe
+     * IndexerService::resolveArticleTitleImageUrl()). REDAXO uebernimmt Rendering und
+     * Caching selbst (var/cache/media, automatische Invalidierung bei Dateiaenderung) -
+     * kein eigener Kopier-/Cache-Code noetig. Ist pdfout nicht installiert, existiert der
+     * pdf_thumbnail-Effekt in der Kette gar nicht erst (siehe install.php) - der Type bleibt
+     * dann ein reiner Resize-Type, liefert fuer PDFs aber kein Bild (Media-Manager kann ein
+     * PDF ohne diesen Effekt nicht als Bildformat lesen).
+     */
+    public static function generateThumbnailUrl(string $mediaFilename): ?string
+    {
+        if (!rex_addon::get('media_manager')->isAvailable()) {
+            return null;
+        }
+
+        $url = rex_media_manager::getUrl('ai_chat_thumbnail', $mediaFilename);
+
+        return self::resolveAbsoluteUrlStatic($url);
     }
 
     /**
@@ -274,6 +299,17 @@ final class MediaPoolContentProvider implements ContentProviderInterface
      * "/<mediapool-ordner>/" der Domain.
      */
     private function resolveAbsoluteUrl(string $url): string
+    {
+        return self::resolveAbsoluteUrlStatic($url);
+    }
+
+    /**
+     * Statische Kernlogik von resolveAbsoluteUrl() - auch von generateThumbnailUrl()
+     * genutzt, das als static-Methode keine Instanz hat (siehe dortiger Aufrufkontext:
+     * IndexerService::resolveArticleTitleImageUrl() ruft es ohne eigene
+     * MediaPoolContentProvider-Instanz auf).
+     */
+    private static function resolveAbsoluteUrlStatic(string $url): string
     {
         if (str_starts_with($url, 'http')) {
             return $url;

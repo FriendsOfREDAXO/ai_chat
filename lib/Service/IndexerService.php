@@ -439,6 +439,16 @@ class IndexerService
         $title = trim((string) ($document['title'] ?? 'Provider-Eintrag'));
         $content = trim((string) ($document['content'] ?? ''));
         $url = trim((string) ($document['url'] ?? ''));
+        // Echtes Quelldatum (z.B. rex_media::getUpdateDate() fuer PDFs), NICHT der
+        // Indexierungszeitpunkt - sonst zeigen alle Treffer eines Reindex-Laufs
+        // faelschlich dasselbe Datum in der Suche/im neuen Datumsfilter (siehe
+        // MediaPoolContentProvider::prepareDocument() etc. fuer die Befuellung).
+        // Fallback auf time(), falls ein Provider dieses Feld (noch) nicht liefert.
+        $updatedAt = is_int($document['updatedate_ts'] ?? null) ? $document['updatedate_ts'] : time();
+        // Vorschaubild-URL (z.B. PDF-Erstseiten-Thumbnail, siehe
+        // MediaPoolContentProvider::generateThumbnailUrl()) - null, wenn der jeweilige
+        // Provider keine Bildquelle liefert.
+        $imageUrl = isset($document['image_url']) && is_string($document['image_url']) && '' !== trim($document['image_url']) ? $document['image_url'] : null;
 
         if ($sourceId === '' || $content === '') {
             return 0;
@@ -480,7 +490,8 @@ class IndexerService
             $this->setEmbeddingColumns($sql, $embedding);
             $sql->setValue('url', $url);
             $sql->setValue('profile_id', $chatProfileId);
-            $sql->setDateTimeValue('updatedate', time());
+            $sql->setValue('image_url', $imageUrl);
+            $sql->setDateTimeValue('updatedate', $updatedAt);
             $sql->insert();
 
             ++$chunkCount;
@@ -651,6 +662,10 @@ class IndexerService
                     $sql->setValue('url', $url);
                     $sql->setValue('profile_id', $chatProfileId);
                     $sql->setValue('source_label', $sourceLabel);
+                    // Anders als bei Artikeln/Medienpool-Dateien gibt es fuer eine beliebige
+                    // Sitemap-URL kein zuverlaessig verfuegbares echtes Aenderungsdatum ohne
+                    // zusaetzlichen HTTP-Overhead (Last-Modified-Header auswerten, <lastmod>
+                    // aus der Sitemap selbst parsen) - bleibt bewusst der Indexierungszeitpunkt.
                     $sql->setDateTimeValue('updatedate', time());
                     $sql->insert();
                     ++$chunkCount;
@@ -984,6 +999,7 @@ class IndexerService
             $semanticChunks[] = $this->prepareEmbeddingText($chunk, $article->getName(), $articleUrl, 'article', $article);
         }
         $embeddings = $this->aiService->getEmbeddings($semanticChunks);
+        $imageUrl = $this->resolveArticleTitleImageUrl($article);
 
         foreach ($chunks as $i => $chunk) {
             $embedding = $embeddings[$i] ?? null;
@@ -1001,7 +1017,11 @@ class IndexerService
             $sql->setValue('url', $articleUrl);
             $sql->setValue('profile_id', $chatProfileId);
             $sql->setValue('clang_id', $clangId);
-            $sql->setDateTimeValue('updatedate', time());
+            $sql->setValue('image_url', $imageUrl);
+            // Echtes Artikel-Aenderungsdatum (rex_article::getUpdateDate(), von
+            // rex_structure_element geerbt), NICHT der Indexierungszeitpunkt - siehe
+            // gleichlautender Kommentar bei indexPreparedDocument().
+            $sql->setDateTimeValue('updatedate', $article->getUpdateDate());
             $sql->insert();
             ++$chunkCount;
         }
@@ -1722,6 +1742,34 @@ class IndexerService
         }
 
         return implode(' > ', $labels);
+    }
+
+    /**
+     * Loest das konfigurierte Titelbild-Metainfo-Feld eines Artikels zu einer Vorschaubild-URL
+     * auf (Einstellungen -> Quellen, Feldname frei vergeben, da es keinen
+     * projektuebergreifenden Standard-Feldnamen fuer Titelbilder gibt - identisches Konzept
+     * zu embedding_metainfo_fields, nur single-value statt Liste). Nutzt denselben
+     * Media-Manager-Type wie PDF-Thumbnails (siehe MediaPoolContentProvider::
+     * generateThumbnailUrl()) - fuer ein normales Bild wirkt dessen pdf_thumbnail-Effekt
+     * als No-Op, nur der nachfolgende Resize-Effekt greift.
+     */
+    private function resolveArticleTitleImageUrl(rex_article $article): ?string
+    {
+        $field = trim((string) \rex_addon::get('ai_chat')->getConfig('title_image_metainfo_field', ''));
+        if ('' === $field) {
+            return null;
+        }
+
+        $filename = trim((string) $article->getValue($field));
+        if ('' === $filename) {
+            return null;
+        }
+
+        if (null === \rex_media::get($filename)) {
+            return null;
+        }
+
+        return MediaPoolContentProvider::generateThumbnailUrl($filename);
     }
 
     /**

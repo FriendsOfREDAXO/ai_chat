@@ -1,8 +1,54 @@
 # Changelog
 
-## [2.2.0-beta5] - 2026-09-14
+## [2.2.0] - 2026-09-14
 
 ### Hinzugefügt
+- **Paginierte Suchseite als eigenständiges Modul**: neben dem bestehenden
+  Spotlight-Suchfenster gibt es jetzt ein REDAXO-Modul „AI Chat Suchseite" für
+  eine klassische, serverseitig gerenderte Ergebnisseite mit eigener,
+  teilbarer URL (Paginierung, Typ-/Bereichs-Filter, Datumsfilter, alles über
+  GET-Parameter). Nutzt einen eigenen, schlanken Zugriffspfad
+  (`ChatQueryService::searchPaginated()`) statt des vollen Chat-Guard-Stacks -
+  nur Rate-Limit und Spam-/Nonsense-Erkennung, keine für reine Keyword-Suchen
+  unpassenden Prüfungen (Datenschutz-/Prompt-Injection-Guard). Styling über
+  CSS-Variablen oder durch Kopieren der mitgelieferten Fragments ins eigene
+  Projekt.
+- **Bildvorschauen in den Suchergebnissen** (Spotlight-Fenster und neue
+  Suchseite): PDF-Treffer zeigen ein Erstseiten-Thumbnail (nutzt das
+  `pdfout`-Addon, sofern installiert - ohne pdfout einfach kein Bild, keine
+  Fehlermeldung), Artikel zeigen ihr Titelbild über ein neu konfigurierbares
+  Metainfo-/Artikelfeld (Einstellungen → Chunking & Cache), z. B. das von
+  yrewrite mitgebrachte `yrewrite_image`. Beide Quellen laufen über denselben
+  Media-Manager-Type - dessen PDF-Effekt ist bei normalen Bildern ein reines
+  No-Op, ein einziger Type reicht für beide Fälle.
+- **Erweiterte Suche jetzt pro Profil abschaltbar**: neuer Schalter „Erweiterte
+  Suche (Vektorsuche)" auf der Profil-Seite - Standard: an (unverändertes
+  Verhalten für bestehende Profile). Betrifft nur den zusätzlichen
+  KI-Aufruf bei explizitem Suchen, nicht die normale Keyword-Suche beim
+  Tippen.
+- **Datumsfilter für die erweiterte Suche**: neue `date_from`/`date_to`-Filter
+  (bisher nur auf der neuen paginierten Suchseite nutzbar) schränken die
+  Trefferliste auf einen Zeitraum ein. Bei aktivem Datumsfilter wird die
+  Vektorsuche bewusst übersprungen (ihr Rückgabeformat führt kein Datum, ein
+  rein per Vektor gefundener Treffer außerhalb des Zeitraums ließe sich sonst
+  nicht zuverlässig ausschließen) - die reine Keyword-Suche bleibt davon
+  unberührt.
+- **Deutsches Stemming in der Live-Suche**: Suchbegriffe werden jetzt zusätzlich
+  zur Wortform auch als Wortstamm abgeglichen (`wamania/php-stemmer`,
+  Snowball-„german“-Algorithmus), z. B. findet „Häuser" jetzt auch Seiten, die
+  nur „Haus" enthalten. Der Stamm wird nur zur Anfragezeit gebildet - kein
+  Reindex nötig, wirkt sofort auf den bestehenden Index. Ein reiner
+  Stamm-Treffer zählt niedriger als ein exakter Wort-Treffer, damit exakte
+  Treffer weiterhin vorne bleiben.
+- **Erweiterte Suche mit echter Vektorsuche**: Live-Tippen bleibt wie bisher
+  eine schnelle, reine Keyword-Suche ohne KI-Aufruf. Wird die Suche jedoch
+  explizit abgeschickt (Enter oder Suchen-Button), ergänzt eine zusätzliche
+  Vektorsuche (dieselbe Retrieval-Pipeline wie der Chat) thematisch verwandte,
+  aber wortverschiedene Treffer, die eine reine SQL-Suche nie finden könnte.
+  Beide Ergebnislisten werden per Reciprocal Rank Fusion zusammengeführt. Fällt
+  der konfigurierte KI-Provider aus (falscher Key, Netzwerkfehler, Timeout),
+  liefert die erweiterte Suche still die reinen Keyword-Treffer zurück, statt
+  zu scheitern - die Suche bleibt dadurch weiterhin ohne KI-Provider nutzbar.
 - **Automatische Bereinigung der Statistik-Tabelle**: alte Statistik-Einträge
   (`ai_chat_stats`) werden jetzt gelegentlich beim Schreiben automatisch
   entfernt, sobald sie älter als die konfigurierte Aufbewahrungsdauer sind
@@ -36,6 +82,23 @@
   sortiert (Akzentfarbe, Bubble, Chat-Fenster, Nachrichten, Eingabefeld)
   statt nach Feldtyp - deutlich übersichtlicher bei der inzwischen
   gewachsenen Anzahl an Einstellungen.
+
+### Behoben
+- **Suchergebnis-Datum zeigte den Indexierungszeitpunkt statt des echten
+  Änderungsdatums der Quelle** - alle in einem Reindex-Lauf verarbeiteten
+  Treffer erschienen dadurch mit demselben, irreführenden Datum. Artikel
+  nutzen jetzt `rex_article::getUpdateDate()`, Medienpool-Dateien ihr
+  tatsächliches Änderungsdatum aus dem Medienpool. Nur bei Sitemap-URLs
+  bleibt es beim Indexierungszeitpunkt (kein zuverlässiges Änderungsdatum
+  ohne zusätzlichen HTTP-Overhead verfügbar). **Wirkt erst nach einer
+  erneuten Indexierung.**
+- **Aktive Typ-/Bereichs-Filter wurden von der erweiterten Suche wieder
+  aufgeweicht**: die zusätzliche Vektorsuche durchsucht immer den gesamten
+  Index und ignorierte dabei aktive Filter komplett - ein bereits
+  gefilterter Treffer eines abgewählten Typs tauchte über die Vektorsuche
+  trotzdem wieder auf, und die angezeigte Trefferzahl blieb ungefiltert.
+  Der Typ-Filter wird jetzt auch auf neu von der Vektorsuche eingebrachte
+  Treffer angewendet.
 
 ### Geändert
 - **`StatisticsService` konsolidiert**: die bisher ungenutzte, unvollständige

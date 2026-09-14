@@ -325,7 +325,7 @@
       if (self.debounceTimer) {
         clearTimeout(self.debounceTimer);
       }
-      self.search();
+      self.search(true);
     });
 
     this.input.addEventListener('input', function () {
@@ -352,6 +352,17 @@
     this.input.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
         self.close();
+        return;
+      }
+      // Enter = "jetzt wirklich suchen" (erweiterte Suche mit Vektoranteil), analog
+      // zum Submit-Button - vorher gab es hier gar keinen Enter-Handler, ein
+      // Tastendruck lief nur ueber das normale "input"-Event mit Debounce.
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (self.debounceTimer) {
+          clearTimeout(self.debounceTimer);
+        }
+        self.search(true);
       }
     });
 
@@ -389,7 +400,15 @@
     }
   };
 
-  SearchUi.prototype.search = function () {
+  // extended=true (nur bei explizitem Abschicken - Enter/Submit-Button, siehe
+  // bindEvents() weiter unten) loest zusaetzlich zur bestehenden Keyword-Suche eine
+  // echte Vektorsuche server-seitig aus (ChatQueryService::search()) - findet dadurch
+  // auch thematisch verwandte, aber wortverschiedene Treffer. Bewusst NICHT beim
+  // debounced Live-Tippen (extended bleibt dort false/undefined): ein Embedding-
+  // API-Aufruf bei jedem Tastendruck waere spuerbar langsamer und liesse die Suche
+  // von einem konfigurierten KI-Provider abhaengen, was dem Live-Tippen-Fall
+  // widerspricht (siehe README "Suche funktioniert auch ohne KI-Provider").
+  SearchUi.prototype.search = function (extended) {
     var self = this;
     var query = this.input.value.trim();
     var nonce = ++this.requestNonce;
@@ -408,7 +427,8 @@
       scope: this.searchScope,
       source_types: this.selectedTypes,
       source_labels: this.selectedLabels,
-      limit: 30
+      limit: 30,
+      extended: true === extended
     };
 
     fetch(this.apiUrl, {
@@ -1026,9 +1046,31 @@
       // Text-Ersetzungen (":"/"|") auf dem bereits escapten String.
       snippet.innerHTML = isForcalHit ? formatForcalSnippet(hit.snippet || '') : (hit.snippet || '');
 
-      link.appendChild(title);
-      link.appendChild(meta);
-      link.appendChild(snippet);
+      // image_url ist nur bei PDF-Dokumenten (PDF-Erstseiten-Thumbnail via pdfout) und
+      // Artikeln mit konfiguriertem Titelbild-Metainfo-Feld gesetzt (siehe
+      // ChatQueryService::search()) - bei jedem anderen Treffer bleibt es einfach beim
+      // bestehenden Typ-Icon oben im Titel, kein leerer Platzhalter.
+      if (hit.image_url) {
+        var thumb = document.createElement('img');
+        thumb.className = 'ai-search-item-thumb';
+        thumb.src = hit.image_url;
+        thumb.alt = '';
+        thumb.loading = 'lazy';
+
+        var body = document.createElement('span');
+        body.className = 'ai-search-item-body';
+        body.appendChild(title);
+        body.appendChild(meta);
+        body.appendChild(snippet);
+
+        link.classList.add('ai-search-item-has-thumb');
+        link.appendChild(thumb);
+        link.appendChild(body);
+      } else {
+        link.appendChild(title);
+        link.appendChild(meta);
+        link.appendChild(snippet);
+      }
 
       link.addEventListener('click', function () {
         self.close();

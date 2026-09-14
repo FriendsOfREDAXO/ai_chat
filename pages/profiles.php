@@ -228,6 +228,16 @@ if ('add' === $func || 'edit' === $func) {
         $field->setValue('1');
     }
 
+    $field = $form->addSelectField('search_extended_enabled');
+    $field->setLabel('Erweiterte Suche (Vektorsuche)');
+    $field->setNotice('Steuert nur die zusätzliche, KI-gestützte Vektorsuche (ausgelöst per Enter/Suchen-Button im Such-Fenster bzw. auf der paginierten Suchseite) - findet dadurch auch thematisch verwandte, aber wortverschiedene Treffer. Die normale Live-Suche beim Tippen bleibt davon unberührt und funktioniert auch ohne KI-Provider.');
+    $select = $field->getSelect();
+    $select->addOption('Ja', '1');
+    $select->addOption('Nein', '0');
+    if ('add' === $func && '' === (string) $field->getValue()) {
+        $field->setValue('1');
+    }
+
     $field = $form->addSelectField('target_mode');
     $field->setLabel($tooltipLabel('Anzeigebereich (Domain/Sprache)', 'config_profile_target_mode_notice'));
     $field->setNotice('Nur relevant im Frontend.');
