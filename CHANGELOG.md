@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.2.0-beta3] - 2026-09-14
+
+### Hinzugefügt
+- **„Gesamte Struktur" als Struktur-Bereich wählbar**: ein Profil kann pro
+  Struktur-Bereich statt eines konkreten Kategorie-Teilbaums jetzt auch „🌐
+  Gesamte Struktur" wählen - erfasst jeden Artikel der Installation,
+  unabhängig von seiner Position im Kategoriebaum (auch Artikel ganz ohne
+  eigene Kategorie, z. B. Impressum/Datenschutz). Kann pro Profil nur in
+  maximal einer Zeile gleichzeitig gewählt sein; eine erneute Auswahl in
+  einer anderen Zeile setzt die vorherige automatisch zurück.
+- **Online/Offline-Auswahl pro Struktur-Bereich**: jeder Struktur-Bereich
+  (egal ob „Gesamte Struktur" oder eine konkrete Kategorie) hat jetzt eine
+  eigene Checkbox „Auch Offline-Inhalte einschließen" (Standard: an, damit
+  sich das gespeicherte Verhalten bestehender Profile nicht rückwirkend
+  ändert). Die yrewrite-„noindex"-SEO-Ausschlussregel eines Artikels gilt
+  davon unabhängig weiterhin immer zusätzlich.
+- **Warnhinweis bei fehlendem/verwaistem Theme**: sowohl im Profil-Formular
+  (wenn kein eigenes Theme gewählt ist und auch kein globales Standard-Theme
+  auflösbar ist) als auch auf der Themes-Übersichtsseite (kein Theme
+  angelegt, oder die als Standard hinterlegte Theme-ID existiert nicht mehr)
+  erscheint jetzt ein sichtbarer Hinweis statt eines stillen Rückfalls auf
+  feste Hartcode-Farben.
+
 ## [2.2.0-beta2] - 2026-09-14
 
 ### Hinzugefügt

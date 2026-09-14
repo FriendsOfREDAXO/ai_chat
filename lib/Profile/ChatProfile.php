@@ -12,6 +12,16 @@ namespace FriendsOfRedaxo\AiChat\Profile;
 final class ChatProfile
 {
     /**
+     * Sentinel-Wert fuer $mountpointGroups[]['category_id']: "Gesamte Struktur"
+     * statt eines konkreten Kategorie-Teilbaums - siehe IndexerService::
+     * collectArticlesUnderCategory()/resolveChatProfileIdsForMountpoint() fuer die
+     * tatsaechliche Aufloesung. 0 ist als Marker sicher, da echte REDAXO-Kategorie-IDs
+     * immer > 0 sind. Ob dabei auch Offline-Inhalte erfasst werden, regelt das
+     * separate 'include_offline'-Feld der jeweiligen Gruppe, nicht dieser Sentinel.
+     */
+    public const MOUNTPOINT_ROOT_SENTINEL = 0;
+
+    /**
      * @param list<string> $viewerRoles 'visitor'|'editor'|'admin'
      * @param list<string> $domains yrewrite-Domainnamen
      * @param list<int> $clangs rex_clang-IDs
@@ -30,10 +40,15 @@ final class ChatProfile
      *        $is_timely markiert einen Bereich als "enthält aktuelle/zeitkritische Inhalte" (z.B.
      *        News) - genutzt fürs Score-Boosting bei erkannter Aktualitäts-Anfrage UND als
      *        Prompt-Hinweis (siehe ChatQueryService::looksLikeRecencyQuery()/boostTimelyCandidates()).
-     * @param list<array{label: string, description: string, is_timely: bool, category_id: int}> $mountpointGroups
+     * @param list<array{label: string, description: string, is_timely: bool, category_id: int, include_offline: bool}> $mountpointGroups
      *        Benannte Struktur-Bereiche (Kategorie-Teilbaum), strukturell identisch zu $sitemapGroups
      *        (nur "urls" durch ein einzelnes "category_id" ersetzt) - seit Phase 6 gleichzeitig mit
      *        $sitemapGroups kombinierbar, kein Entweder-Oder mehr (siehe $extraSource, veraltet).
+     *        `category_id` kann auch MOUNTPOINT_ROOT_SENTINEL (0) sein = "Gesamte Struktur" statt
+     *        eines konkreten Teilbaums. `include_offline` steuert, ob auch Offline-Artikel dieses
+     *        Bereichs erfasst werden (Default true bei fehlendem Feld = unveraendertes Verhalten
+     *        fuer vor diesem Feature gespeicherte Profile); die yrewrite-"noindex"-Ausschlussregel
+     *        (siehe IndexerService::isExcludedByYrewriteSeo()) gilt davon unabhaengig immer zusaetzlich.
      */
     public function __construct(
         public readonly int $id,
@@ -312,7 +327,7 @@ final class ChatProfile
     }
 
     /**
-     * @return list<array{label: string, description: string, is_timely: bool, category_id: int}>
+     * @return list<array{label: string, description: string, is_timely: bool, category_id: int, include_offline: bool}>
      */
     private static function decodeMountpointGroups(mixed $raw): array
     {
@@ -332,16 +347,30 @@ final class ChatProfile
                 continue;
             }
 
-            $categoryId = (int) ($group['category_id'] ?? 0);
-            if ($categoryId <= 0) {
+            // Fehlt der Schluessel komplett (z.B. korrupter/alter Eintrag), gilt das
+            // weiterhin als ungueltig - NUR ein tatsaechlich vorhandenes category_id von 0
+            // ist der bewusste MOUNTPOINT_ROOT_SENTINEL ("Gesamte Struktur"), kein impliziter
+            // Default-Wert.
+            if (!array_key_exists('category_id', $group)) {
                 continue;
             }
+            $categoryId = (int) $group['category_id'];
+            if ($categoryId < 0) {
+                continue;
+            }
+
+            // Fehlt 'include_offline' (Profile, die vor diesem Feature gespeichert wurden),
+            // gilt true - das entspricht dem bisherigen, unveraenderten Verhalten (status-
+            // unabhaengige Erfassung). Ist der Schluessel vorhanden, zaehlt sein Wert auch
+            // dann, wenn er explizit false ist.
+            $includeOffline = !array_key_exists('include_offline', $group) || (bool) $group['include_offline'];
 
             $groups[] = [
                 'label' => trim((string) ($group['label'] ?? '')),
                 'description' => trim((string) ($group['description'] ?? '')),
                 'is_timely' => (bool) ($group['is_timely'] ?? false),
                 'category_id' => $categoryId,
+                'include_offline' => $includeOffline,
             ];
         }
 

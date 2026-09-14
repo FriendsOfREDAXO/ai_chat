@@ -2,6 +2,7 @@
 
 use FriendsOfRedaxo\AiChat\ContentProvider\MediaPoolContentProvider;
 use FriendsOfRedaxo\AiChat\ContentProvider\YformProfiles;
+use FriendsOfRedaxo\AiChat\Profile\ChatProfile;
 use FriendsOfRedaxo\AiChat\Profile\ProfileRepository;
 use FriendsOfRedaxo\AiChat\Profile\ProfileTheme;
 use FriendsOfRedaxo\AiChat\Service\AiServiceFactory;
@@ -371,6 +372,13 @@ if ('add' === $func || 'edit' === $func) {
     // frueheren Einzel-Select.
     $mountpointCategorySelect = new rex_category_select(false, false, false, false);
     $mountpointCategorySelect->addOption('Bitte wählen…', '');
+    // Sentinel-Wert 0 (ChatProfile::MOUNTPOINT_ROOT_SENTINEL) - echte REDAXO-Kategorie-IDs
+    // sind immer > 0, daher als Marker fuer "gesamte Struktur" sicher unterscheidbar von
+    // einer echten Kategorie-Auswahl. Ob dabei auch Offline-Inhalte erfasst werden, regelt
+    // die "Auch Offline-Inhalte einschliessen"-Checkbox pro Zeile (siehe unten), nicht diese
+    // Option selbst - kann nur in maximal einer Zeile gleichzeitig gewaehlt sein (siehe JS
+    // enforceSingleRootSelection()).
+    $mountpointCategorySelect->addOption('🌐 Gesamte Struktur', (string) ChatProfile::MOUNTPOINT_ROOT_SENTINEL);
     $mountpointCategorySelectHtml = $mountpointCategorySelect->get();
     $mountpointCategoryOptionsHtml = '';
     if (preg_match('/<select[^>]*>(.*)<\/select>/s', $mountpointCategorySelectHtml, $matches)) {
@@ -382,19 +390,28 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('<div id="ai-chat-mountpoint-groups-repeater">');
     $form->addRawField('<div class="ai-chat-mountpoint-groups-items">');
     if ([] === $currentMountpointGroups) {
-        $currentMountpointGroups = [['label' => '', 'description' => '', 'is_timely' => false, 'category_id' => '']];
+        $currentMountpointGroups = [['label' => '', 'description' => '', 'is_timely' => false, 'category_id' => '', 'include_offline' => true]];
     }
     foreach ($currentMountpointGroups as $group) {
         $groupLabel = is_array($group) ? (string) ($group['label'] ?? '') : '';
         $groupDescription = is_array($group) ? (string) ($group['description'] ?? '') : '';
         $groupIsTimely = is_array($group) && !empty($group['is_timely']);
-        $groupCategoryId = is_array($group) && !empty($group['category_id']) ? (string) $group['category_id'] : '';
+        // Fehlendes Feld (Profile von vor diesem Feature) gilt als true - siehe
+        // ChatProfile::decodeMountpointGroups(), gleiche Logik hier fuers Rendering.
+        $groupIncludeOffline = !is_array($group) || !array_key_exists('include_offline', $group) || (bool) $group['include_offline'];
+        // !empty() wuerde den gueltigen Root-Sentinel-Wert 0 faelschlich als "nichts
+        // gewaehlt" behandeln - stattdessen explizit auf "Schluessel vorhanden und nicht
+        // leerer String" pruefen.
+        $groupCategoryId = is_array($group) && isset($group['category_id']) && '' !== (string) $group['category_id']
+            ? (string) $group['category_id']
+            : '';
         $form->addRawField(
             '<div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
             . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value="' . rex_escape($groupLabel, 'html_attr') . '"></div>'
             . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
             . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten" value="' . rex_escape($groupDescription, 'html_attr') . '"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
             . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely' . ($groupIsTimely ? ' checked' : '') . '> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
+            . '<div class="row" style="margin-top:8px;"><div class="col-md-12"><div class="checkbox"><label><input type="checkbox" data-group-include-offline' . ($groupIncludeOffline ? ' checked' : '') . '> Auch Offline-Inhalte einschließen</label></div><p class="help-block">Ist diese Option deaktiviert, werden nur Online-Artikel dieses Struktur-Bereichs indexiert (die yrewrite-"noindex"-Einstellung eines Artikels gilt in jedem Fall zusätzlich, unabhängig hiervon).</p></div></div>'
             . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'
             . '</div>',
         );
@@ -406,9 +423,14 @@ if ('add' === $func || 'edit' === $func) {
         . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
         . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
         . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
+        . '<div class="row" style="margin-top:8px;"><div class="col-md-12"><div class="checkbox"><label><input type="checkbox" data-group-include-offline checked> Auch Offline-Inhalte einschließen</label></div><p class="help-block">Ist diese Option deaktiviert, werden nur Online-Artikel dieses Struktur-Bereichs indexiert (die yrewrite-"noindex"-Einstellung eines Artikels gilt in jedem Fall zusätzlich, unabhängig hiervon).</p></div></div>'
         . '<button type="button" class="btn btn-danger btn-xs" style="margin-top:8px;" data-remove-group>Bereich entfernen</button>'
         . '</div></template>');
     $form->addRawField('</div>');
+    // Dynamisch per JS ein-/ausgeblendet (siehe updateMountpointRootWarning() weiter unten),
+    // sobald mindestens eine Zeile "Gesamte Struktur" gewaehlt hat - sofort beim Auswaehlen
+    // sichtbar, nicht erst nach dem Speichern.
+    $form->addRawField('<div id="ai-chat-mountpoint-root-warning" class="alert alert-warning" style="display:none;margin-top:10px;"><i class="rex-icon fa-info-circle"></i> "Gesamte Struktur" kann nur für einen einzelnen Struktur-Bereich gleichzeitig gewählt werden - bei erneuter Auswahl wird eine vorherige Zeile automatisch zurückgesetzt.</div>');
 
     $yformProfiles = YformProfiles::getAll($addon);
     if ([] !== $yformProfiles) {
@@ -586,6 +608,20 @@ if ('add' === $func || 'edit' === $func) {
     }
     $field->setNotice('Farben, Avatar und Eckenradius kommen aus dem hier gewählten Theme. Themes werden zentral unter <a href="' . rex_url::backendPage('ai_chat/themes') . '">AI Chat → Themes</a> angelegt und gepflegt - dieselbe Änderung dort wirkt sich automatisch auf jedes Profil aus, das dieses Theme verwendet.');
 
+    // Nur relevant, wenn DIESES Profil kein eigenes Theme gewaehlt hat (sonst greift
+    // ohnehin das Profil-eigene, ein fehlendes globales Theme waere hier irrelevant).
+    // ProfileTheme::resolveTheme(null, ...) prueft ausschliesslich das globale Theme.
+    if ('' === (string) $field->getValue()) {
+        $globalTheme = ProfileTheme::resolveTheme(null, $addon);
+        if (null === $globalTheme) {
+            $configuredThemeId = (int) $addon->getConfig('default_theme_id', 0);
+            $themeWarningReason = $configuredThemeId > 0
+                ? 'Das als Standard hinterlegte Theme (ID ' . $configuredThemeId . ') existiert nicht mehr.'
+                : 'Es ist noch kein globales Standard-Theme festgelegt.';
+            $form->addRawField('<div class="alert alert-warning" style="margin-top:8px;"><i class="rex-icon fa-exclamation-triangle"></i> ' . $themeWarningReason . ' Dieses Profil verwendet dadurch aktuell feste Hartcode-Farben statt eines konfigurierten Themes. <a href="' . rex_url::backendPage('ai_chat/themes') . '">Themes verwalten</a>.</div>');
+        }
+    }
+
     $field = $form->addSelectField('theme_position');
     $field->setLabel('Position');
     $select = $field->getSelect();
@@ -695,13 +731,50 @@ if ('add' === $func || 'edit' === $func) {
             var select = block.querySelector("[data-group-category]");
             if (!select) return;
             var selectedValue = select.getAttribute("data-selected-value");
+            // "0" (MOUNTPOINT_ROOT_SENTINEL, "Gesamte Struktur") ist ein truthy-String und
+            // wuerde diese Pruefung ohnehin bestehen - explizit erwaehnt, weil ein rein
+            // numerischer Vergleich (selectedValue != 0) hier faelschlich fehlschlagen wuerde.
             if (selectedValue) {
                 select.value = selectedValue;
             }
         }
 
+        // Root-Warnhinweis: sichtbar, sobald IRGENDEINE Struktur-Bereich-Zeile "Gesamte
+        // Struktur" (Wert "0") gewaehlt hat - siehe #ai-chat-mountpoint-root-warning oben.
+        var mpRootWarning = document.getElementById("ai-chat-mountpoint-root-warning");
+        function updateMountpointRootWarning() {
+            if (!mpRootWarning || !mpRepeaterItems) return;
+            var hasRootSelected = Array.prototype.some.call(
+                mpRepeaterItems.querySelectorAll("[data-group-category]"),
+                function (select) { return "0" === select.value; },
+            );
+            mpRootWarning.style.display = hasRootSelected ? "block" : "none";
+        }
+
+        // "Gesamte Struktur" (Wert "0") darf nur in maximal einer Zeile gleichzeitig gewaehlt
+        // sein - waehlt der Nutzer sie in einer weiteren Zeile, wird jede andere Zeile mit
+        // diesem Wert automatisch auf "nichts gewaehlt" zurueckgesetzt.
+        function enforceSingleRootSelection(changedSelect) {
+            if (!mpRepeaterItems || "0" !== changedSelect.value) return;
+            mpRepeaterItems.querySelectorAll("[data-group-category]").forEach(function (select) {
+                if (select !== changedSelect && "0" === select.value) {
+                    select.value = "";
+                }
+            });
+        }
+
         if (mpRepeaterItems) {
             mpRepeaterItems.querySelectorAll(".ai-chat-mountpoint-group").forEach(applySelectedCategory);
+            updateMountpointRootWarning();
+
+            // Event-Delegation auf dem Container statt pro Select einzeln zu binden - neue
+            // Zeilen kommen dynamisch per <template>-Klon hinzu (siehe mpAddGroupBtn unten).
+            mpRepeaterItems.addEventListener("change", function (event) {
+                if (event.target.matches("[data-group-category]")) {
+                    enforceSingleRootSelection(event.target);
+                    updateMountpointRootWarning();
+                }
+            });
         }
 
         function removeMountpointGroupBlock(event) {
@@ -712,9 +785,12 @@ if ('add' === $func || 'edit' === $func) {
                 target.querySelector("[data-group-category]").value = "";
                 target.querySelector("[data-group-description]").value = "";
                 target.querySelector("[data-group-is-timely]").checked = false;
+                target.querySelector("[data-group-include-offline]").checked = true;
+                updateMountpointRootWarning();
                 return;
             }
             target.remove();
+            updateMountpointRootWarning();
         }
 
         if (mpRepeaterItems) {
@@ -740,12 +816,20 @@ if ('add' === $func || 'edit' === $func) {
                     var categorySelect = block.querySelector("[data-group-category]");
                     var descriptionInput = block.querySelector("[data-group-description]");
                     var isTimelyInput = block.querySelector("[data-group-is-timely]");
+                    var includeOfflineInput = block.querySelector("[data-group-include-offline]");
                     var label = labelInput ? labelInput.value.trim() : "";
                     var description = descriptionInput ? descriptionInput.value.trim() : "";
                     var isTimely = isTimelyInput ? isTimelyInput.checked : false;
-                    var categoryId = categorySelect ? parseInt(categorySelect.value, 10) : 0;
-                    if (!categoryId) return;
-                    groups.push({ label: label, description: description, is_timely: isTimely, category_id: categoryId });
+                    var includeOffline = includeOfflineInput ? includeOfflineInput.checked : true;
+                    // "0" (Root-Sentinel) ist eine gueltige, bewusste Auswahl - nur ein
+                    // wirklich leerer String ("nichts gewaehlt") wird verworfen. parseInt("")
+                    // liefert NaN, parseInt("0") liefert 0 - beides muss unterschieden werden,
+                    // ein reines "if (!categoryId)" wuerde 0 faelschlich verwerfen.
+                    var categoryValue = categorySelect ? categorySelect.value : "";
+                    if ("" === categoryValue) return;
+                    var categoryId = parseInt(categoryValue, 10);
+                    if (isNaN(categoryId) || categoryId < 0) return;
+                    groups.push({ label: label, description: description, is_timely: isTimely, category_id: categoryId, include_offline: includeOffline });
                 });
                 mpHiddenGroupsField.value = JSON.stringify(groups);
             });

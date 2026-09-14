@@ -319,6 +319,20 @@ if ('add' === $func || 'edit' === $func) {
 } else {
     $defaultThemeId = (int) $addon->getConfig('default_theme_id', 0);
 
+    // Sichtbar machen, wenn Profile ohne eigene Theme-Auswahl aktuell auf feste
+    // Hartcode-Farben statt eines konfigurierten Themes zurueckfallen (ProfileTheme::
+    // resolveTheme() liefert in beiden Faellen still null, siehe dortiger Kommentar) -
+    // entweder weil noch nie ein Theme angelegt wurde, oder weil das als Standard
+    // hinterlegte Theme zwischenzeitlich geloescht wurde (verwaiste default_theme_id).
+    $themeCount = (int) rex_sql::factory()->setQuery('SELECT COUNT(*) AS c FROM ' . rex::getTable('ai_chat_theme'))->getValue('c');
+    if (0 === $themeCount) {
+        echo rex_view::warning('Es ist noch kein Theme angelegt. Profile ohne eigene Theme-Auswahl verwenden aktuell feste Hartcode-Farben. <a href="' . rex_url::currentBackendPage(['func' => 'add']) . '">Erstes Theme anlegen</a>.');
+    } elseif ($defaultThemeId > 0 && null === (new ThemeRepository())->find($defaultThemeId)) {
+        echo rex_view::warning('Das als globales Standard-Theme hinterlegte Theme (ID ' . $defaultThemeId . ') existiert nicht mehr. Bitte unten ein anderes Theme als Standard setzen.');
+    } elseif (0 === $defaultThemeId) {
+        echo rex_view::warning('Es ist noch kein globales Standard-Theme festgelegt - Profile ohne eigene Theme-Auswahl verwenden aktuell feste Hartcode-Farben.');
+    }
+
     $list = rex_list::factory('SELECT id, name, primary_color FROM ' . rex::getTable('ai_chat_theme') . ' ORDER BY name ASC');
     $list->addTableAttribute('class', 'table-striped');
 

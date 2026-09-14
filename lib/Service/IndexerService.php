@@ -136,7 +136,7 @@ class IndexerService
             foreach ($profile->mountpointGroups as $group) {
                 $label = '' !== $group['label'] ? $group['label'] : null;
                 foreach (rex_clang::getAllIds() as $clangId) {
-                    foreach ($this->collectArticlesUnderCategory($group['category_id'], $clangId) as $articleId) {
+                    foreach ($this->collectArticlesUnderCategory($group['category_id'], $clangId, $group['include_offline']) as $articleId) {
                         $tasks[] = [
                             'type' => 'article',
                             'id' => $articleId,
@@ -156,24 +156,56 @@ class IndexerService
      * Alle Artikel-IDs unterhalb (inkl.) einer Kategorie, für eine bestimmte
      * Sprache - Grundlage für einen Eintrag in `$profile->mountpointGroups`.
      * Nutzt dieselbe rekursive Kategorie-Baum-Logik wie die bestehenden
-     * Kategorie-Ausschlüsse (getCategoryIdsRecursive()).
+     * Kategorie-Ausschlüsse (getCategoryIdsRecursive()). $categoryId ===
+     * ChatProfile::MOUNTPOINT_ROOT_SENTINEL (0) ist ein Sonderfall ("Gesamte
+     * Struktur") - siehe dortiger Zweig fuer Details. $includeOffline steuert in
+     * BEIDEN Zweigen, ob auch Offline-Artikel erfasst werden (kommt aus dem
+     * 'include_offline'-Feld der jeweiligen Mountpoint-Gruppe).
      *
      * @return list<int>
      */
-    private function collectArticlesUnderCategory(int $categoryId, int $clangId): array
+    private function collectArticlesUnderCategory(int $categoryId, int $clangId, bool $includeOffline): array
     {
-        if ($categoryId <= 0) {
+        if ($categoryId < 0) {
             return [];
+        }
+
+        // ChatProfile::MOUNTPOINT_ROOT_SENTINEL (0) - "Gesamte Struktur". Bewusst OHNE Umweg
+        // ueber rex_category::getRootCategories()+getCategoryIdsRecursive(): Artikel koennen mit
+        // parent_id=0 auch DIREKT auf der Hauptebene liegen, ganz ohne Kategorie (z.B.
+        // Impressum/Datenschutz) - eine reine Kategorie-Baum-Traversierung ab den
+        // Root-Kategorien wuerde genau diese Top-Level-Artikel systematisch uebersehen
+        // (verifiziert: 5 von 20 Artikeln dieser Instanz betroffen). "Gesamte Struktur" meint
+        // wortwoertlich JEDEN Artikel der Sprache, unabhaengig von seiner Position im Baum.
+        if (0 === $categoryId) {
+            $query = 'SELECT id FROM ' . \rex::getTable('article') . ' WHERE clang_id = ?';
+            $params = [$clangId];
+            if (!$includeOffline) {
+                $query .= ' AND status = 1';
+            }
+
+            $sql = rex_sql::factory();
+            $sql->setQuery($query, $params);
+
+            $articleIds = [];
+            foreach ($sql as $row) {
+                $articleIds[] = (int) $row->getValue('id');
+            }
+
+            return array_values(array_unique($articleIds));
         }
 
         $categoryIds = $this->getCategoryIdsRecursive($categoryId);
 
-        $sql = rex_sql::factory();
         $placeholders = implode(', ', array_fill(0, count($categoryIds), '?'));
-        $sql->setQuery(
-            'SELECT id FROM ' . \rex::getTable('article') . ' WHERE clang_id = ? AND (id IN (' . $placeholders . ') OR parent_id IN (' . $placeholders . '))',
-            array_merge([$clangId], $categoryIds, $categoryIds),
-        );
+        $query = 'SELECT id FROM ' . \rex::getTable('article') . ' WHERE clang_id = ? AND (id IN (' . $placeholders . ') OR parent_id IN (' . $placeholders . '))';
+        $params = array_merge([$clangId], $categoryIds, $categoryIds);
+        if (!$includeOffline) {
+            $query .= ' AND status = 1';
+        }
+
+        $sql = rex_sql::factory();
+        $sql->setQuery($query, $params);
 
         $articleIds = [];
         foreach ($sql as $row) {
@@ -705,30 +737,50 @@ class IndexerService
         }
 
         // Keine article_status-/Exclude-Pruefung hier, analog zu collectProfileTasks() -
-        // ein Mountpoint ist eine bewusste, enge Auswahl, die unabhaengig vom globalen
-        // Online/Offline-Filter indexiert wird.
-        foreach ($this->resolveChatProfileIdsForMountpoint($article->getCategoryId()) as $mountpointProfileId) {
+        // ein Mountpoint ist eine bewusste, enge Auswahl, die standardmaessig unabhaengig
+        // vom globalen Online/Offline-Filter indexiert wird. Nur wenn eine Gruppe
+        // 'include_offline' explizit deaktiviert hat, filtert resolveChatProfileIdsForMountpoint()
+        // unten zusaetzlich auf online.
+        foreach ($this->resolveChatProfileIdsForMountpoint($article) as $mountpointProfileId) {
             $this->indexArticle($article, $clangId, $mountpointProfileId);
         }
     }
 
     /**
-     * Welche aktivierten Profile fuehren die gegebene Kategorie (bzw. eine ihrer
-     * Elternkategorien) als eigenen Mountpoint - fuer die event-getriebene
-     * Einzelartikel-Neuindizierung in updateArticleIndex().
+     * Welche aktivierten Profile fuehren die Kategorie des gegebenen Artikels (bzw. eine
+     * ihrer Elternkategorien) als eigenen Mountpoint - fuer die event-getriebene
+     * Einzelartikel-Neuindizierung in updateArticleIndex(). Nimmt bewusst das komplette
+     * rex_article statt nur der Kategorie-ID entgegen, damit sowohl der "Gesamte
+     * Struktur"-Root-Zweig als auch der 'include_offline'-Check unten den Online-Status
+     * pruefen koennen, ohne ihn separat nachzuladen.
      *
      * @return list<int>
      */
-    private function resolveChatProfileIdsForMountpoint(int $categoryId): array
+    private function resolveChatProfileIdsForMountpoint(rex_article $article): array
     {
+        $categoryId = $article->getCategoryId();
         if ($categoryId <= 0) {
             return [];
         }
 
+        $isOnline = 1 === (int) $article->getValue('status');
+
         $profileIds = [];
         foreach ((new ProfileRepository())->getEnabled() as $profile) {
             foreach ($profile->mountpointGroups as $group) {
-                if (in_array($categoryId, $this->getCategoryIdsRecursive($group['category_id']), true)) {
+                // "Gesamte Struktur" (ChatProfile::MOUNTPOINT_ROOT_SENTINEL) erfasst JEDEN
+                // Artikel der Installation - kein getCategoryIdsRecursive()-Abgleich noetig.
+                // include_offline steuert hier wie im Bulk-Sync (siehe
+                // IndexerService::collectArticlesUnderCategory()), ob Offline-Artikel zaehlen.
+                if (0 === $group['category_id']) {
+                    if ($group['include_offline'] || $isOnline) {
+                        $profileIds[] = $profile->id;
+                        break;
+                    }
+                    continue;
+                }
+
+                if (in_array($categoryId, $this->getCategoryIdsRecursive($group['category_id']), true) && ($group['include_offline'] || $isOnline)) {
                     $profileIds[] = $profile->id;
                     break;
                 }
