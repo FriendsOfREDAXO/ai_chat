@@ -385,6 +385,75 @@ if ('add' === $func || 'edit' === $func) {
         $mountpointCategoryOptionsHtml = $matches[1];
     }
 
+    // Rein informativ: zeigt direkt im Dropdown an, wenn eine Kategorie GENAU DER
+    // Mountpoint (Startkategorie) einer yrewrite-Domain ist - hilft beim Waehlen zu
+    // erkennen, welcher Teilbaum zu welcher Domain gehoert. Bewusst NUR am Mountpoint
+    // selbst, nicht bei jeder Unterkategorie: rex_yrewrite::getDomainByArticleId() (siehe
+    // quick_navigation/lib/Utility/BuildNavigationArray.php) faellt bei fehlender
+    // spezifischer Zuordnung auf die 'default'-Domain zurueck (nie null) und wuerde damit
+    // JEDE Kategorie mit einem Hinweis versehen - hier soll nur der eine Wurzelpunkt pro
+    // Domain markiert werden. Aendert NUR den sichtbaren Text, nicht den "value"
+    // (Kategorie-ID) - keine Auswirkung auf Submit-Handler/Decode-Logik/IndexerService.
+    // getMountId() === 0 (Root-Ebene, kein eigener Kategorie-Artikel) ist bewusst
+    // eingeschlossen: das ist derselbe Sentinel-Wert wie ChatProfile::
+    // MOUNTPOINT_ROOT_SENTINEL fuer "Gesamte Struktur" - eine Domain mit Root-Mountpoint
+    // bekommt ihr Badge dann korrekt an dieser Option statt an keiner. rex_yrewrite::init()
+    // legt IMMER zusaetzlich eine interne 'default'-Pseudo-Domain an (Name === 'default',
+    // Host = aktueller $_SERVER['HTTP_HOST']) - kein echter, vom Nutzer konfigurierter
+    // Eintrag, deshalb hier ausgeschlossen, sonst wuerde jede Installation faelschlich als
+    // "mehrere Domains" durchgehen.
+    $realYrewriteDomains = [];
+    if (rex_addon::get('yrewrite')->isAvailable() && class_exists('rex_yrewrite')) {
+        foreach (rex_yrewrite::getDomains() as $domain) {
+            if ('default' !== $domain->getName()) {
+                $realYrewriteDomains[] = $domain;
+            }
+        }
+    }
+
+    // Nur bei MEHR ALS EINER echten, konfigurierten Domain sinnvoll: bei nur einer Domain
+    // (der Normalfall) waere "Gesamte Struktur" ohnehin schon eindeutig - ein Badge mit dem
+    // einzigen Domainnamen waere reine Redundanz.
+    if (count($realYrewriteDomains) > 1) {
+        $domainHostsByMountId = [];
+        foreach ($realYrewriteDomains as $domain) {
+            $mountId = $domain->getMountId();
+            if ($mountId >= 0) {
+                // Mehrere Domains koennten theoretisch denselben Mountpoint teilen -
+                // dann werden hier einfach beide Hosts kommagetrennt angezeigt statt
+                // nur den zuletzt gesehenen zu behalten.
+                $domainHostsByMountId[$mountId][] = $domain->getHost();
+            }
+        }
+
+        if ([] !== $domainHostsByMountId) {
+            // data-content laesst selectpicker (Bootstrap-Select) statt des reinen Options-
+            // Textes beliebiges HTML im Dropdown rendern - der Domain-Host wird dadurch als
+            // eigenes Badge sichtbar statt nur als angehaengter Klammertext. Der Options-Text
+            // selbst (Fallback ohne JS/selectpicker) bleibt unveraendert als reiner
+            // "Name [ID]"-Text erhalten.
+            $mountpointCategoryOptionsHtml = (string) preg_replace_callback(
+                '/<option([^>]*\bvalue="(\d+)"[^>]*)>([^<]*)<\/option>/',
+                static function (array $matches) use ($domainHostsByMountId): string {
+                    $categoryId = (int) $matches[2];
+                    if (!isset($domainHostsByMountId[$categoryId])) {
+                        return $matches[0];
+                    }
+
+                    $labelText = $matches[3];
+                    $badges = '';
+                    foreach ($domainHostsByMountId[$categoryId] as $host) {
+                        $badges .= ' <span class="label label-info">' . rex_escape($host) . '</span>';
+                    }
+                    $content = rex_escape(trim($labelText)) . $badges;
+
+                    return '<option' . $matches[1] . ' data-content="' . rex_escape($content, 'html_attr') . '">' . $labelText . '</option>';
+                },
+                $mountpointCategoryOptionsHtml,
+            );
+        }
+    }
+
     $form->addRawField('<label>Struktur-Bereiche</label>');
     $form->addRawField('<p class="help-block" style="margin-top:0;">Ein oder mehrere Kategorie-Teilbäume, optional mit Namen gruppiert - genau wie die Sitemap-Quellen oben, nur mit einer Kategorie statt URLs. Beide Quellenarten sind beliebig gleichzeitig nutzbar.</p>');
     $form->addRawField('<div id="ai-chat-mountpoint-groups-repeater">');
@@ -408,7 +477,7 @@ if ('add' === $func || 'edit' === $func) {
         $form->addRawField(
             '<div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
             . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value="' . rex_escape($groupLabel, 'html_attr') . '"></div>'
-            . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
+            . '<div class="col-md-8"><label>Kategorie</label><select class="form-control selectpicker" data-live-search="true" data-group-category data-selected-value="' . rex_escape($groupCategoryId, 'html_attr') . '">' . $mountpointCategoryOptionsHtml . '</select></div></div>'
             . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten" value="' . rex_escape($groupDescription, 'html_attr') . '"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
             . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely' . ($groupIsTimely ? ' checked' : '') . '> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
             . '<div class="row" style="margin-top:8px;"><div class="col-md-12"><div class="checkbox"><label><input type="checkbox" data-group-include-offline' . ($groupIncludeOffline ? ' checked' : '') . '> Auch Offline-Inhalte einschließen</label></div><p class="help-block">Ist diese Option deaktiviert, werden nur Online-Artikel dieses Struktur-Bereichs indexiert (die yrewrite-"noindex"-Einstellung eines Artikels gilt in jedem Fall zusätzlich, unabhängig hiervon).</p></div></div>'
@@ -420,7 +489,7 @@ if ('add' === $func || 'edit' === $func) {
     $form->addRawField('<button type="button" class="btn btn-default btn-sm" id="ai-chat-mountpoint-group-add">+ Struktur-Bereich hinzufügen</button>');
     $form->addRawField('<template id="ai-chat-mountpoint-group-template"><div class="ai-chat-mountpoint-group panel panel-default" style="padding:10px;margin-bottom:10px;">'
         . '<div class="row"><div class="col-md-4"><label>Name (optional)</label><input type="text" class="form-control" data-group-label placeholder="z.B. Service" value=""></div>'
-        . '<div class="col-md-8"><label>Kategorie</label><div class="rex-select-style"><select class="form-control" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div></div>'
+        . '<div class="col-md-8"><label>Kategorie</label><select class="form-control selectpicker" data-live-search="true" data-group-category>' . $mountpointCategoryOptionsHtml . '</select></div></div>'
         . '<div class="row" style="margin-top:8px;"><div class="col-md-8"><label>Beschreibung (optional)</label><input type="text" class="form-control" data-group-description placeholder="z.B. Alle Service-Seiten"><p class="help-block">Hilft der KI, diesen Bereich thematisch einzuordnen - fließt als Zusatzkontext mit ein.</p></div>'
         . '<div class="col-md-4"><label>&nbsp;</label><div class="checkbox"><label><input type="checkbox" data-group-is-timely> Aktuelle/zeitkritische Inhalte (z.B. News)</label></div><p class="help-block">Wird bei Fragen nach "aktuell"/"neu"/"zuletzt" bevorzugt.</p></div></div>'
         . '<div class="row" style="margin-top:8px;"><div class="col-md-12"><div class="checkbox"><label><input type="checkbox" data-group-include-offline checked> Auch Offline-Inhalte einschließen</label></div><p class="help-block">Ist diese Option deaktiviert, werden nur Online-Artikel dieses Struktur-Bereichs indexiert (die yrewrite-"noindex"-Einstellung eines Artikels gilt in jedem Fall zusätzlich, unabhängig hiervon).</p></div></div>'
@@ -727,6 +796,18 @@ if ('add' === $func || 'edit' === $func) {
         var mpHiddenGroupsField = document.getElementById("ai-chat-mountpoint-groups-value");
         var mpProfileForm = mpHiddenGroupsField ? mpHiddenGroupsField.closest("form") : null;
 
+        // selectpicker (Bootstrap-Select) ersetzt das native <select> durch eine eigene
+        // Button/Dropdown-UI mit Live-Suche - eine direkte "select.value = ..."-Aenderung
+        // (siehe applySelectedCategory()/enforceSingleRootSelection()/removeMountpointGroupBlock()
+        // unten) aktualisiert zwar den zugrundeliegenden Wert, nicht aber die sichtbare
+        // Button-Beschriftung. refreshCategorySelectpicker() synchronisiert beides; ohne
+        // jQuery/selectpicker (sollte hier nicht vorkommen) bleibt es beim nativen Select.
+        function refreshCategorySelectpicker(select) {
+            if (typeof jQuery !== "undefined" && jQuery.fn.selectpicker) {
+                jQuery(select).selectpicker("refresh");
+            }
+        }
+
         function applySelectedCategory(block) {
             var select = block.querySelector("[data-group-category]");
             if (!select) return;
@@ -737,6 +818,7 @@ if ('add' === $func || 'edit' === $func) {
             if (selectedValue) {
                 select.value = selectedValue;
             }
+            refreshCategorySelectpicker(select);
         }
 
         // Root-Warnhinweis: sichtbar, sobald IRGENDEINE Struktur-Bereich-Zeile "Gesamte
@@ -759,6 +841,7 @@ if ('add' === $func || 'edit' === $func) {
             mpRepeaterItems.querySelectorAll("[data-group-category]").forEach(function (select) {
                 if (select !== changedSelect && "0" === select.value) {
                     select.value = "";
+                    refreshCategorySelectpicker(select);
                 }
             });
         }
@@ -782,7 +865,9 @@ if ('add' === $func || 'edit' === $func) {
             if (!target || !mpRepeaterItems) return;
             if (mpRepeaterItems.querySelectorAll(".ai-chat-mountpoint-group").length <= 1) {
                 target.querySelector("[data-group-label]").value = "";
-                target.querySelector("[data-group-category]").value = "";
+                var categorySelectToReset = target.querySelector("[data-group-category]");
+                categorySelectToReset.value = "";
+                refreshCategorySelectpicker(categorySelectToReset);
                 target.querySelector("[data-group-description]").value = "";
                 target.querySelector("[data-group-is-timely]").checked = false;
                 target.querySelector("[data-group-include-offline]").checked = true;
@@ -804,7 +889,14 @@ if ('add' === $func || 'edit' === $func) {
         if (mpAddGroupBtn && mpGroupTemplate && mpRepeaterItems) {
             mpAddGroupBtn.addEventListener("click", function () {
                 var clone = mpGroupTemplate.content.cloneNode(true);
+                var newCategorySelect = clone.querySelector("[data-group-category]");
                 mpRepeaterItems.appendChild(clone);
+                // Neu geklontes <select> kam nach REDAXOs initialem selectpicker-Setup
+                // ins DOM - muss hier erstmalig aktiviert werden, sonst bleibt es ein
+                // unstyled natives Select ohne Live-Suche.
+                if (newCategorySelect && typeof jQuery !== "undefined" && jQuery.fn.selectpicker) {
+                    jQuery(newCategorySelect).selectpicker();
+                }
             });
         }
 

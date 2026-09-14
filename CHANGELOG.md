@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.2.0-beta4] - 2026-09-14
+
+### Behoben
+- **Quellen-Links fehlten in Chat-Antworten trotz aktivierter Einstellung**,
+  wenn Backend und Frontend dieselbe Domain teilen (der Normalfall bei einer
+  einzelnen yrewrite-Domain): `IndexerService::indexArticle()` speicherte
+  `$article->getUrl()`, das ueber yrewrites `URL_REWRITE`-Extension-Point
+  einen bewussten Kurzschluss durchlaeuft - liegt die aufzuloesende URL auf
+  derselben Domain wie die aktuell aufgerufene, liefert yrewrite nur den
+  relativen Pfad (z.B. `/impressum/`) statt der vollen URL. Da die
+  Hintergrund-/Backend-Indexierung IMMER auf der einen Frontend-Domain der
+  Installation laeuft, griff dieser Kurzschluss dort jedes Mal, und
+  `ChatQueryService::collectDisplaySources()` verwirft jede URL ohne
+  fuehrendes `http(s)://` komplett. Neue Methode `resolveArticleUrl()`
+  erzwingt jetzt ueber `rex_yrewrite::getFullUrlByArticleId()` immer die
+  volle, absolute Frontend-URL. **Nach diesem Update ist eine vollstaendige
+  Reindizierung noetig**, damit bereits indexierte Artikel die korrigierte
+  URL erhalten.
+
+### Hinzugefügt
+- **Struktur-Bereich-Auswahl zeigt Domain-Zugehörigkeit an**: ist eine
+  Kategorie genau der Mountpoint (Startkategorie) einer konfigurierten
+  yrewrite-Domain, erscheint das im Kategorie-Dropdown der Struktur-Bereiche
+  jetzt als Badge direkt neben dem Kategorienamen - hilfreich bei mehreren
+  Domains, um zu erkennen, welcher Teilbaum zu welcher Domain gehört. Rein
+  informativ, keine Änderung an der Auswahl-/Indexierungslogik selbst.
+- Struktur-Bereich-Kategorie-Auswahl nutzt jetzt `selectpicker` mit
+  Live-Suche statt eines einfachen Dropdowns - deutlich praktischer bei
+  vielen Kategorien.
+
 ## [2.2.0-beta3] - 2026-09-14
 
 ### Hinzugefügt

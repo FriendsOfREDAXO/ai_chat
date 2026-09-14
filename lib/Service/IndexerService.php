@@ -897,6 +897,33 @@ class IndexerService
         return trim($profileId, '_') . ':' . $recordId;
     }
 
+    /**
+     * $article->getUrl() liefert ueber REDAXOs URL_REWRITE-Extension-Point (siehe
+     * yrewrite::rewrite()) BEWUSST einen rein relativen Pfad ("/ueber-uns/" statt
+     * "https://domain.tld/ueber-uns/"), wenn die aktuell aufgerufene Domain zufaellig
+     * dieselbe ist wie die des Ziel-Artikels - fuer normales Frontend-Rendering korrekt
+     * (relative Links auf derselben Seite), aber die Hintergrund-/Backend-Indexierung
+     * LAEUFT technisch immer auf genau dieser einen Frontend-Domain (Backend und
+     * Frontend teilen sich denselben Host), sodass dieser Kurzschluss hier IMMER
+     * greift. Ohne fuehrendes "http(s)://" verwirft ChatQueryService::
+     * collectDisplaySources() die URL beim Anzeigen der Quellen-Links komplett (Bugreport:
+     * "Quellen/Links in Antworten anzeigen" ist an, es erscheinen trotzdem nie welche).
+     * rex_yrewrite::getFullUrlByArticleId() erzwingt ueber $fullpath=true dieselbe
+     * Aufloesung, die yrewrite fuer eine FREMDE Domain nutzen wuerde (immer die volle
+     * URL), unabhaengig von der aktuell aufgerufenen Domain.
+     */
+    private function resolveArticleUrl(rex_article $article, int $clangId): string
+    {
+        if (\rex_addon::get('yrewrite')->isAvailable() && class_exists(\rex_yrewrite::class)) {
+            $url = \rex_yrewrite::getFullUrlByArticleId($article->getId(), $clangId);
+            if ('' !== $url) {
+                return $url;
+            }
+        }
+
+        return $article->getUrl();
+    }
+
     public function indexArticle(rex_article $article, int $clangId, ?int $chatProfileId = null): int
     {
         if ($this->isExcludedByYrewriteSeo($article)) {
@@ -950,9 +977,11 @@ class IndexerService
             return 0;
         }
 
+        $articleUrl = $this->resolveArticleUrl($article, $clangId);
+
         $semanticChunks = [];
         foreach ($chunks as $chunk) {
-            $semanticChunks[] = $this->prepareEmbeddingText($chunk, $article->getName(), $article->getUrl(), 'article', $article);
+            $semanticChunks[] = $this->prepareEmbeddingText($chunk, $article->getName(), $articleUrl, 'article', $article);
         }
         $embeddings = $this->aiService->getEmbeddings($semanticChunks);
 
@@ -969,7 +998,7 @@ class IndexerService
             $sql->setValue('title', $article->getName());
             $sql->setValue('content', $chunk);
             $this->setEmbeddingColumns($sql, $embedding);
-            $sql->setValue('url', $article->getUrl());
+            $sql->setValue('url', $articleUrl);
             $sql->setValue('profile_id', $chatProfileId);
             $sql->setValue('clang_id', $clangId);
             $sql->setDateTimeValue('updatedate', time());
