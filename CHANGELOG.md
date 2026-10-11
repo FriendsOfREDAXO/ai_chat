@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.4.1] - 2026-10-12
+
+### Behoben
+- **Erweiterte Suche und KI-Kontext auf MariaDB mit Vektor-Index ~35× schneller**: MariaDB nutzt den `VECTOR INDEX` nur für `ORDER BY VEC_DISTANCE_… LIMIT n` ohne weitere Bedingungen. Mit dem Scope-/Profil-Filter in derselben Abfrage berechnete sie die Distanz für jede Zeile (gemessen: ~18.000 Einträge, 4096 Dimensionen – 13,5 s je Suche mit Enter/„Suchen“ und je KI-Antwort). Jetzt zuerst die nächsten Nachbarn über den Index, danach der Filter (0,4 s, gleiche Top-20). Bleiben nach dem Filtern weniger als 40 Kandidaten (sehr enger Filter), folgt die bisherige gefilterte Abfrage. Gilt für die native Vektorsuche und die Hybrid-Suche (RRF).
+
 ## [2.4.0] - 2026-10-12
 
 ### Neu
