@@ -48,13 +48,22 @@ class IndexCronjob extends rex_cronjob
                 }
 
                 $skipped = count($tasks) - $processed - $errors;
+
+                // clearIndex() hat auch den Antwort-Cache geleert - FAQ-Vorcaching neu aufbauen
+                $faqMessage = '';
+                try {
+                    $faq = (new \FriendsOfRedaxo\AiChat\Service\ChatQueryService())->warmupFaqCache();
+                    $faqMessage = sprintf(' FAQ-Vorcaching: %d erzeugt, %d Fehler.', $faq['processed'], $faq['errors']);
+                } catch (\RuntimeException) {
+                    // kein Profil mit FAQ-Vorcaching
+                }
                 $this->setMessage(sprintf(
                     'Vollständige Neu-Indexierung (Limit: %s). Verarbeitet: %d, Übersprungen: %d, Fehler: %d',
                     $maxItemsLabel,
                     $processed,
                     max(0, $skipped),
                     $errors
-                ));
+                ) . $faqMessage);
             } else {
                 // Incremental: only process changed/new items
                 $stats = $service->sync($maxItems);

@@ -3,6 +3,7 @@
 ## [2.3.0] - 2026-10-11
 
 ### Neu
+- **FAQ-Vorcaching nach Neuindizierung**: Eine vollständige Neuindizierung (Konsole, Cronjob „vollständig“) leert den Antwort-Cache – die vorbereiteten FAQ-Antworten waren danach weg, bis jemand im Backend den Knopf drückte. Sie werden jetzt im Anschluss automatisch neu erzeugt. Neuer Befehl `ai_chat:faq-warmup` (z. B. nach Deployments).
 - **Trigger mit mehreren Stichwörtern**: Ein Trigger reagiert auf mehrere, durch Komma getrennte Stichwörter. Ein Stichwort trifft am Wortanfang (vorher irgendwo im Wort – „Kreis“ zündete auch bei „Fußballkreis“), `*` davor erlaubt Treffer mitten im Wort. Bestehende Trigger mit einem Stichwort funktionieren weiter.
 - **KI im Such-Fenster – drei Modi je Profil** (Profile → „KI im Such-Fenster“):
   - **Nur Suche**: Trefferliste ohne KI – keine Antwort, keine Zusammenstellung, kein „Frag die KI“. Der Server lehnt KI-Aufrufe aus dem Such-Fenster dann ab.

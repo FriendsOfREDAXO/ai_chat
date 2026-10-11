@@ -56,6 +56,14 @@ class ReindexCommand extends rex_console_command
             return 1;
         }
 
+        // Die Neuindizierung leert den Antwort-Cache - vorbereitete FAQ-Antworten neu erzeugen
+        try {
+            $faq = (new \FriendsOfRedaxo\AiChat\Service\ChatQueryService())->warmupFaqCache();
+            $io->writeln(sprintf('FAQ-Vorcaching: %d Antworten erzeugt, %d übersprungen, %d Fehler.', $faq['processed'], $faq['skipped'], $faq['errors']));
+        } catch (\RuntimeException) {
+            // kein Profil mit FAQ-Vorcaching
+        }
+
         $io->success('Neuindizierung abgeschlossen.');
         return 0;
     }
