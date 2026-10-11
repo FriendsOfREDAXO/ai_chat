@@ -504,6 +504,7 @@
     ++this.chatNonce;
     this.chatHistory = [];
     this.input.value = '';
+    this.lastQuestionMarkQuery = '';
     this.clearButton.hidden = true;
     this.setSearching(false);
     this.isChatLoading = false;
@@ -629,7 +630,7 @@
           // nonsense_query (server-seitig erkannt, siehe ChatQueryService::
           // looksLikeNonsenseQuery()) - keine KI anfragen fuer offensichtliches
           // Kauderwelsch, direkt die einfache "keine Treffer"-Meldung zeigen.
-          if (self.aiAuto() && !data.nonsense_query && self.shouldAskChatForEmptyResults(query)) {
+          if (!data.nonsense_query && ((self.aiAuto() && self.shouldAskChatForEmptyResults(query)) || self.askedWithQuestionMark(query))) {
             self.setAnswerLoading(true, 'Die KI prüft, ob sie helfen kann...');
             self.fetchChatAnswer(query, nonce);
             return;
@@ -645,7 +646,7 @@
         self.renderChatAction(query);
         self.renderHits(hits);
 
-        if (self.aiAuto() && self.shouldAskChat(query, hits.length)) {
+        if ((self.aiAuto() && self.shouldAskChat(query, hits.length)) || self.askedWithQuestionMark(query)) {
           self.setAnswerLoading(true, 'KI analysiert die Treffer...');
           self.fetchChatAnswer(query, nonce);
           return;
@@ -679,6 +680,23 @@
   };
 
   // KI ohne Klick starten? Nur im Modus „automatisch“ (siehe aiTrigger im Konstruktor)
+  // Modus „per Button“: endet die Eingabe mit einem Fragezeichen, ist die Frage erkennbar fertig – dann startet
+  // die KI-Antwort wie nach Klick auf „Frag die KI“ (einmal je Frage, nicht erneut bei Filterwechsel o. Ä.).
+  SearchUi.prototype.askedWithQuestionMark = function (query) {
+    if (this.aiMode === 'search' || this.aiTrigger !== 'button') {
+      return false;
+    }
+    var text = typeof query === 'string' ? query.trim() : '';
+    if (!/[?？]$/.test(text) || text.replace(/[?？\s]+$/, '').length < this.minimumQueryLength) {
+      return false;
+    }
+    if (this.lastQuestionMarkQuery === text) {
+      return false;
+    }
+    this.lastQuestionMarkQuery = text;
+    return true;
+  };
+
   SearchUi.prototype.aiAuto = function () {
     return this.aiMode !== 'search' && this.aiTrigger === 'auto';
   };

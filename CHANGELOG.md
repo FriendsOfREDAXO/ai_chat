@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.4.3] - 2026-10-12
+
+### Neu
+- **Such-Fenster, Modus „Per Button“: Fragezeichen startet die KI**: Endet die Eingabe mit „?“, ist die Frage erkennbar fertig – die KI-Antwort startet nach der Tipp-Pause wie nach Klick auf „Frag die KI“ (einmal je Frage). Ohne Fragezeichen bleibt es bei der schnellen Suche und dem Knopf.
+
 ## [2.4.2] - 2026-10-12
 
 ### Neu

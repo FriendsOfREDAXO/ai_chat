@@ -239,7 +239,7 @@ if ('add' === $func || 'edit' === $func) {
 
     $field = $form->addSelectField('search_ai_trigger');
     $field->setLabel('KI-Antwort starten');
-    $field->setNotice('Automatisch: Bei Fragen startet die KI-Antwort schon beim Tippen (und bei passenden Treffern eine Zusammenfassung). Per Button: Beim Tippen läuft nur die schnelle Suche; die KI antwortet erst nach Klick auf „Frag die KI“ – weniger KI-Anfragen, keine halbfertigen Fragen.');
+    $field->setNotice('Automatisch: Bei Fragen startet die KI-Antwort schon beim Tippen (und bei passenden Treffern eine Zusammenfassung). Per Button: Beim Tippen läuft nur die schnelle Suche; die KI antwortet erst nach Klick auf „Frag die KI“ oder wenn die Eingabe mit einem Fragezeichen endet – weniger KI-Anfragen, keine halbfertigen Fragen.');
     $select = $field->getSelect();
     $select->addOption('Automatisch beim Tippen (wie bisher)', '');
     $select->addOption('Per Button „Frag die KI“', 'button');
