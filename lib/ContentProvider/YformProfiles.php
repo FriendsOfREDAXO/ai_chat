@@ -347,6 +347,11 @@ final class YformProfiles
             return self::extractContentBuilderText($value);
         }
 
+        // Felder, die HTML oder Builder-JSON enthalten können (z. B. Builder-Feld mit Altdaten-Modus)
+        if (($mode === 'html' || $mode === 'auto') && self::isContentBuilderJson($value)) {
+            return self::extractContentBuilderText($value);
+        }
+
         if ($mode === 'json') {
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {
@@ -380,7 +385,8 @@ final class YformProfiles
     {
         $decoded = json_decode($jsonContent, true);
         if (!is_array($decoded)) {
-            return self::normalizeText($jsonContent);
+            // kein JSON: älterer Inhalt als HTML (Altdaten-Modus des Builders)
+            return self::normalizeText(html_entity_decode(strip_tags(str_replace('><', '> <', $jsonContent)), ENT_QUOTES | ENT_HTML5));
         }
 
         $parts = [];
@@ -395,6 +401,16 @@ final class YformProfiles
      */
     private static function walkContentBuilderNode(array $node, array &$parts): void
     {
+        // Slice ({id, type, online, data}): nur die Inhaltsdaten lesen – ID und Elementtyp sind kein Text
+        if (isset($node['type'], $node['data']) && is_array($node['data'])) {
+            if (($node['online'] ?? true) === false) {
+                return;
+            }
+            self::walkContentBuilderNode($node['data'], $parts);
+
+            return;
+        }
+
         foreach ($node as $key => $value) {
             if ($key === 'online' && $value === false) {
                 return;
@@ -421,7 +437,32 @@ final class YformProfiles
 
     private static function isIgnoredContentBuilderKey(string $key): bool
     {
-        return $key !== '' && (str_contains($key, 'image') || str_contains($key, 'media') || str_contains($key, 'file') || str_contains($key, 'icon'));
+        if ($key === '') {
+            return false;
+        }
+        if (str_contains($key, 'image') || str_contains($key, 'media') || str_contains($key, 'file') || str_contains($key, 'icon')) {
+            return true;
+        }
+
+        // Gestaltungs-Einstellungen (Layout, Abschnitt, Container, Stil …) sind kein Inhalt
+        return (bool) preg_match('/(^|_)(id|type|layout|section|container|padding|margin|style|align|width|height|ratio|columns?|cols|variant|mode|color|bg|background|class|animation|gap|view|source|enable|display|level|tag|target|position|size)(_|$)/', $key)
+            || str_starts_with($key, 'col_') || str_starts_with($key, 'enable_');
+    }
+
+    /** JSON-Liste von Builder-Slices ({type, data})? */
+    public static function isContentBuilderJson(string $value): bool
+    {
+        $value = ltrim($value);
+        if ($value === '' || $value[0] !== '[') {
+            return false;
+        }
+        $decoded = json_decode($value, true);
+        if (!is_array($decoded) || !array_is_list($decoded) || $decoded === []) {
+            return false;
+        }
+        $first = $decoded[0];
+
+        return is_array($first) && isset($first['type']) && array_key_exists('data', $first);
     }
 
     private static function normalizeText(string $value): string
