@@ -279,7 +279,9 @@ if (rex::isFrontend()) {
             }
 
             if (strpos($content, 'ai-search.js') === false) {
-                $content = str_replace('</body>', $searchScript . '</body>', $content);
+                // KI im Such-Fenster (Profil): vor ai-search.js, das die Einstellung beim Start liest
+                $searchConfig = '<script>window.AiSearchConfig = Object.assign(window.AiSearchConfig || {}, ' . json_encode(['aiMode' => $frontendProfile->searchAiMode]) . ');</script>';
+                $content = str_replace('</body>', $searchConfig . $searchScript . '</body>', $content);
             }
         }
 

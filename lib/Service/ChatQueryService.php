@@ -81,7 +81,7 @@ class ChatQueryService
     /**
      * @return array<string, mixed>|null Response to short-circuit with, or null if the request may proceed.
      */
-    private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile): ?array
+    private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile, string $requestedScope = ''): ?array
     {
         // Wer ueberhaupt sichtbar sein darf (Domain/Sprache/Rolle) entscheidet seit dem
         // Profil-Feature ausschliesslich ChatProfile::$viewerRoles/$targetMode - der
@@ -95,6 +95,14 @@ class ChatQueryService
         // chatEnabled/searchEnabled, Standard: aktiv) - ohne aufgeloestes Profil ist der
         // Zugriff daher schlicht verweigert, kein globaler Fallback mehr noetig.
         $featureEnabled = null !== $profile && ('search' === $mode ? $profile->searchEnabled : $profile->chatEnabled);
+
+        // KI-Aufrufe aus dem Such-Fenster (scope=search: Antwort, Zusammenstellung, Chat im
+        // Fenster) haengen an der Profil-Einstellung „KI im Such-Fenster“ (searchAiMode),
+        // nicht am Chat-Widget: 'search' = keine KI, 'answer'/'chat' = erlaubt, solange die
+        // Suche fuer das Profil aktiv ist.
+        if ('search' !== $mode && 'search' === $requestedScope) {
+            $featureEnabled = null !== $profile && $profile->searchEnabled && 'search' !== $profile->searchAiMode;
+        }
 
         if ($featureEnabled) {
             return null;
@@ -329,7 +337,7 @@ class ChatQueryService
                 ];
             }
 
-            $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile);
+            $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile, $requestedScope);
             if ($frontendDenial !== null) {
                 return $frontendDenial;
             }

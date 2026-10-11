@@ -95,6 +95,10 @@ final class ChatProfile
         // Die Widget-Position ist bewusst KEIN Theme-Bestandteil und bleibt ein eigenes,
         // unabhaengiges Override je Profil (siehe ProfileTheme::resolvePosition()).
         public readonly ?string $themePosition,
+        // KI im Such-Fenster: 'search' (nur Trefferliste), 'answer' (Trefferliste + KI-Antwort
+        // bei Fragen), 'chat' (dazu Chat im Fenster). Leer in der Datenbank = wie vor der
+        // Einstellung: 'answer', wenn der Chat aktiv ist, sonst 'search' (siehe fromRow()).
+        public readonly string $searchAiMode = 'answer',
     ) {
     }
 
@@ -139,7 +143,17 @@ final class ChatProfile
             faqPrecacheQuestions: self::decodeLines($row['faq_precache_questions'] ?? null),
             themeId: null !== ($row['theme_id'] ?? null) ? (int) $row['theme_id'] : null,
             themePosition: self::nullableString($row['theme_position'] ?? null),
+            searchAiMode: self::resolveSearchAiMode((string) ($row['search_ai_mode'] ?? ''), '0' !== (string) ($row['chat_enabled'] ?? '1')),
         );
+    }
+
+    public static function resolveSearchAiMode(string $stored, bool $chatEnabled): string
+    {
+        if (in_array($stored, ['search', 'answer', 'chat'], true)) {
+            return $stored;
+        }
+
+        return $chatEnabled ? 'answer' : 'search';
     }
 
     public function matchesContext(string $context): bool

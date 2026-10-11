@@ -1,6 +1,15 @@
 # Changelog
 
-## [2.2.3] - 2026-10-11
+## [2.3.0] - 2026-10-11
+
+### Neu
+- **KI im Such-Fenster – drei Modi je Profil** (Profile → „KI im Such-Fenster“):
+  - **Nur Suche**: Trefferliste ohne KI – keine Antwort, keine Zusammenstellung, kein „Frag die KI“. Der Server lehnt KI-Aufrufe aus dem Such-Fenster dann ab.
+  - **Suche + KI-Antwort**: wie bisher – bei Fragen erscheint über den Treffern eine KI-Antwort.
+  - **Suche + Chat im Such-Fenster**: unter der Antwort ein Eingabefeld für Nachfragen; das Gespräch läuft mit Verlauf direkt im Fenster weiter (gleiches `history`-Format wie das Chat-Widget). Eine neue Suche beginnt ein neues Gespräch.
+  - „Automatisch“ (Standard, auch für bestehende Profile) verhält sich wie bisher: Antwort nur, wenn der Chat des Profils aktiv ist.
+  - KI-Aufrufe aus dem Such-Fenster hängen jetzt an dieser Einstellung (und an „Suche aktiv“), nicht mehr am Chat-Widget – Suche + Antwort/Chat geht also auch ohne eingeblendeten Chat.
+  - Im Frontend gibt boot.php den Modus als `window.AiSearchConfig.aiMode` mit; per JS lässt er sich mit `AiSearch.openWithQuery(text, { aiMode: 'chat' })` überschreiben.
 
 ### Behoben
 - **YForm-Datensätze verschwanden beim Speichern aus dem Index**: Die Live-Neuindexierung (`YFORM_DATA_UPDATED`) las den Datensatz aus dem Instanz-Cache von YForm. Dort lag zu diesem Zeitpunkt oft ein Teilergebnis (z. B. aus der URL-Erzeugung des URL-AddOns mit Spalten-Aliasen wie `data_segment_part_1`) – Titel und Text fehlten, es gab „Undefined array key“-Warnungen und der Eintrag wurde leer gelesen und aus dem Index entfernt. Der Datensatz wird jetzt frisch aus der Datenbank geladen.

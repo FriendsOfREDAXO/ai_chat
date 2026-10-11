@@ -519,6 +519,8 @@ Das öffnet die Suche als Overlay und startet den Chat anschließend im Widget-M
 
 Filter im Such-Fenster: Standard ist `filterMode: 'single'` – immer nur ein Filter aktiv. Mit `filterMode: 'multi'` lassen sich Filter kombinieren.
 
+KI im Such-Fenster: je Profil „Nur Suche“, „Suche + KI-Antwort“ oder „Suche + Chat im Such-Fenster“ (Nachfragen mit Verlauf direkt im Fenster). Per JS überschreibbar mit `aiMode: 'search' | 'answer' | 'chat'`.
+
 **Variante 5: Direkter API-Call ohne UI-Komponenten**
 
 ```js

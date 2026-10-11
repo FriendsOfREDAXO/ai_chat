@@ -312,6 +312,9 @@ $profileTable
     // keinen KI-Provider. Default '1' (aktiviert), damit bestehende Profile ohne
     // Aenderung ihr bisheriges Verhalten behalten.
     ->ensureColumn(new rex_sql_column('search_extended_enabled', 'varchar(10)', false, '1'))
+    // KI im Such-Fenster: ''|search|answer|chat - leer = bisheriges Verhalten (KI-Antwort nur,
+    // wenn der Chat des Profils aktiv ist), siehe ChatProfile::resolveSearchAiMode().
+    ->ensureColumn(new rex_sql_column('search_ai_mode', 'varchar(20)', false, ''))
     ->ensureColumn(new rex_sql_column('domains', 'text', true)) // |domain1|domain2|
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
     // use_shared_scope und extra_source gehoeren konzeptionell zusammen (beide
