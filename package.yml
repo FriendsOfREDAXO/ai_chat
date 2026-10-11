@@ -43,6 +43,7 @@ page:
 console_commands:
     ai_chat:reindex: FriendsOfRedaxo\AiChat\Console\ReindexCommand
     ai_chat:faq-warmup: FriendsOfRedaxo\AiChat\Console\FaqWarmupCommand
+    ai_chat:sync: FriendsOfRedaxo\AiChat\Console\SyncCommand
 
 default_config:
     provider: gemini
