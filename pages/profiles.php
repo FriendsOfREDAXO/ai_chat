@@ -237,6 +237,13 @@ if ('add' === $func || 'edit' === $func) {
     $select->addOption('Suche + KI-Antwort', 'answer');
     $select->addOption('Suche + Chat im Such-Fenster', 'chat');
 
+    $field = $form->addSelectField('search_ai_trigger');
+    $field->setLabel('KI-Antwort starten');
+    $field->setNotice('Automatisch: Bei Fragen startet die KI-Antwort schon beim Tippen (und bei passenden Treffern eine Zusammenfassung). Per Button: Beim Tippen läuft nur die schnelle Suche; die KI antwortet erst nach Klick auf „Frag die KI“ – weniger KI-Anfragen, keine halbfertigen Fragen.');
+    $select = $field->getSelect();
+    $select->addOption('Automatisch beim Tippen (wie bisher)', '');
+    $select->addOption('Per Button „Frag die KI“', 'button');
+
     $field = $form->addSelectField('search_extended_enabled');
     $field->setLabel('Erweiterte Suche (Vektorsuche)');
     $field->setNotice('Steuert nur die zusätzliche, KI-gestützte Vektorsuche (ausgelöst per Enter/Suchen-Button im Such-Fenster bzw. auf der paginierten Suchseite) - findet dadurch auch thematisch verwandte, aber wortverschiedene Treffer. Die normale Live-Suche beim Tippen bleibt davon unberührt und funktioniert auch ohne KI-Provider.');

@@ -154,6 +154,16 @@
       this.showChatActionButton = !options || options.showChatActionButton !== false;
       this.chatActionBehavior = 'inline';
     }
+    // Start der KI (Profil-Einstellung „KI-Antwort starten“, window.AiSearchConfig.aiTrigger):
+    // 'auto' = bei Fragen schon beim Tippen (bisher), 'button' = nur über „Frag die KI“ – beim Tippen
+    // läuft dann nur die schnelle Suche, keine KI-Anfrage (auch keine Zusammenfassung).
+    var aiTrigger = (options && options.aiTrigger) || globalConfig.aiTrigger || 'auto';
+    this.aiTrigger = aiTrigger === 'button' ? 'button' : 'auto';
+    if (this.aiTrigger === 'button' && this.aiMode !== 'search') {
+      this.showChatActionButton = true;
+      this.chatActionBehavior = 'inline';
+    }
+    this.searchAbort = null;
     this.chatHistory = [];
     this.chatNonce = 0;
     // Filter-Chips: 'single' = immer nur ein Filter aktiv (Klick wechselt, erneuter Klick
@@ -301,9 +311,38 @@
     this.submitButton.className = 'ai-search-submit';
     this.submitButton.textContent = this.t('search_submit_label', 'Suchen');
 
+    // Eingabe löschen – sichtbar, sobald etwas im Feld steht (das eingebaute „x“ von type=search
+    // fehlt auf vielen Handys bzw. ist dort kaum zu treffen)
+    this.clearButton = document.createElement('button');
+    this.clearButton.type = 'button';
+    this.clearButton.className = 'ai-search-clear';
+    this.clearButton.hidden = true;
+    this.clearButton.setAttribute('aria-label', this.t('search_clear_label', 'Eingabe löschen'));
+    this.clearButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"></path></svg>';
+
+    // Schließen – auf dem Handy gibt es keine Esc-Taste und kaum Hintergrund zum Antippen
+    this.closeButton = document.createElement('button');
+    this.closeButton.type = 'button';
+    this.closeButton.className = 'ai-search-close';
+    this.closeButton.textContent = this.t('search_close_label', 'Schließen');
+
+    // Fortschrittsbalken unter der Kopfzeile: zeigt, dass gesucht wird (Tippen → Suche läuft → Treffer)
+    this.progress = document.createElement('div');
+    this.progress.className = 'ai-search-progress';
+    this.progress.setAttribute('aria-hidden', 'true');
+
     header.appendChild(this.input);
+    header.appendChild(this.clearButton);
     header.appendChild(this.submitButton);
+    header.appendChild(this.closeButton);
     panel.appendChild(header);
+    panel.appendChild(this.progress);
+
+    this.status = document.createElement('div');
+    this.status.className = 'ai-search-status';
+    this.status.setAttribute('role', 'status');
+    this.status.setAttribute('aria-live', 'polite');
+    panel.appendChild(this.status);
 
     this.toolbar = document.createElement('div');
     this.toolbar.className = 'ai-search-toolbar';
@@ -365,12 +404,24 @@
       self.search(true);
     });
 
+    this.clearButton.addEventListener('click', function () {
+      self.reset();
+      self.input.focus();
+    });
+
+    this.closeButton.addEventListener('click', function () {
+      self.close();
+    });
+
     this.input.addEventListener('input', function () {
       var nextQuery = self.input.value.trim();
+      self.clearButton.hidden = self.input.value === '';
       if (nextQuery.length < self.minimumQueryLength) {
         if (self.debounceTimer) {
           clearTimeout(self.debounceTimer);
         }
+        self.abortSearch();
+        self.setSearching(false);
         self.renderToolbar([]);
         self.renderChatAction('');
         self.renderAnswer('');
@@ -381,6 +432,8 @@
       if (self.debounceTimer) {
         clearTimeout(self.debounceTimer);
       }
+      // sofort zeigen, dass etwas passiert – die Anfrage selbst startet erst nach der Tipp-Pause
+      self.setSearching(true);
       self.debounceTimer = setTimeout(function () {
         self.search();
       }, self.searchDebounceMs);
@@ -414,10 +467,51 @@
     });
   };
 
+  // Laufende Suche anzeigen: Fortschrittsbalken, aria-busy, Statusmeldung für Screenreader
+  SearchUi.prototype.setSearching = function (isSearching) {
+    if (!this.root) {
+      return;
+    }
+    this.root.classList.toggle('ai-search-busy', !!isSearching);
+    if (this.results) {
+      this.results.setAttribute('aria-busy', isSearching ? 'true' : 'false');
+    }
+    if (this.status) {
+      this.status.textContent = isSearching ? this.t('search_status_searching', 'Suche läuft …') : '';
+    }
+  };
+
+  SearchUi.prototype.abortSearch = function () {
+    if (this.searchAbort) {
+      this.searchAbort.abort();
+      this.searchAbort = null;
+    }
+  };
+
+  // Suche zurücksetzen: Feld leeren, laufende Anfragen verwerfen, Ausgangszustand
+  SearchUi.prototype.reset = function () {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.abortSearch();
+    ++this.requestNonce;
+    ++this.chatNonce;
+    this.chatHistory = [];
+    this.input.value = '';
+    this.clearButton.hidden = true;
+    this.setSearching(false);
+    this.isChatLoading = false;
+    this.renderToolbar([]);
+    this.renderChatAction('');
+    this.renderAnswer('');
+    this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
+  };
+
   SearchUi.prototype.open = function (query) {
     if (typeof query === 'string') {
       this.input.value = query;
     }
+    this.clearButton.hidden = this.input.value === '';
 
     this.overlay.classList.add('open');
     this.input.focus();
@@ -432,6 +526,7 @@
 
   SearchUi.prototype.setQuery = function (query, runSearch) {
     this.input.value = typeof query === 'string' ? query : '';
+    this.clearButton.hidden = this.input.value === '';
     if (runSearch) {
       this.search();
     }
@@ -453,12 +548,19 @@
     ++this.chatNonce;
 
     if (query === '' || query.length < this.minimumQueryLength) {
+      this.setSearching(false);
       this.renderToolbar([]);
       this.renderChatAction('');
       this.renderAnswer('');
       this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
       return;
     }
+
+    // vorherige, noch laufende Suche abbrechen (schnelles Weitertippen erzeugt sonst Anfragen-Staus)
+    this.abortSearch();
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    this.searchAbort = controller;
+    this.setSearching(true);
 
     var payload = {
       mode: 'search',
@@ -477,7 +579,8 @@
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller ? controller.signal : undefined
     })
       .then(function (response) {
         return response.json().then(function (data) {
@@ -492,6 +595,8 @@
         if (nonce !== self.requestNonce) {
           return;
         }
+        self.searchAbort = null;
+        self.setSearching(false);
 
         if (!result.ok || (result.data && result.data.error)) {
           var serverMessage = (result.data && result.data.error) ? String(result.data.error) : ('HTTP ' + String(result.status));
@@ -518,21 +623,23 @@
           // nonsense_query (server-seitig erkannt, siehe ChatQueryService::
           // looksLikeNonsenseQuery()) - keine KI anfragen fuer offensichtliches
           // Kauderwelsch, direkt die einfache "keine Treffer"-Meldung zeigen.
-          if (self.aiMode !== 'search' && !data.nonsense_query && self.shouldAskChatForEmptyResults(query)) {
+          if (self.aiAuto() && !data.nonsense_query && self.shouldAskChatForEmptyResults(query)) {
             self.setAnswerLoading(true, 'Die KI prüft, ob sie helfen kann...');
             self.fetchChatAnswer(query, nonce);
             return;
           }
 
           self.renderAnswer('');
-          self.renderEmpty('Keine Treffer gefunden. Bitte versuchen Sie einen anderen Suchbegriff oder eine klarere Frage.');
+          self.renderEmpty(self.showChatActionButton && self.aiMode !== 'search'
+            ? self.t('search_empty_ask_ai', 'Keine Treffer gefunden. Versuch einen anderen Suchbegriff – oder frag die KI.')
+            : 'Keine Treffer gefunden. Bitte versuchen Sie einen anderen Suchbegriff oder eine klarere Frage.');
           return;
         }
 
         self.renderChatAction(query);
         self.renderHits(hits);
 
-        if (self.aiMode !== 'search' && self.shouldAskChat(query, hits.length)) {
+        if (self.aiAuto() && self.shouldAskChat(query, hits.length)) {
           self.setAnswerLoading(true, 'KI analysiert die Treffer...');
           self.fetchChatAnswer(query, nonce);
           return;
@@ -548,19 +655,26 @@
         // Zusammenstellung wird erst HIER, NACH dem Rendern der Treffer, separat nachgeladen -
         // niedrigere Prioritaet als eine echte Frage-Antwort oben, ueberschreibt deren
         // Ladeanzeige daher nicht.
-        if (data.summary_available && self.aiMode !== 'search') {
+        if (data.summary_available && self.aiAuto()) {
           self.fetchSearchSummary(query, hits, nonce);
         }
       })
       .catch(function (error) {
-        if (nonce !== self.requestNonce) {
+        if (nonce !== self.requestNonce || (error && error.name === 'AbortError')) {
           return;
         }
 
+        self.searchAbort = null;
+        self.setSearching(false);
         self.setAnswerLoading(false);
         self.renderAnswer('');
         self.renderEmpty('Fehler beim Laden der Suche: ' + toErrorMessage(error, 'Unbekannter Fehler'));
       });
+  };
+
+  // KI ohne Klick starten? Nur im Modus „automatisch“ (siehe aiTrigger im Konstruktor)
+  SearchUi.prototype.aiAuto = function () {
+    return this.aiMode !== 'search' && this.aiTrigger === 'auto';
   };
 
   SearchUi.prototype.hasQuestionIntent = function (query) {
@@ -646,6 +760,7 @@
         if (!result.ok || (result.data && result.data.error)) {
           var message = (result.data && result.data.error) ? String(result.data.error) : ('HTTP ' + String(result.status));
           self.renderAnswer('<p>Keine KI-Antwort: ' + message + '</p>');
+          self.renderChatAction(query); // erneut versuchen möglich
           return;
         }
 
@@ -653,6 +768,10 @@
 
         var html = typeof data.answer === 'string' ? data.answer.trim() : '';
         self.renderAnswer(html);
+        // Antwort steht – „Frag die KI“ erst bei einer neuen Eingabe wieder anbieten
+        if (self.aiTrigger === 'button' && self.actions && html !== '') {
+          self.actions.innerHTML = '';
+        }
         if (self.aiMode === 'chat' && html !== '') {
           self.chatHistory = [
             { role: 'user', text: query },
@@ -671,6 +790,7 @@
 
         self.setAnswerLoading(false);
         self.renderAnswer('');
+        self.renderChatAction(query);
       });
   };
 
@@ -826,8 +946,16 @@
     btn.appendChild(textNode);
     btn.addEventListener('click', function () {
       if (self.chatActionBehavior === 'inline') {
+        // aktuellen Feldinhalt nehmen (die Suche kann noch auf ein älteres Wort laufen)
+        var current = self.input.value.trim() || text;
+        if (self.debounceTimer) {
+          clearTimeout(self.debounceTimer);
+        }
+        btn.disabled = true;
+        btn.classList.add('is-loading');
         var inlineNonce = ++self.requestNonce;
-        self.fetchChatAnswer(text, inlineNonce);
+        self.setSearching(false);
+        self.fetchChatAnswer(current, inlineNonce);
         return;
       }
 

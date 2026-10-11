@@ -521,6 +521,8 @@ Filter im Such-Fenster: Standard ist `filterMode: 'single'` – immer nur ein Fi
 
 KI im Such-Fenster: je Profil „Nur Suche“, „Suche + KI-Antwort“ oder „Suche + Chat im Such-Fenster“ (Nachfragen mit Verlauf direkt im Fenster). Per JS überschreibbar mit `aiMode: 'search' | 'answer' | 'chat'`.
 
+KI-Antwort starten: je Profil „Automatisch beim Tippen“ (Standard) oder „Per Button ‚Frag die KI‘“ – dann löst das Tippen keine KI-Anfragen aus, nur die schnelle Suche. Per JS überschreibbar mit `aiTrigger: 'auto' | 'button'`.
+
 **Variante 5: Direkter API-Call ohne UI-Komponenten**
 
 ```js
