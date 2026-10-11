@@ -252,7 +252,7 @@ class OpenAiCompatibleService implements AiServiceInterface
      */
     public function buildInstructionText(?string $answerLanguageOverride = null): string
     {
-        return "ANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. " . PromptBuilder::notFoundInstruction() . "\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();
+        return "ANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. " . PromptBuilder::notFoundInstruction() . "\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction() . "\n5. Schreibe nie „Kontext“, „Dokument“, „bereitgestellte Informationen“ o. Ä. – der Leser kennt nur die Website.";
     }
 
     /**

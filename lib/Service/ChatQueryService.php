@@ -634,12 +634,15 @@ class ChatQueryService
                 $modelPrompt .= "\n\nProvider-Hinweise:\n" . $providerInstructions;
             }
             if ($triggerContent !== '') {
-                $modelPrompt .= "\n\nHinweis: Zu dieser Anfrage ist ein hinterlegter Zusatzinhalt vorhanden "
-                    . '(z.B. Öffnungszeiten, Kontaktdaten o.ä.), der direkt im Anschluss an deine Antwort '
-                    . 'automatisch angezeigt wird. Behaupte deshalb NICHT, dass dir diese Information fehlt '
-                    . 'oder im Kontext nicht enthalten ist. Beantworte die Frage kurz allgemein bzw. verweise '
-                    . 'darauf, dass die Details direkt im Anschluss folgen - wiederhole den Zusatzinhalt nicht '
-                    . 'selbst.';
+                // Der hinterlegte Zusatzinhalt (Trigger) ist geprueft und wird unter der Antwort
+                // woertlich angezeigt. Die KI bekommt ihn mit, damit sie die Frage direkt damit
+                // beantwortet - frueher sollte sie nur „Details folgen im Anschluss“ schreiben,
+                // was Antworten wie „Die Adresse folgt im naechsten Abschnitt“ erzeugte.
+                $modelPrompt .= "\n\nGeprüfte Information (wird unter deiner Antwort zusätzlich angezeigt):\n"
+                    . strip_tags($triggerContent)
+                    . "\n\nBeantworte die Frage direkt und kurz mit diesen Angaben (z. B. Anschrift, Zeiten oder "
+                    . 'Telefonnummer nennen, wenn danach gefragt ist). Verweise nicht auf Abschnitte, „unten“ oder '
+                    . '„im Anschluss“, und behaupte nicht, dass dir Informationen fehlen.';
             }
 
             if ($onChunk !== null && method_exists($aiService, 'generateAnswerStream')) {
@@ -2143,6 +2146,24 @@ class ChatQueryService
         }
 
         $messageTokens = $this->extractRelevantTokens($message);
+        // Woerter, die in JEDEM Kontext-Treffer vorkommen (typisch: Name der Organisation,
+        // „FVN“, „Verband“), unterscheiden nichts - sie machten sonst jeden Treffer
+        // „relevant“ und fuehrten zu Links ohne Bezug zur Frage.
+        if (count($sorted) >= 3 && count($messageTokens) > 1) {
+            $discriminative = array_values(array_filter($messageTokens, function (string $token) use ($sorted): bool {
+                foreach ($sorted as $item) {
+                    $text = strtolower($item['title'] . ' ' . $this->stripIndexMetadataPrefix($item['content']) . ' ' . $this->stripUrlHost($item['url']));
+                    if ('' === $token || !$this->tokenMatchesText($text, $token)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }));
+            if ([] !== $discriminative) {
+                $messageTokens = $discriminative;
+            }
+        }
         $relevantSorted = [];
         foreach ($sorted as $item) {
             if ($messageTokens === []) {
