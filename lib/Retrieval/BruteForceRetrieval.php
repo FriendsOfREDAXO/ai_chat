@@ -72,7 +72,7 @@ final class BruteForceRetrieval implements RetrievalStrategyInterface
         foreach (array_chunk(array_keys($ids), self::BATCH) as $chunk) {
             $sql = rex_sql::factory();
             $sql->setQuery(
-                'SELECT content, embedding, embedding_norm, url, title, source_type, source_id, source_label, image_url FROM ' . $table
+                'SELECT content, embedding, embedding_norm, url, title, source_type, source_id, source_label, image_url, updatedate FROM ' . $table
                 . ' WHERE id IN (' . implode(',', array_map('intval', $chunk)) . ')',
             );
             foreach ($sql as $row) {
@@ -101,6 +101,7 @@ final class BruteForceRetrieval implements RetrievalStrategyInterface
                     'source_id' => (string) $row->getValue('source_id'),
                     'source_label' => '' !== $sourceLabel ? $sourceLabel : null,
                     'image_url' => '' !== $imageUrl ? $imageUrl : null,
+                'updatedate' => (string) $row->getValue('updatedate'),
                 ];
             }
 

@@ -926,12 +926,19 @@ class ChatQueryService
             if ($isRecencyQuery && $isTimely) {
                 $result['similarity'] = min(1.0, (float) $result['similarity'] + 0.15);
             }
+
+            // Datierte Inhalte (News, Datensätze - nicht Seiten, die als aktueller Stand gelten):
+            // Datum in den Kontext und ältere Einträge abwerten. Sonst gab die KI z. B. eine
+            // Schließung der Geschäftsstelle aus einer Meldung von 2021 als aktuell aus.
+            $dated = $this->datedContextInfo($result);
+            if (null !== $dated) {
+                $result['content'] = 'Stand: ' . $dated['date'] . "\n" . $result['content'];
+                $result['similarity'] = (float) $result['similarity'] * $dated['factor'];
+            }
         }
         unset($result);
 
-        if ($isRecencyQuery) {
-            usort($results, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
-        }
+        usort($results, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
 
         // Titel-Dedupe ZUSAETZLICH zur Source-Dedupe: mehrere Seiten mit erkennbar demselben
         // Titel (z.B. eine jaehrlich wiederholte Ankuendigung wie "KLXM macht Weihnachtsferien",
@@ -982,6 +989,50 @@ class ChatQueryService
         }
 
         return array_slice($uniqueResults, 0, $limit);
+    }
+
+    /**
+     * Datum und Alters-Faktor fuer datierte Kontext-Abschnitte (alles ausser Artikeln/Sitemap-
+     * Seiten). Bis ein Jahr unveraendert, danach je Jahr 7 % weniger, hoechstens 30 %.
+     *
+     * @param array<string, mixed> $result
+     * @return array{date: string, factor: float}|null
+     */
+    private function datedContextInfo(array $result): ?array
+    {
+        $type = (string) ($result['source_type'] ?? '');
+        $raw = trim((string) ($result['updatedate'] ?? ''));
+        if ('' === $raw || in_array($type, ['article', 'sitemap_url'], true)) {
+            return null;
+        }
+        $ts = strtotime($raw);
+        if (false === $ts || $ts <= 0) {
+            return null;
+        }
+        $years = max(0.0, (time() - $ts) / (365.25 * 86400));
+        $factor = $years <= 1.0 ? 1.0 : max(0.7, 1.0 - 0.07 * ($years - 1.0));
+
+        // Nennt der Abschnitt Termine (TT.MM.JJJJ oder „1. Januar 2026“) und liegen ALLE in der
+        // Vergangenheit, beschreibt er Vergangenes (Winterpause, Anmeldeschluss …) - abwerten.
+        $content = (string) ($result['content'] ?? '');
+        $months = ['januar' => 1, 'februar' => 2, 'märz' => 3, 'maerz' => 3, 'april' => 4, 'mai' => 5, 'juni' => 6, 'juli' => 7, 'august' => 8, 'september' => 9, 'oktober' => 10, 'november' => 11, 'dezember' => 12];
+        $found = [];
+        if (preg_match_all('/\b(\d{1,2})\.(\d{1,2})\.(20\d{2})\b/', $content, $m, PREG_SET_ORDER)) {
+            foreach ($m as $d) {
+                $found[] = mktime(23, 59, 59, (int) $d[2], (int) $d[1], (int) $d[3]);
+            }
+        }
+        if (preg_match_all('/\b(\d{1,2})\.\s*(' . implode('|', array_keys($months)) . ')\s+(20\d{2})\b/iu', $content, $m, PREG_SET_ORDER)) {
+            foreach ($m as $d) {
+                $found[] = mktime(23, 59, 59, $months[mb_strtolower($d[2])], (int) $d[1], (int) $d[3]);
+            }
+        }
+        $found = array_filter($found, static fn ($t): bool => false !== $t && $t > 0);
+        if ([] !== $found && max($found) < time()) {
+            $factor *= 0.8;
+        }
+
+        return ['date' => date('d.m.Y', $ts), 'factor' => $factor];
     }
 
     /**
@@ -1095,7 +1146,7 @@ class ChatQueryService
         // deren Titel die Frage trifft. Jetzt nach Relevanz, je Quelle der passendste Abschnitt.
         $sql = rex_sql::factory();
         $rows = $sql->getArray(
-            'SELECT source_type, source_id, title, content, url, (' . implode(' + ', $scoreParts) . ') AS kw_score
+            'SELECT source_type, source_id, title, content, url, updatedate, (' . implode(' + ', $scoreParts) . ') AS kw_score
              FROM ' . rex::getTable('ai_chat_index') . '
              WHERE ' . $whereSql . ' AND (' . implode(' OR ', $clauses) . ')
              ORDER BY kw_score DESC, updatedate DESC, id DESC
@@ -1125,14 +1176,22 @@ class ChatQueryService
             // jede semantische Bestaetigung ist weniger verlaesslich als ein direkter
             // Provider-Tabellen-Treffer, soll aber die Mindestschwellen in
             // hasSufficientAnswerContext()/collectDisplaySources() zuverlaessig ueberschreiten.
-            $keywordItems[] = [
+            $item = [
                 'content' => (string) ($row['content'] ?? ''),
                 'url' => (string) ($row['url'] ?? ''),
                 'title' => (string) ($row['title'] ?? 'Inhalt'),
                 'similarity' => 0.6,
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
+                'updatedate' => (string) ($row['updatedate'] ?? ''),
             ];
+            // wie in findSimilarContent(): Datum in den Kontext, alte Einträge abwerten
+            $dated = $this->datedContextInfo($item);
+            if (null !== $dated) {
+                $item['content'] = 'Stand: ' . $dated['date'] . "\n" . $item['content'];
+                $item['similarity'] *= $dated['factor'];
+            }
+            $keywordItems[] = $item;
 
             if (count($keywordItems) >= $maxContext) {
                 break;
@@ -1805,14 +1864,22 @@ class ChatQueryService
             }
             $seen[$key] = true;
 
-            $matches[] = [
+            $match = [
                 'content' => (string) ($row['content'] ?? ''),
                 'url' => (string) ($row['url'] ?? ''),
                 'title' => (string) ($row['title'] ?? 'Inhalt'),
                 'similarity' => 1.0,
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
+                'updatedate' => (string) ($row['updatedate'] ?? ''),
             ];
+            // Datierte Treffer: Datum in den Kontext, alte abwerten (wie findSimilarContent())
+            $dated = $this->datedContextInfo($match);
+            if (null !== $dated) {
+                $match['content'] = 'Stand: ' . $dated['date'] . "\n" . $match['content'];
+                $match['similarity'] *= $dated['factor'];
+            }
+            $matches[] = $match;
 
             if (count($matches) >= $limit) {
                 break;
@@ -2150,6 +2217,13 @@ class ChatQueryService
      */
     private function collectDisplaySources(array $context, string $message, string $scope): array
     {
+        // Datierte Meldungen, die aelter als ein Jahr sind oder nur Vergangenes nennen, nicht als
+        // Link anbieten - sie beschreiben einen frueheren Stand (Schliessungen, Termine …)
+        $context = array_values(array_filter($context, function (array $item): bool {
+            $dated = $this->datedContextInfo($item);
+
+            return null === $dated || $dated['factor'] >= 1.0;
+        }));
         if ($context === []) {
             return [];
         }
@@ -2384,6 +2458,9 @@ class ChatQueryService
             'kann', 'kannst', 'können', 'könnte', 'soll', 'sollst', 'sollen', 'sollte', 'muss', 'musst', 'müssen', 'will', 'willst', 'wollen',
             'in', 'an', 'auf', 'bei', 'nach', 'von', 'vom', 'zu', 'zum', 'zur', 'für', 'aus', 'bis', 'als', 'wie', 'wenn', 'weil', 'ob',
             'nicht', 'kein', 'keine', 'auch', 'nur', 'noch', 'schon', 'sehr', 'so', 'aber', 'doch', 'also',
+            // Zeit- und Fuellwoerter aus Alltagsfragen („Ist jetzt jemand da?“) - sonst zaehlen Beitraege
+            // wie „Jetzt bewerben …“ als passend und landen als Link unter der Antwort
+            'jetzt', 'gerade', 'heute', 'morgen', 'gestern', 'momentan', 'derzeit', 'zurzeit', 'bitte', 'jemand', 'etwas', 'gibt', 'geht', 'immer', 'wieder', 'eigentlich', 'einfach', 'genau',
             // Fragewoerter - "was" faellt zwar schon durch den Laengenfilter (<=3 Zeichen), die
             // laengeren Geschwister (wer/wen/wem/wieso/weshalb/wozu/wodurch) aber nicht.
             'wer', 'wen', 'wem', 'wessen', 'wann', 'warum', 'wo', 'wohin', 'woher', 'wozu', 'wodurch', 'wieso', 'weshalb',

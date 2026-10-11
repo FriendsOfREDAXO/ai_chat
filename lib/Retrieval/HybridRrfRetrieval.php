@@ -65,7 +65,7 @@ final class HybridRrfRetrieval implements RetrievalStrategyInterface
                 LIMIT {$candidateLimit}
             )
             SELECT
-                i.content, i.url, i.title, i.source_type, i.source_id, i.source_label, i.image_url,
+                i.content, i.url, i.title, i.source_type, i.source_id, i.source_label, i.image_url, i.updatedate,
                 (COALESCE(1.0 / (? + ft.rnk), 0) + COALESCE(1.0 / (? + vr.rnk), 0)) AS rrf_score,
                 ft.rnk AS fulltext_rank,
                 vr.rnk AS vector_rank
@@ -111,6 +111,7 @@ final class HybridRrfRetrieval implements RetrievalStrategyInterface
                 'source_id' => (string) $row->getValue('source_id'),
                 'source_label' => '' !== $sourceLabel ? $sourceLabel : null,
                 'image_url' => '' !== $imageUrl ? $imageUrl : null,
+                'updatedate' => (string) $row->getValue('updatedate'),
                 'rrf_score_raw' => $score,
                 'fulltext_rank' => is_numeric($fulltextRank) ? (int) $fulltextRank : null,
                 'vector_rank' => is_numeric($vectorRank) ? (int) $vectorRank : null,
