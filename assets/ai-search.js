@@ -135,6 +135,9 @@
     this.chatActionLabel = (options && options.chatActionLabel) || 'Frag die KI';
     this.chatActionBehavior = (options && options.chatActionBehavior) || 'inline';
     this.autoButton = !options || options.autoButton !== false;
+    // Filter-Chips: 'single' = immer nur ein Filter aktiv (Klick wechselt, erneuter Klick
+    // hebt auf), 'multi' = Filter lassen sich kombinieren (bisheriges Verhalten).
+    this.filterMode = (options && options.filterMode === 'multi') ? 'multi' : 'single';
     this.selectedTypes = [];
     this.selectedLabels = [];
     this.debounceTimer = null;
@@ -254,6 +257,19 @@
     this.input.type = 'search';
     this.input.autocomplete = 'off';
     this.input.placeholder = this.placeholder;
+    // Passwort-Manager (Safari/Passwörter, 1Password, LastPass …) halten ein einzelnes Textfeld
+    // ohne Namen sonst für ein Benutzername-Feld und bieten Zugangsdaten an. „search“ im Namen
+    // und die Ignorier-Attribute verhindern das; autocomplete="off" allein reicht Safari nicht.
+    this.input.name = 'search';
+    this.input.id = 'ai-search-input';
+    this.input.setAttribute('role', 'searchbox');
+    this.input.setAttribute('aria-label', this.placeholder);
+    this.input.setAttribute('enterkeyhint', 'search');
+    this.input.setAttribute('autocapitalize', 'off');
+    this.input.setAttribute('data-1p-ignore', '');
+    this.input.setAttribute('data-lpignore', 'true');
+    this.input.setAttribute('data-bwignore', '');
+    this.input.setAttribute('data-form-type', 'other');
 
     // Live-Suche (debounced) bleibt der Regelfall - der Button ist fuer Nutzer:innen gedacht,
     // die lieber explizit "suchen" ausloesen (z.B. nach Abbruch der Eingabe per Tab/Klick weg
@@ -901,10 +917,15 @@
     if (filters.length > 0) {
       var allBtn = document.createElement('button');
       allBtn.type = 'button';
-      allBtn.className = 'ai-search-chip' + (this.selectedTypes.length === 0 ? ' active' : '');
+      var allActive = this.selectedTypes.length === 0 && (this.filterMode === 'multi' || this.selectedLabels.length === 0);
+      allBtn.className = 'ai-search-chip' + (allActive ? ' active' : '');
+      allBtn.setAttribute('aria-pressed', allActive ? 'true' : 'false');
       allBtn.textContent = this.t('search_filter_all', 'Alle');
       allBtn.addEventListener('click', function () {
         self.selectedTypes = [];
+        if (self.filterMode === 'single') {
+          self.selectedLabels = [];
+        }
         self.search();
       });
       this.toolbar.appendChild(allBtn);
@@ -920,9 +941,13 @@
         chip.type = 'button';
         chip.className = 'ai-search-chip' + (active ? ' active' : '');
         chip.textContent = (filter.label || value) + ' (' + (filter.count || 0) + ')';
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
         chip.addEventListener('click', function () {
           if (active) {
             self.selectedTypes = self.selectedTypes.filter(function (item) { return item !== value; });
+          } else if (self.filterMode === 'single') {
+            self.selectedTypes = [value];
+            self.selectedLabels = [];
           } else {
             self.selectedTypes.push(value);
           }
@@ -956,9 +981,13 @@
         if (filter.description) {
           chip.title = String(filter.description);
         }
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
         chip.addEventListener('click', function () {
           if (active) {
             self.selectedLabels = self.selectedLabels.filter(function (item) { return item !== value; });
+          } else if (self.filterMode === 'single') {
+            self.selectedLabels = [value];
+            self.selectedTypes = [];
           } else {
             self.selectedLabels.push(value);
           }

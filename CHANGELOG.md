@@ -4,6 +4,11 @@
 
 ### Behoben
 - **YForm-Datensätze verschwanden beim Speichern aus dem Index**: Die Live-Neuindexierung (`YFORM_DATA_UPDATED`) las den Datensatz aus dem Instanz-Cache von YForm. Dort lag zu diesem Zeitpunkt oft ein Teilergebnis (z. B. aus der URL-Erzeugung des URL-AddOns mit Spalten-Aliasen wie `data_segment_part_1`) – Titel und Text fehlten, es gab „Undefined array key“-Warnungen und der Eintrag wurde leer gelesen und aus dem Index entfernt. Der Datensatz wird jetzt frisch aus der Datenbank geladen.
+- **Such-Fenster: lange Titel ragten heraus**: Lange Dateinamen, Adressen oder Wörter ohne Leerzeichen im Treffertitel (ein `inline-flex`-Container ohne Umbruch) machten das Fenster breiter als den Bildschirm, es ließ sich seitlich scrollen. Titel, Auszüge, Kennzeichen und Filter brechen jetzt um, das Fenster scrollt nur noch senkrecht.
+- **Such-Fenster: Passwort-Manager boten Zugangsdaten an**: Safari/Passwörter, 1Password & Co. hielten das Suchfeld für ein Benutzername-Feld. Das Feld heißt jetzt `search`, hat `role="searchbox"`, `enterkeyhint="search"` und die Ignorier-Attribute der gängigen Passwort-Manager.
+
+### Geändert
+- **Such-Fenster: immer nur ein Filter aktiv**: Ein Klick auf einen Filter (Typ oder Bereich) ersetzt den bisherigen, ein erneuter Klick hebt ihn auf, „Alle“ setzt zurück. Wer Filter kombinieren möchte, übergibt `filterMode: 'multi'` (z. B. `AiSearch.openWithQuery(text, { filterMode: 'multi' })`). Die Filter melden ihren Zustand per `aria-pressed`.
 
 ## [2.2.2] - 2026-10-11
 

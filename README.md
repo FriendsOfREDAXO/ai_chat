@@ -517,6 +517,8 @@ window.AiSearch.openWithQuery('Was kostet das?', {
 
 Das öffnet die Suche als Overlay und startet den Chat anschließend im Widget-Modus mit derselben Anfrage.
 
+Filter im Such-Fenster: Standard ist `filterMode: 'single'` – immer nur ein Filter aktiv. Mit `filterMode: 'multi'` lassen sich Filter kombinieren.
+
 **Variante 5: Direkter API-Call ohne UI-Komponenten**
 
 ```js
