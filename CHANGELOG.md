@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.2.1] - 2026-10-11
+
+### Behoben
+- **Builder-Inhalte im Index**: Felder des Builders (früher „Content Builder“) mit Altdaten-Modus enthalten je Datensatz HTML oder Bausteine-JSON. Im Modus „html“ (und „auto“) wird Bausteine-JSON jetzt erkannt und als Text gelesen statt roh indexiert; im Builder-Modus wird altes HTML ohne Tags übernommen.
+- **Keine Technik im Text**: Slice-ID, Elementtyp und Gestaltungs-Einstellungen (Layout, Abschnitt, Container, Stil, Spalten …) landen nicht mehr im Index – nur die Inhalte, auch aus verschachtelten Elementen (Spalten).
+
+### Geändert
+- Bezeichnung des Modus im Profil: „Builder (Bausteine, auch mit altem HTML)“ statt „Content Builder JSON“ (Schlüssel `content_builder` bleibt).
+
 ## [2.2.0] - 2026-09-14
 
 ### Hinzugefügt

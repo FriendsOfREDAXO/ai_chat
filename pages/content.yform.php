@@ -199,7 +199,7 @@ $renderFieldRow = static function ($rowIndex, array $row, string $tableName, arr
             'html' => 'HTML',
             'markdown' => 'Markdown',
             'textile' => 'Textile',
-            'content_builder' => 'Content Builder JSON',
+            'content_builder' => 'Builder (Bausteine, auch mit altem HTML)',
             'json' => 'JSON',
             'date' => 'Datum',
             'datetime' => 'Datum/Uhrzeit',
@@ -258,7 +258,7 @@ if ('add' === $func || 'edit' === $func) {
         'html' => 'HTML',
         'markdown' => 'Markdown',
         'textile' => 'Textile',
-        'content_builder' => 'Content Builder JSON',
+        'content_builder' => 'Builder (Bausteine, auch mit altem HTML)',
         'json' => 'JSON',
     ], (string) ($profile['content_field_mode'] ?? 'auto'), '— Typ —', false) . '</select></div></div></div>';
 
