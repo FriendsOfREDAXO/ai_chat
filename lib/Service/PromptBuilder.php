@@ -52,9 +52,7 @@ class PromptBuilder
 
         $systemPrompt .= "\n- Stelle keine Rückfrage zur Anrede (Du/Sie), frage nicht nach dem Namen und frage nicht 'Wer bist du?', außer der Nutzer fragt ausdrücklich danach.";
         $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
-        $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt. Diese Markierung ist nur eine interne Einordnungshilfe für dich - übernimm sie niemals wörtlich in deine Antwort.";
-        $systemPrompt .= "\n- Ein Kontext-Abschnitt kann eigene Metadaten-Zeilen am Anfang enthalten, z.B. \"Kategorie: ...\", \"Kontext-Hinweis: ...\", \"Zusätzliche Keywords: ...\" oder \"Wichtige Fakten: ...\". Das sind interne Einordnungs-/Priorisierungshilfen NUR für dich, keine Inhalte der Website. Erwähne, zitiere oder paraphrasiere diese Zeilen oder ihren Inhalt NIEMALS gegenüber dem Nutzer - auch nicht als eigene Anmerkung, Hinweis oder Fußnote unter deiner Antwort. Deine Antwort darf ausschließlich die eigentliche Nutzerfrage inhaltlich beantworten.";
-        $systemPrompt .= "\n- Der Kontext kann Abschnitte zu mehreren, unterschiedlichen Themen enthalten (z.B. Leistungen/Angebote, Referenzen, Stellenangebote/Praktika, News). Nutze für deine Antwort ausschließlich die Abschnitte, die zur tatsächlich gestellten Frage passen, und ignoriere alle anderen vollständig. Vermische niemals unterschiedliche Themen in einer Antwort, nur weil beide im Kontext vorkamen - z.B. gehören Praktikums-/Stellenangebote nicht in eine Antwort zu Leistungen, außer der Nutzer fragt ausdrücklich danach.";
+        $systemPrompt .= self::contextRules();
 
         $additionalContext = (string) $addon->getConfig('frontend_additional_context');
         if ('' !== $additionalContext) {
@@ -62,9 +60,28 @@ class PromptBuilder
         }
 
         $systemPrompt .= "\n\n" . self::markdownFormattingInstruction();
-        $systemPrompt .= "\n\nWenn die Antwort nicht im Kontext enthalten ist, sage, dass du es nicht weißt. " . self::answerLanguageInstruction($answerLanguageOverride);
+        $systemPrompt .= "\n\n" . self::notFoundInstruction() . " " . self::answerLanguageInstruction($answerLanguageOverride);
 
         return $systemPrompt;
+    }
+
+    /**
+     * Regeln zum Umgang mit dem RAG-Kontext (Bereichs-Markierungen, Metadaten-Zeilen, kein
+     * Verweis auf "Kontext"/"Dokumente", nur passende Themen) - geteilt von allen Providern,
+     * damit die Prompts nicht auseinanderlaufen (vorher je Provider eine eigene Kopie).
+     */
+    public static function contextRules(): string
+    {
+        return "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt. Diese Markierung ist nur eine interne Einordnungshilfe für dich - übernimm sie niemals wörtlich in deine Antwort, ebenso wenig Nummerierungen wie \"DOKUMENT 1\"." . "\n- Ein Kontext-Abschnitt kann eigene Metadaten-Zeilen am Anfang enthalten, z.B. \"Kategorie: ...\", \"Kontext-Hinweis: ...\", \"Zusätzliche Keywords: ...\" oder \"Wichtige Fakten: ...\". Das sind interne Einordnungs-/Priorisierungshilfen NUR für dich, keine Inhalte der Website. Erwähne, zitiere oder paraphrasiere diese Zeilen oder ihren Inhalt NIEMALS gegenüber dem Nutzer - auch nicht als eigene Anmerkung, Hinweis oder Fußnote unter deiner Antwort. Deine Antwort darf ausschließlich die eigentliche Nutzerfrage inhaltlich beantworten." . "\n- Der Nutzer sieht den Kontext nicht. Sprich ihm gegenüber deshalb nie von \"Kontext\", \"bereitgestellten Dokumenten\" oder \"vorliegenden Informationen\", sondern antworte so, als kenntest du die Inhalte der Website." . "\n- Der Kontext kann Abschnitte zu mehreren, unterschiedlichen Themen enthalten (z.B. Leistungen/Angebote, Referenzen, Stellenangebote/Praktika, News). Nutze für deine Antwort ausschließlich die Abschnitte, die zur tatsächlich gestellten Frage passen, und ignoriere alle anderen vollständig. Vermische niemals unterschiedliche Themen in einer Antwort, nur weil beide im Kontext vorkamen - z.B. gehören Praktikums-/Stellenangebote nicht in eine Antwort zu Leistungen, außer der Nutzer fragt ausdrücklich danach.";
+    }
+
+    /**
+     * Verhalten, wenn der Kontext die Frage nicht beantwortet - nichts erfinden, freundlich
+     * sagen, dass nichts Genaues gefunden wurde, und eine Anlaufstelle aus dem Kontext nennen.
+     */
+    public static function notFoundInstruction(): string
+    {
+        return 'Wenn die Antwort nicht im Kontext enthalten ist, erfinde nichts: Sag freundlich in einem Satz, dass du dazu auf der Website nichts Genaues gefunden hast, und nenne – falls der Kontext eine passende Anlaufstelle, Ansprechperson oder Seite enthält – diese als nächsten Schritt.';
     }
 
     /**

@@ -823,12 +823,35 @@ class ChatQueryService
 
         $append = '';
         foreach ($triggers as $trigger) {
-            if (stripos($message, (string) $trigger['keyword']) !== false) {
+            if (self::triggerMatches((string) $trigger['keyword'], $message)) {
                 $append .= "\n\n" . (string) $trigger['content'];
             }
         }
 
         return $append;
+    }
+
+    /**
+     * Ein Trigger kann mehrere Stichwörter haben (durch Komma oder Zeilenumbruch getrennt).
+     * Ein Stichwort trifft nur am Wortanfang (ohne Groß-/Kleinschreibung) - „Kreis“ trifft
+     * „Kreisliga“ und „Fußballkreis“ nicht mitten im Wort wie früher („Weißkreis“), ein
+     * „*“ am Anfang erlaubt wieder Treffer mitten im Wort („*kreis“).
+     */
+    public static function triggerMatches(string $keywords, string $message): bool
+    {
+        foreach (preg_split('/[,\n]+/u', $keywords) ?: [] as $keyword) {
+            $keyword = trim($keyword);
+            if ('' === $keyword || '*' === $keyword) {
+                continue;
+            }
+            $anywhere = str_starts_with($keyword, '*');
+            $pattern = ($anywhere ? '' : '(?<![\\p{L}\\p{N}])') . preg_quote(ltrim($keyword, '*'), '/');
+            if (1 === preg_match('/' . $pattern . '/iu', $message)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

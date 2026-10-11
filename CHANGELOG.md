@@ -3,6 +3,7 @@
 ## [2.3.0] - 2026-10-11
 
 ### Neu
+- **Trigger mit mehreren Stichwörtern**: Ein Trigger reagiert auf mehrere, durch Komma getrennte Stichwörter. Ein Stichwort trifft am Wortanfang (vorher irgendwo im Wort – „Kreis“ zündete auch bei „Fußballkreis“), `*` davor erlaubt Treffer mitten im Wort. Bestehende Trigger mit einem Stichwort funktionieren weiter.
 - **KI im Such-Fenster – drei Modi je Profil** (Profile → „KI im Such-Fenster“):
   - **Nur Suche**: Trefferliste ohne KI – keine Antwort, keine Zusammenstellung, kein „Frag die KI“. Der Server lehnt KI-Aufrufe aus dem Such-Fenster dann ab.
   - **Suche + KI-Antwort**: wie bisher – bei Fragen erscheint über den Treffern eine KI-Antwort.
@@ -12,6 +13,8 @@
   - Im Frontend gibt boot.php den Modus als `window.AiSearchConfig.aiMode` mit; per JS lässt er sich mit `AiSearch.openWithQuery(text, { aiMode: 'chat' })` überschreiben.
 
 ### Behoben
+- **KI sprach von „Kontext“ und „DOKUMENT 1“**: Antworten enthielten Sätze wie „im vorliegenden Kontext nicht enthalten“ oder „[Bereich: DOKUMENT 1]“ – der Besucher sieht diesen Kontext nicht. Neue Regel: nie von Kontext/Dokumenten sprechen, keine Nummerierungen übernehmen; fehlt die Antwort, freundlich sagen, dass auf der Website nichts Genaues zu finden ist, und eine Anlaufstelle aus dem Kontext nennen.
+- **Prompt-Regeln je Provider auseinandergelaufen**: OpenAI-kompatibel, Gemini, Cloudflare und AI Platform hatten je eine eigene Kopie der Kontext-Regeln und der „nicht gefunden“-Anweisung (OpenAI-kompatibel z.B. „frage ggf. nach weiteren Details“). Die Regeln stehen jetzt einmal in `PromptBuilder::contextRules()` / `notFoundInstruction()` und gelten für alle Provider gleich.
 - **YForm-Datensätze verschwanden beim Speichern aus dem Index**: Die Live-Neuindexierung (`YFORM_DATA_UPDATED`) las den Datensatz aus dem Instanz-Cache von YForm. Dort lag zu diesem Zeitpunkt oft ein Teilergebnis (z. B. aus der URL-Erzeugung des URL-AddOns mit Spalten-Aliasen wie `data_segment_part_1`) – Titel und Text fehlten, es gab „Undefined array key“-Warnungen und der Eintrag wurde leer gelesen und aus dem Index entfernt. Der Datensatz wird jetzt frisch aus der Datenbank geladen.
 - **Such-Fenster: lange Titel ragten heraus**: Lange Dateinamen, Adressen oder Wörter ohne Leerzeichen im Treffertitel (ein `inline-flex`-Container ohne Umbruch) machten das Fenster breiter als den Bildschirm, es ließ sich seitlich scrollen. Titel, Auszüge, Kennzeichen und Filter brechen jetzt um, das Fenster scrollt nur noch senkrecht.
 - **Such-Fenster: Passwort-Manager boten Zugangsdaten an**: Safari/Passwörter, 1Password & Co. hielten das Suchfeld für ein Benutzername-Feld. Das Feld heißt jetzt `search`, hat `role="searchbox"`, `enterkeyhint="search"` und die Ignorier-Attribute der gängigen Passwort-Manager.

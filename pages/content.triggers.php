@@ -25,7 +25,7 @@ if ($func == 'add' || $func == 'edit') {
 
     $field = $form->addTextField('keyword');
     $field->setLabel('Keyword');
-    $field->setNotice('Das Wort oder die Phrase, auf die reagiert werden soll (case-insensitive). Sobald die Anfrage des Besuchers dieses Wort enthält, wird die Zusatz-Antwort unten an die KI-Antwort angehängt.');
+    $field->setNotice('Ein oder mehrere Wörter/Phrasen, durch Komma getrennt (z.B. „Geschäftsstelle, Öffnungszeiten, Telefon“). Groß-/Kleinschreibung egal; ein Stichwort trifft am Wortanfang („Schiedsrichter“ trifft auch „Schiedsrichterin“, „Kreis“ aber nicht „Fußballkreis“). Mit * davor trifft es auch mitten im Wort („*kreis“).');
 
     $field = $form->addTextAreaField('content');
     $field->setLabel('Zusatz-Antwort');
