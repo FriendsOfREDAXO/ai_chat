@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.2.2] - 2026-10-11
+
+### Behoben
+- **Stemming bei ß und Umlauten**: Der Snowball-Stemmer schreibt ß als „ss“ und ä/ö/ü als a/o/u („Fußballvereine“ → „fussballverein“). Der Stamm passte deshalb nie auf den Inhalt („Fußballverein“) – Stemming lief bei deutschen Wörtern mit ß/Umlaut ins Leere. Der Stamm wird jetzt in der Schreibweise des Suchbegriffs verwendet („fußballverein“, „schiedsrichterprüf“), der Snowball-Stamm zusätzlich als Alternative (findet „Haus“ zu „Häuser“ und Adressen wie `/fussballvereine/`). Ändert der Stemmer nur die Schreibweise („Fußball“ → „fussball“), dient der Stamm nur noch als Alternative.
+
 ## [2.2.1] - 2026-10-11
 
 ### Behoben
