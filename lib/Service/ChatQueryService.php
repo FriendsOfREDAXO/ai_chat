@@ -1075,23 +1075,36 @@ class ChatQueryService
 
         $clauses = [];
         $params = $baseParams;
+        $scoreParts = [];
+        $scoreParams = [];
         foreach ($terms as $term) {
             $like = '%' . $term . '%';
             $clauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
+            // Relevanz: Titel-Treffer zaehlen dreifach, jedes weitere Suchwort zaehlt mit
+            $scoreParts[] = '(CASE WHEN title LIKE ? THEN 3 ELSE 0 END + CASE WHEN content LIKE ? OR url LIKE ? THEN 1 ELSE 0 END)';
+            $scoreParams[] = $like;
+            $scoreParams[] = $like;
+            $scoreParams[] = $like;
         }
 
+        // Frueher nach Datum sortiert: bei mehreren Suchwoertern kamen beliebige neue Beitraege
+        // mit irgendeinem der Woerter nach vorn ("werde" → Stellenanzeigen) statt der Seite,
+        // deren Titel die Frage trifft. Jetzt nach Relevanz, je Quelle der passendste Abschnitt.
         $sql = rex_sql::factory();
         $rows = $sql->getArray(
-            'SELECT source_type, source_id, title, content, url
+            'SELECT source_type, source_id, title, content, url, (' . implode(' + ', $scoreParts) . ') AS kw_score
              FROM ' . rex::getTable('ai_chat_index') . '
              WHERE ' . $whereSql . ' AND (' . implode(' OR ', $clauses) . ')
-             ORDER BY updatedate DESC, id DESC
-             LIMIT 20',
-            $params,
+             ORDER BY kw_score DESC, updatedate DESC, id DESC
+             LIMIT 60',
+            array_merge($scoreParams, $params),
         );
+        // Nur Treffer, die die Frage wirklich abdecken: Titel-Treffer oder mindestens die Haelfte der Suchwoerter
+        $minScore = max(1, (int) ceil(count($terms) / 2));
+        $rows = array_values(array_filter($rows, static fn (array $r): bool => (int) $r['kw_score'] >= 3 || (int) $r['kw_score'] >= $minScore));
 
         $seen = [];
         $keywordItems = [];
@@ -1138,7 +1151,12 @@ class ChatQueryService
         // bereits GUT sitzender Vektor-Treffer (similarity >= 0.6, derselbe Schwellenwert wie
         // oben fuer Keyword-Treffer) bleibt dagegen erhalten, da eine echte semantische
         // Uebereinstimmung verlaesslicher ist als ein reiner Substring-Treffer.
-        $strongVectorItems = array_values(array_filter($context, static fn(array $c): bool => $c['similarity'] >= 0.6));
+        // „Gut“ relativ zum besten Vektor-Treffer: absolute Werte haengen stark vom Embedding-
+        // Modell ab (bei manchen liegen auch sehr passende Treffer unter 0.6 und wurden sonst
+        // alle verdraengt).
+        $topVector = $context !== [] ? max(array_map(static fn (array $c): float => (float) $c['similarity'], $context)) : 0.0;
+        $strongThreshold = min(0.6, $topVector * 0.85);
+        $strongVectorItems = array_values(array_filter($context, static fn(array $c): bool => $c['similarity'] >= $strongThreshold));
 
         $seenAfterStrong = [];
         foreach ($strongVectorItems as $item) {
@@ -2011,12 +2029,14 @@ class ChatQueryService
         $titlePattern = preg_quote($sourcesTitle, '/');
 
         // Keep sources heading out of previous list/paragraph flow.
-        $inlineSourcesFixed = preg_replace('/([^\n])\s+(\*\*' . $titlePattern . '\*\*)/u', '$1\n\n$2', $answer);
+        // Ersetzung in doppelten Anfuehrungszeichen: '$1\n\n$2' fuegte ein woertliches "\n" ein,
+        // das als sichtbares „\n\n“ vor „Links:“ in jeder Antwort landete.
+        $inlineSourcesFixed = preg_replace('/([^\n])[ \t]+(\*\*' . $titlePattern . '\*\*)/u', "\$1\n\n\$2", $answer);
         if (is_string($inlineSourcesFixed)) {
             $answer = $inlineSourcesFixed;
         }
 
-        $singleBreakSourcesFixed = preg_replace('/([^\n])\n(\*\*' . $titlePattern . '\*\*)/u', '$1\n\n$2', $answer);
+        $singleBreakSourcesFixed = preg_replace('/([^\n])\n(\*\*' . $titlePattern . '\*\*)/u', "\$1\n\n\$2", $answer);
         if (is_string($singleBreakSourcesFixed)) {
             $answer = $singleBreakSourcesFixed;
         }
