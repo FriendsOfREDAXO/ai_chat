@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.2] - 2026-10-12
+
+### Neu
+- **Such-Fenster: KI-Antwort erscheint während sie geschrieben wird (Streaming)**: Ist „Streaming“ in den Einstellungen aktiv, kommt die Antwort im Such-Fenster wie im Chat-Widget schrittweise – der erste Satz ist nach kurzer Zeit zu sehen statt der ganzen Antwort erst nach mehreren Sekunden; am Ende ersetzt die formatierte Antwort den Rohtext. Ohne Streaming wie bisher.
+
+### Behoben
+- **YForm-Mappings lassen sich wieder löschen** (#7): Der Link „Löschen“ in der Liste enthielt kein CSRF-Token – die Seite meldete „CSRF-Token ungültig“.
+
 ## [2.4.1] - 2026-10-12
 
 ### Behoben

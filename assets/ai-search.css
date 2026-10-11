@@ -216,6 +216,33 @@ body.rex-theme-dark #ai-search-root {
   white-space: nowrap;
 }
 
+/* Antwort erscheint während die KI schreibt (Streaming) */
+#ai-search-root .ai-search-answer-stream {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+#ai-search-root .ai-search-answer-stream::after {
+  content: '';
+  display: inline-block;
+  width: .5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--ai-search-accent);
+  animation: ai-search-caret 1s steps(1) infinite;
+}
+
+@keyframes ai-search-caret {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ai-search-root .ai-search-answer-stream::after {
+    animation: none;
+  }
+}
+
 /* „Frag die KI“ während die Antwort lädt */
 #ai-search-root .ai-search-chat-action.is-loading {
   opacity: .6;
