@@ -59,10 +59,17 @@ final class HybridRrfRetrieval implements RetrievalStrategyInterface
                 LIMIT {$candidateLimit}
             ),
             vector_ranked AS (
-                SELECT id, RANK() OVER (ORDER BY VEC_DISTANCE_COSINE({$vectorColumn}, VEC_FromText(?)) ASC) AS rnk
-                FROM {$table}
-                WHERE {$vectorColumn} IS NOT NULL{$whereFragment}
-                LIMIT {$candidateLimit}
+                -- erst naechste Nachbarn ueber den VECTOR INDEX (nur ohne weiteren Filter nutzbar), dann filtern
+                SELECT nn.id, RANK() OVER (ORDER BY nn.distance ASC) AS rnk
+                FROM (
+                    SELECT id, VEC_DISTANCE_COSINE({$vectorColumn}, VEC_FromText(?)) AS distance
+                    FROM {$table}
+                    WHERE {$vectorColumn} IS NOT NULL
+                    ORDER BY distance ASC
+                    LIMIT {$candidateLimit}
+                ) nn
+                JOIN {$table} f ON f.id = nn.id
+                WHERE 1 = 1{$whereFragment}
             )
             SELECT
                 i.content, i.url, i.title, i.source_type, i.source_id, i.source_label, i.image_url, i.updatedate,
