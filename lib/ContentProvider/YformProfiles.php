@@ -300,6 +300,46 @@ final class YformProfiles
         return 'text';
     }
 
+    /** Höchstens so viele Zeichen Dokumenttext je Datensatz (große Satzungen/Ordnungen) */
+    private const DOCUMENT_MAX_CHARS = 60000;
+
+    /**
+     * Feld-Modus „Dokument“: Dateinamen aus dem Medienpool (be_media, mehrere durch Komma) -
+     * der Text der PDF-Dateien wird ausgelesen und gehört zum Datensatz (z. B. eine Download-
+     * Tabelle: Titel + Beschreibung + Inhalt des Dokuments in einem Treffer).
+     */
+    public static function extractDocumentText(string $value): string
+    {
+        $extractor = new \FriendsOfRedaxo\AiChat\Service\PdfTextExtractor();
+        $texts = [];
+        $length = 0;
+        foreach (preg_split('/\s*,\s*/', trim($value)) ?: [] as $file) {
+            $file = basename(trim($file));
+            if ('' === $file || !str_ends_with(mb_strtolower($file), '.pdf')) {
+                continue;
+            }
+            $path = \rex_path::media($file);
+            if (!is_file($path)) {
+                continue;
+            }
+            try {
+                $text = self::normalizeText($extractor->extract($path));
+            } catch (\Throwable) {
+                continue;
+            }
+            if ('' === $text) {
+                continue;
+            }
+            $texts[] = mb_substr($text, 0, max(0, self::DOCUMENT_MAX_CHARS - $length));
+            $length += mb_strlen(end($texts));
+            if ($length >= self::DOCUMENT_MAX_CHARS) {
+                break;
+            }
+        }
+
+        return implode("\n\n", $texts);
+    }
+
     public static function renderValue(mixed $value, string $mode = 'auto'): string
     {
         $mode = self::normalizeMode($mode);
@@ -345,6 +385,10 @@ final class YformProfiles
 
         if ($mode === 'content_builder') {
             return self::extractContentBuilderText($value);
+        }
+
+        if ($mode === 'document') {
+            return self::extractDocumentText($value);
         }
 
         // Felder, die HTML oder Builder-JSON enthalten können (z. B. Builder-Feld mit Altdaten-Modus)
@@ -473,7 +517,7 @@ final class YformProfiles
     private static function normalizeMode(string $mode): string
     {
         $mode = mb_strtolower(trim($mode));
-        $allowed = ['auto', 'plain', 'text', 'html', 'markdown', 'textile', 'content_builder', 'json', 'date', 'datetime', 'time', 'number', 'status', 'media'];
+        $allowed = ['auto', 'plain', 'text', 'html', 'markdown', 'textile', 'content_builder', 'json', 'date', 'datetime', 'time', 'number', 'status', 'media', 'document'];
 
         return in_array($mode, $allowed, true) ? $mode : 'auto';
     }

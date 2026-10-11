@@ -207,6 +207,7 @@ $renderFieldRow = static function ($rowIndex, array $row, string $tableName, arr
             'number' => 'Zahl',
             'status' => 'Status',
             'media' => 'Medienname',
+            'document' => 'Dokument (Text aus PDF)',
         ], $modeValue, '— Typ —', false);
         $html .= '</select></div></div>';
         $html .= '<div class="col-md-1" style="padding-top:7px;"><label class="checkbox-inline"><input type="checkbox" name="' . rex_escape($nameBase . '[include]') . '" value="1"' . ($includeChecked ? ' checked' : '') . '> aktiv</label></div>';
@@ -289,7 +290,7 @@ if ('add' === $func || 'edit' === $func) {
     ], (string) ($profile['url_mode'] ?? 'field'), '— Modus —', false) . '</select></div></div>';
     $body .= '<div class="col-md-3" data-url-mode-field="field"><label>URL-Feld</label>' . $renderColumnSelect('url_field', (string) ($profile['url_field'] ?? ''), $profileTable, $columnsMap, true, '— optional —') . '</div>';
     $body .= '<div class="col-md-3" data-url-mode-field="profile"><label>URL-Profil</label>' . $renderUrlProfileField((string) ($profile['url_profile'] ?? '')) . '</div>';
-    $body .= '<div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profile[url_template]" value="' . rex_escape((string) ($profile['url_template'] ?? '')) . '" placeholder="/news/{id}-{slug}"></div></div>';
+    $body .= '<div class="col-md-3" data-url-mode-field="template"><label>URL-Template</label><input class="form-control" type="text" name="profile[url_template]" value="' . rex_escape((string) ($profile['url_template'] ?? '')) . '" placeholder="/news/{id}-{slug} oder /media/{field:file}" title="Platzhalter: {id}, {slug}, {title}, {table}, {profile}, {field:spalte}"></div></div>';
 
     $body .= '<hr><h4>Zusätzliche Felder</h4><p class="help-block">Diese Felder werden in den Suchtext aufgenommen. Feldtyp und Anzeige können pro Zeile überschrieben werden.</p>';
     $body .= '<div class="klxm-repeater" data-repeater-name="fields">';

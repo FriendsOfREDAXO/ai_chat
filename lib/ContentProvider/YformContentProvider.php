@@ -376,7 +376,7 @@ final class YformContentProvider implements ContentProviderInterface
         }
 
         if ($urlMode === 'template' && $urlTemplate !== '') {
-            $renderedUrl = $this->renderUrlTemplate($urlTemplate, $profile, $recordId, $title, $slug);
+            $renderedUrl = $this->renderUrlTemplate($urlTemplate, $profile, $recordId, $title, $slug, $data);
             if ($renderedUrl !== '') {
                 return $renderedUrl;
             }
@@ -391,8 +391,17 @@ final class YformContentProvider implements ContentProviderInterface
     /**
      * @param array<string, mixed> $profile
      */
-    private function renderUrlTemplate(string $template, array $profile, int $recordId, string $title, string $slug): string
+    private function renderUrlTemplate(string $template, array $profile, int $recordId, string $title, string $slug, object|array $data = []): string
     {
+        // {field:spalte} = Wert einer Spalte des Datensatzes, z. B. „/media/{field:file}“ für eine Download-Tabelle
+        $template = (string) preg_replace_callback('/\{field:([A-Za-z0-9_]+)\}/', function (array $m) use ($data): string {
+            $value = trim((string) YformProfiles::renderValue($this->getValue($data, $m[1]), 'text'));
+            // mehrere Dateien: die erste
+            $value = trim(explode(',', $value)[0]);
+
+            return rawurlencode($value);
+        }, $template);
+
         $url = strtr($template, [
             '{id}' => (string) $recordId,
             '{slug}' => $slug,
