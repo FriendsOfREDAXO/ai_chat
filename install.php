@@ -315,6 +315,8 @@ $profileTable
     // KI im Such-Fenster: ''|search|answer|chat - leer = bisheriges Verhalten (KI-Antwort nur,
     // wenn der Chat des Profils aktiv ist), siehe ChatProfile::resolveSearchAiMode().
     ->ensureColumn(new rex_sql_column('search_ai_mode', 'varchar(20)', false, ''))
+    // Start der KI im Such-Fenster: ''|auto = bei Fragen schon beim Tippen (bisher), button = nur über „Frag die KI“
+    ->ensureColumn(new rex_sql_column('search_ai_trigger', 'varchar(20)', false, ''))
     ->ensureColumn(new rex_sql_column('domains', 'text', true)) // |domain1|domain2|
     ->ensureColumn(new rex_sql_column('clangs', 'text', true)) // |1|2|
     // use_shared_scope und extra_source gehoeren konzeptionell zusammen (beide

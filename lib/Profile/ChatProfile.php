@@ -99,6 +99,9 @@ final class ChatProfile
         // bei Fragen), 'chat' (dazu Chat im Fenster). Leer in der Datenbank = wie vor der
         // Einstellung: 'answer', wenn der Chat aktiv ist, sonst 'search' (siehe fromRow()).
         public readonly string $searchAiMode = 'answer',
+        // Wann die KI im Such-Fenster startet: 'auto' (bei Fragen schon beim Tippen, bisheriges Verhalten)
+        // oder 'button' (nur über „Frag die KI“ – keine KI-Anfragen beim Tippen, siehe resolveSearchAiTrigger()).
+        public readonly string $searchAiTrigger = 'auto',
     ) {
     }
 
@@ -144,6 +147,7 @@ final class ChatProfile
             themeId: null !== ($row['theme_id'] ?? null) ? (int) $row['theme_id'] : null,
             themePosition: self::nullableString($row['theme_position'] ?? null),
             searchAiMode: self::resolveSearchAiMode((string) ($row['search_ai_mode'] ?? ''), '0' !== (string) ($row['chat_enabled'] ?? '1')),
+            searchAiTrigger: self::resolveSearchAiTrigger((string) ($row['search_ai_trigger'] ?? '')),
         );
     }
 
@@ -154,6 +158,11 @@ final class ChatProfile
         }
 
         return $chatEnabled ? 'answer' : 'search';
+    }
+
+    public static function resolveSearchAiTrigger(string $stored): string
+    {
+        return 'button' === $stored ? 'button' : 'auto';
     }
 
     public function matchesContext(string $context): bool

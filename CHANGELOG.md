@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0] - 2026-10-12
+
+### Neu
+- **KI im Such-Fenster nur per Button** (Profile → „KI-Antwort starten“): „Per Button ‚Frag die KI‘“ – beim Tippen läuft nur die schnelle Suche; die KI-Antwort (und die Zusammenstellung über die Bereiche) startet erst nach Klick auf „Frag die KI“, mit dem aktuellen Feldinhalt. Vorher löste schon das Tippen einer Frage KI-Anfragen aus – bei jedem neuen Wort eine weitere, halbfertige Fragen inklusive, mit spürbarer Last auf dem KI-Server. Standard bleibt „Automatisch beim Tippen“ (bisheriges Verhalten).
+- **Such-Fenster: Eingabe löschen und Schließen**: Knopf „×“ im Suchfeld (das eingebaute „x“ von `type=search` fehlt auf vielen Handys) und „Schließen“ – auf dem Handy gab es weder Esc-Taste noch genug Hintergrund zum Antippen.
+- **Such-Fenster: Rückmeldung während der Suche**: Fortschrittsbalken unter der Kopfzeile ab dem ersten Tastendruck, Treffer werden während der Suche abgeblendet, Statusmeldung für Screenreader („Suche läuft …“). Vorher wirkte die Suche in der Tipp-Pause und bei langsamer Antwort, als passiere nichts.
+
+### Verbessert
+- Noch laufende Suchanfragen werden beim Weitertippen abgebrochen (AbortController) statt sich zu stauen.
+- „Frag die KI“ ist während der Antwort gesperrt; nach einer Antwort verschwindet der Knopf bis zur nächsten Eingabe, nach einem Fehler lässt sich erneut fragen.
+- Schmale Handys: „Suchen“ ausgeblendet (gesucht wird beim Tippen, die Tastatur hat eine Suchtaste) – mehr Platz für das Suchfeld.
+
 ## [2.3.0] - 2026-10-11
 
 ### Neu

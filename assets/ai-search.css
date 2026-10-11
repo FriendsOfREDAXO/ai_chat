@@ -123,6 +123,114 @@ body.rex-theme-dark #ai-search-root {
   filter: brightness(1.08);
 }
 
+/* eingebautes „x“ des Suchfelds aus – eigener Löschen-Knopf (.ai-search-clear) */
+#ai-search-root .ai-search-input::-webkit-search-cancel-button,
+#ai-search-root .ai-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Eingabe löschen / Schließen */
+#ai-search-root .ai-search-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ai-search-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-clear[hidden] {
+  display: none;
+}
+
+#ai-search-root .ai-search-clear svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+#ai-search-root .ai-search-clear:hover {
+  color: var(--ai-search-text);
+  background: var(--ai-search-chip-bg);
+}
+
+#ai-search-root .ai-search-close {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 8px 4px;
+  font-size: 14px;
+  color: var(--ai-search-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+#ai-search-root .ai-search-close:hover {
+  color: var(--ai-search-text);
+  text-decoration: underline;
+}
+
+/* Suche läuft: schmaler Balken unter der Kopfzeile, Treffer leicht abgeblendet */
+#ai-search-root .ai-search-progress {
+  position: relative;
+  height: 3px;
+  margin-top: -1px;
+  overflow: hidden;
+  background: transparent;
+}
+
+#ai-search-root.ai-search-busy .ai-search-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: var(--ai-search-accent);
+  animation: ai-search-progress 1.1s ease-in-out infinite;
+}
+
+#ai-search-root.ai-search-busy .ai-search-results {
+  opacity: .55;
+  transition: opacity .2s;
+}
+
+@keyframes ai-search-progress {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+#ai-search-root .ai-search-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* „Frag die KI“ während die Antwort lädt */
+#ai-search-root .ai-search-chat-action.is-loading {
+  opacity: .6;
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ai-search-root.ai-search-busy .ai-search-progress::after {
+    left: 0;
+    width: 100%;
+    animation: none;
+    opacity: .6;
+  }
+}
+
 #ai-search-root .ai-search-toolbar {
   display: flex;
   gap: 8px;
@@ -754,6 +862,15 @@ body.rex-theme-dark #ai-search-root {
     font-size: 20px;
   }
 
+  #ai-search-root .ai-search-header {
+    gap: 6px;
+    padding: 12px;
+  }
+
+  #ai-search-root .ai-search-submit {
+    padding: 8px 12px;
+  }
+
   .ai-search-demo-row {
     flex-direction: column;
     align-items: stretch;
@@ -762,5 +879,12 @@ body.rex-theme-dark #ai-search-root {
   .ai-search-demo-popup {
     width: 100%;
     left: 0;
+  }
+}
+
+/* schmale Handys: „Suchen“ ausblenden – gesucht wird beim Tippen, die Tastatur hat eine Suchtaste */
+@media (max-width: 480px) {
+  #ai-search-root .ai-search-submit {
+    display: none;
   }
 }
