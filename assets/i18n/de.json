@@ -49,5 +49,9 @@
   "demo_show_all_in_spotlight_button": "Alle im Spotlight anzeigen",
   "demo_mount_placeholder": "Suche oder Frage im Demo-Modus...",
   "demo_ask_ai_chat_button": "Frag die KI (Chat)",
-  "intl_locale": "de-DE"
+  "intl_locale": "de-DE",
+  "search_chat_placeholder": "Nachfrage stellen …",
+  "search_chat_send": "Senden",
+  "search_chat_you": "Du",
+  "search_chat_error": "Darauf habe ich gerade keine Antwort. Bitte formuliere die Frage anders."
 }

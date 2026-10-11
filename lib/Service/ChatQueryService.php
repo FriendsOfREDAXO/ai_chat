@@ -81,7 +81,7 @@ class ChatQueryService
     /**
      * @return array<string, mixed>|null Response to short-circuit with, or null if the request may proceed.
      */
-    private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile): ?array
+    private function resolveFrontendAccessDenial(string $mode, ?ChatProfile $profile, string $requestedScope = ''): ?array
     {
         // Wer ueberhaupt sichtbar sein darf (Domain/Sprache/Rolle) entscheidet seit dem
         // Profil-Feature ausschliesslich ChatProfile::$viewerRoles/$targetMode - der
@@ -95,6 +95,14 @@ class ChatQueryService
         // chatEnabled/searchEnabled, Standard: aktiv) - ohne aufgeloestes Profil ist der
         // Zugriff daher schlicht verweigert, kein globaler Fallback mehr noetig.
         $featureEnabled = null !== $profile && ('search' === $mode ? $profile->searchEnabled : $profile->chatEnabled);
+
+        // KI-Aufrufe aus dem Such-Fenster (scope=search: Antwort, Zusammenstellung, Chat im
+        // Fenster) haengen an der Profil-Einstellung „KI im Such-Fenster“ (searchAiMode),
+        // nicht am Chat-Widget: 'search' = keine KI, 'answer'/'chat' = erlaubt, solange die
+        // Suche fuer das Profil aktiv ist.
+        if ('search' !== $mode && 'search' === $requestedScope) {
+            $featureEnabled = null !== $profile && $profile->searchEnabled && 'search' !== $profile->searchAiMode;
+        }
 
         if ($featureEnabled) {
             return null;
@@ -329,7 +337,7 @@ class ChatQueryService
                 ];
             }
 
-            $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile);
+            $frontendDenial = $this->resolveFrontendAccessDenial($mode, $profile, $requestedScope);
             if ($frontendDenial !== null) {
                 return $frontendDenial;
             }
@@ -626,12 +634,15 @@ class ChatQueryService
                 $modelPrompt .= "\n\nProvider-Hinweise:\n" . $providerInstructions;
             }
             if ($triggerContent !== '') {
-                $modelPrompt .= "\n\nHinweis: Zu dieser Anfrage ist ein hinterlegter Zusatzinhalt vorhanden "
-                    . '(z.B. Öffnungszeiten, Kontaktdaten o.ä.), der direkt im Anschluss an deine Antwort '
-                    . 'automatisch angezeigt wird. Behaupte deshalb NICHT, dass dir diese Information fehlt '
-                    . 'oder im Kontext nicht enthalten ist. Beantworte die Frage kurz allgemein bzw. verweise '
-                    . 'darauf, dass die Details direkt im Anschluss folgen - wiederhole den Zusatzinhalt nicht '
-                    . 'selbst.';
+                // Der hinterlegte Zusatzinhalt (Trigger) ist geprueft und wird unter der Antwort
+                // woertlich angezeigt. Die KI bekommt ihn mit, damit sie die Frage direkt damit
+                // beantwortet - frueher sollte sie nur „Details folgen im Anschluss“ schreiben,
+                // was Antworten wie „Die Adresse folgt im naechsten Abschnitt“ erzeugte.
+                $modelPrompt .= "\n\nGeprüfte Information (wird unter deiner Antwort zusätzlich angezeigt):\n"
+                    . strip_tags($triggerContent)
+                    . "\n\nBeantworte die Frage direkt und kurz mit diesen Angaben (z. B. Anschrift, Zeiten oder "
+                    . 'Telefonnummer nennen, wenn danach gefragt ist). Verweise nicht auf Abschnitte, „unten“ oder '
+                    . '„im Anschluss“, und behaupte nicht, dass dir Informationen fehlen.';
             }
 
             if ($onChunk !== null && method_exists($aiService, 'generateAnswerStream')) {
@@ -815,12 +826,35 @@ class ChatQueryService
 
         $append = '';
         foreach ($triggers as $trigger) {
-            if (stripos($message, (string) $trigger['keyword']) !== false) {
+            if (self::triggerMatches((string) $trigger['keyword'], $message)) {
                 $append .= "\n\n" . (string) $trigger['content'];
             }
         }
 
         return $append;
+    }
+
+    /**
+     * Ein Trigger kann mehrere Stichwörter haben (durch Komma oder Zeilenumbruch getrennt).
+     * Ein Stichwort trifft nur am Wortanfang (ohne Groß-/Kleinschreibung) - „Kreis“ trifft
+     * „Kreisliga“ und „Fußballkreis“ nicht mitten im Wort wie früher („Weißkreis“), ein
+     * „*“ am Anfang erlaubt wieder Treffer mitten im Wort („*kreis“).
+     */
+    public static function triggerMatches(string $keywords, string $message): bool
+    {
+        foreach (preg_split('/[,\n]+/u', $keywords) ?: [] as $keyword) {
+            $keyword = trim($keyword);
+            if ('' === $keyword || '*' === $keyword) {
+                continue;
+            }
+            $anywhere = str_starts_with($keyword, '*');
+            $pattern = ($anywhere ? '' : '(?<![\\p{L}\\p{N}])') . preg_quote(ltrim($keyword, '*'), '/');
+            if (1 === preg_match('/' . $pattern . '/iu', $message)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -892,12 +926,19 @@ class ChatQueryService
             if ($isRecencyQuery && $isTimely) {
                 $result['similarity'] = min(1.0, (float) $result['similarity'] + 0.15);
             }
+
+            // Datierte Inhalte (News, Datensätze - nicht Seiten, die als aktueller Stand gelten):
+            // Datum in den Kontext und ältere Einträge abwerten. Sonst gab die KI z. B. eine
+            // Schließung der Geschäftsstelle aus einer Meldung von 2021 als aktuell aus.
+            $dated = $this->datedContextInfo($result);
+            if (null !== $dated) {
+                $result['content'] = 'Stand: ' . $dated['date'] . "\n" . $result['content'];
+                $result['similarity'] = (float) $result['similarity'] * $dated['factor'];
+            }
         }
         unset($result);
 
-        if ($isRecencyQuery) {
-            usort($results, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
-        }
+        usort($results, static fn (array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
 
         // Titel-Dedupe ZUSAETZLICH zur Source-Dedupe: mehrere Seiten mit erkennbar demselben
         // Titel (z.B. eine jaehrlich wiederholte Ankuendigung wie "KLXM macht Weihnachtsferien",
@@ -948,6 +989,50 @@ class ChatQueryService
         }
 
         return array_slice($uniqueResults, 0, $limit);
+    }
+
+    /**
+     * Datum und Alters-Faktor fuer datierte Kontext-Abschnitte (alles ausser Artikeln/Sitemap-
+     * Seiten). Bis ein Jahr unveraendert, danach je Jahr 7 % weniger, hoechstens 30 %.
+     *
+     * @param array<string, mixed> $result
+     * @return array{date: string, factor: float}|null
+     */
+    private function datedContextInfo(array $result): ?array
+    {
+        $type = (string) ($result['source_type'] ?? '');
+        $raw = trim((string) ($result['updatedate'] ?? ''));
+        if ('' === $raw || in_array($type, ['article', 'sitemap_url'], true)) {
+            return null;
+        }
+        $ts = strtotime($raw);
+        if (false === $ts || $ts <= 0) {
+            return null;
+        }
+        $years = max(0.0, (time() - $ts) / (365.25 * 86400));
+        $factor = $years <= 1.0 ? 1.0 : max(0.7, 1.0 - 0.07 * ($years - 1.0));
+
+        // Nennt der Abschnitt Termine (TT.MM.JJJJ oder „1. Januar 2026“) und liegen ALLE in der
+        // Vergangenheit, beschreibt er Vergangenes (Winterpause, Anmeldeschluss …) - abwerten.
+        $content = (string) ($result['content'] ?? '');
+        $months = ['januar' => 1, 'februar' => 2, 'märz' => 3, 'maerz' => 3, 'april' => 4, 'mai' => 5, 'juni' => 6, 'juli' => 7, 'august' => 8, 'september' => 9, 'oktober' => 10, 'november' => 11, 'dezember' => 12];
+        $found = [];
+        if (preg_match_all('/\b(\d{1,2})\.(\d{1,2})\.(20\d{2})\b/', $content, $m, PREG_SET_ORDER)) {
+            foreach ($m as $d) {
+                $found[] = mktime(23, 59, 59, (int) $d[2], (int) $d[1], (int) $d[3]);
+            }
+        }
+        if (preg_match_all('/\b(\d{1,2})\.\s*(' . implode('|', array_keys($months)) . ')\s+(20\d{2})\b/iu', $content, $m, PREG_SET_ORDER)) {
+            foreach ($m as $d) {
+                $found[] = mktime(23, 59, 59, $months[mb_strtolower($d[2])], (int) $d[1], (int) $d[3]);
+            }
+        }
+        $found = array_filter($found, static fn ($t): bool => false !== $t && $t > 0);
+        if ([] !== $found && max($found) < time()) {
+            $factor *= 0.8;
+        }
+
+        return ['date' => date('d.m.Y', $ts), 'factor' => $factor];
     }
 
     /**
@@ -1041,23 +1126,36 @@ class ChatQueryService
 
         $clauses = [];
         $params = $baseParams;
+        $scoreParts = [];
+        $scoreParams = [];
         foreach ($terms as $term) {
             $like = '%' . $term . '%';
             $clauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
+            // Relevanz: Titel-Treffer zaehlen dreifach, jedes weitere Suchwort zaehlt mit
+            $scoreParts[] = '(CASE WHEN title LIKE ? THEN 3 ELSE 0 END + CASE WHEN content LIKE ? OR url LIKE ? THEN 1 ELSE 0 END)';
+            $scoreParams[] = $like;
+            $scoreParams[] = $like;
+            $scoreParams[] = $like;
         }
 
+        // Frueher nach Datum sortiert: bei mehreren Suchwoertern kamen beliebige neue Beitraege
+        // mit irgendeinem der Woerter nach vorn ("werde" → Stellenanzeigen) statt der Seite,
+        // deren Titel die Frage trifft. Jetzt nach Relevanz, je Quelle der passendste Abschnitt.
         $sql = rex_sql::factory();
         $rows = $sql->getArray(
-            'SELECT source_type, source_id, title, content, url
+            'SELECT source_type, source_id, title, content, url, updatedate, (' . implode(' + ', $scoreParts) . ') AS kw_score
              FROM ' . rex::getTable('ai_chat_index') . '
              WHERE ' . $whereSql . ' AND (' . implode(' OR ', $clauses) . ')
-             ORDER BY updatedate DESC, id DESC
-             LIMIT 20',
-            $params,
+             ORDER BY kw_score DESC, updatedate DESC, id DESC
+             LIMIT 60',
+            array_merge($scoreParams, $params),
         );
+        // Nur Treffer, die die Frage wirklich abdecken: Titel-Treffer oder mindestens die Haelfte der Suchwoerter
+        $minScore = max(1, (int) ceil(count($terms) / 2));
+        $rows = array_values(array_filter($rows, static fn (array $r): bool => (int) $r['kw_score'] >= 3 || (int) $r['kw_score'] >= $minScore));
 
         $seen = [];
         $keywordItems = [];
@@ -1078,14 +1176,22 @@ class ChatQueryService
             // jede semantische Bestaetigung ist weniger verlaesslich als ein direkter
             // Provider-Tabellen-Treffer, soll aber die Mindestschwellen in
             // hasSufficientAnswerContext()/collectDisplaySources() zuverlaessig ueberschreiten.
-            $keywordItems[] = [
+            $item = [
                 'content' => (string) ($row['content'] ?? ''),
                 'url' => (string) ($row['url'] ?? ''),
                 'title' => (string) ($row['title'] ?? 'Inhalt'),
                 'similarity' => 0.6,
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
+                'updatedate' => (string) ($row['updatedate'] ?? ''),
             ];
+            // wie in findSimilarContent(): Datum in den Kontext, alte Einträge abwerten
+            $dated = $this->datedContextInfo($item);
+            if (null !== $dated) {
+                $item['content'] = 'Stand: ' . $dated['date'] . "\n" . $item['content'];
+                $item['similarity'] *= $dated['factor'];
+            }
+            $keywordItems[] = $item;
 
             if (count($keywordItems) >= $maxContext) {
                 break;
@@ -1104,7 +1210,12 @@ class ChatQueryService
         // bereits GUT sitzender Vektor-Treffer (similarity >= 0.6, derselbe Schwellenwert wie
         // oben fuer Keyword-Treffer) bleibt dagegen erhalten, da eine echte semantische
         // Uebereinstimmung verlaesslicher ist als ein reiner Substring-Treffer.
-        $strongVectorItems = array_values(array_filter($context, static fn(array $c): bool => $c['similarity'] >= 0.6));
+        // „Gut“ relativ zum besten Vektor-Treffer: absolute Werte haengen stark vom Embedding-
+        // Modell ab (bei manchen liegen auch sehr passende Treffer unter 0.6 und wurden sonst
+        // alle verdraengt).
+        $topVector = $context !== [] ? max(array_map(static fn (array $c): float => (float) $c['similarity'], $context)) : 0.0;
+        $strongThreshold = min(0.6, $topVector * 0.85);
+        $strongVectorItems = array_values(array_filter($context, static fn(array $c): bool => $c['similarity'] >= $strongThreshold));
 
         $seenAfterStrong = [];
         foreach ($strongVectorItems as $item) {
@@ -1753,14 +1864,22 @@ class ChatQueryService
             }
             $seen[$key] = true;
 
-            $matches[] = [
+            $match = [
                 'content' => (string) ($row['content'] ?? ''),
                 'url' => (string) ($row['url'] ?? ''),
                 'title' => (string) ($row['title'] ?? 'Inhalt'),
                 'similarity' => 1.0,
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
+                'updatedate' => (string) ($row['updatedate'] ?? ''),
             ];
+            // Datierte Treffer: Datum in den Kontext, alte abwerten (wie findSimilarContent())
+            $dated = $this->datedContextInfo($match);
+            if (null !== $dated) {
+                $match['content'] = 'Stand: ' . $dated['date'] . "\n" . $match['content'];
+                $match['similarity'] *= $dated['factor'];
+            }
+            $matches[] = $match;
 
             if (count($matches) >= $limit) {
                 break;
@@ -1977,12 +2096,14 @@ class ChatQueryService
         $titlePattern = preg_quote($sourcesTitle, '/');
 
         // Keep sources heading out of previous list/paragraph flow.
-        $inlineSourcesFixed = preg_replace('/([^\n])\s+(\*\*' . $titlePattern . '\*\*)/u', '$1\n\n$2', $answer);
+        // Ersetzung in doppelten Anfuehrungszeichen: '$1\n\n$2' fuegte ein woertliches "\n" ein,
+        // das als sichtbares „\n\n“ vor „Links:“ in jeder Antwort landete.
+        $inlineSourcesFixed = preg_replace('/([^\n])[ \t]+(\*\*' . $titlePattern . '\*\*)/u', "\$1\n\n\$2", $answer);
         if (is_string($inlineSourcesFixed)) {
             $answer = $inlineSourcesFixed;
         }
 
-        $singleBreakSourcesFixed = preg_replace('/([^\n])\n(\*\*' . $titlePattern . '\*\*)/u', '$1\n\n$2', $answer);
+        $singleBreakSourcesFixed = preg_replace('/([^\n])\n(\*\*' . $titlePattern . '\*\*)/u', "\$1\n\n\$2", $answer);
         if (is_string($singleBreakSourcesFixed)) {
             $answer = $singleBreakSourcesFixed;
         }
@@ -2096,6 +2217,13 @@ class ChatQueryService
      */
     private function collectDisplaySources(array $context, string $message, string $scope): array
     {
+        // Datierte Meldungen, die aelter als ein Jahr sind oder nur Vergangenes nennen, nicht als
+        // Link anbieten - sie beschreiben einen frueheren Stand (Schliessungen, Termine …)
+        $context = array_values(array_filter($context, function (array $item): bool {
+            $dated = $this->datedContextInfo($item);
+
+            return null === $dated || $dated['factor'] >= 1.0;
+        }));
         if ($context === []) {
             return [];
         }
@@ -2112,6 +2240,24 @@ class ChatQueryService
         }
 
         $messageTokens = $this->extractRelevantTokens($message);
+        // Woerter, die in JEDEM Kontext-Treffer vorkommen (typisch: Name der Organisation,
+        // „FVN“, „Verband“), unterscheiden nichts - sie machten sonst jeden Treffer
+        // „relevant“ und fuehrten zu Links ohne Bezug zur Frage.
+        if (count($sorted) >= 3 && count($messageTokens) > 1) {
+            $discriminative = array_values(array_filter($messageTokens, function (string $token) use ($sorted): bool {
+                foreach ($sorted as $item) {
+                    $text = strtolower($item['title'] . ' ' . $this->stripIndexMetadataPrefix($item['content']) . ' ' . $this->stripUrlHost($item['url']));
+                    if ('' === $token || !$this->tokenMatchesText($text, $token)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }));
+            if ([] !== $discriminative) {
+                $messageTokens = $discriminative;
+            }
+        }
         $relevantSorted = [];
         foreach ($sorted as $item) {
             if ($messageTokens === []) {
@@ -2312,6 +2458,9 @@ class ChatQueryService
             'kann', 'kannst', 'können', 'könnte', 'soll', 'sollst', 'sollen', 'sollte', 'muss', 'musst', 'müssen', 'will', 'willst', 'wollen',
             'in', 'an', 'auf', 'bei', 'nach', 'von', 'vom', 'zu', 'zum', 'zur', 'für', 'aus', 'bis', 'als', 'wie', 'wenn', 'weil', 'ob',
             'nicht', 'kein', 'keine', 'auch', 'nur', 'noch', 'schon', 'sehr', 'so', 'aber', 'doch', 'also',
+            // Zeit- und Fuellwoerter aus Alltagsfragen („Ist jetzt jemand da?“) - sonst zaehlen Beitraege
+            // wie „Jetzt bewerben …“ als passend und landen als Link unter der Antwort
+            'jetzt', 'gerade', 'heute', 'morgen', 'gestern', 'momentan', 'derzeit', 'zurzeit', 'bitte', 'jemand', 'etwas', 'gibt', 'geht', 'immer', 'wieder', 'eigentlich', 'einfach', 'genau',
             // Fragewoerter - "was" faellt zwar schon durch den Laengenfilter (<=3 Zeichen), die
             // laengeren Geschwister (wer/wen/wem/wieso/weshalb/wozu/wodurch) aber nicht.
             'wer', 'wen', 'wem', 'wessen', 'wann', 'warum', 'wo', 'wohin', 'woher', 'wozu', 'wodurch', 'wieso', 'weshalb',

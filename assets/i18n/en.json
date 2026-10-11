@@ -49,5 +49,9 @@
   "demo_show_all_in_spotlight_button": "Show all in spotlight",
   "demo_mount_placeholder": "Search or ask a question in demo mode...",
   "demo_ask_ai_chat_button": "Ask the AI (chat)",
-  "intl_locale": "en-US"
+  "intl_locale": "en-US",
+  "search_chat_placeholder": "Ask a follow-up …",
+  "search_chat_send": "Send",
+  "search_chat_you": "You",
+  "search_chat_error": "I don't have an answer to that right now. Please rephrase your question."
 }

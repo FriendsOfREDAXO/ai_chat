@@ -239,6 +239,7 @@ class IndexerService
             $existing[$key] = $row->getDateTimeValue('last_update');
         }
 
+        $currentKeys = [];
         foreach ($tasks as $task) {
             if ($shouldStop !== null && $shouldStop()) {
                 $stats['cancelled'] = true;
@@ -253,6 +254,11 @@ class IndexerService
                     'errors' => $stats['errors'],
                     'current_label' => self::describeTask($task),
                 ]);
+            }
+
+            $currentKey = self::taskIndexKey($task);
+            if (null !== $currentKey) {
+                $currentKeys[$currentKey] = true;
             }
 
             if ($maxItems > 0 && $stats['processed'] >= $maxItems) {
@@ -344,6 +350,26 @@ class IndexerService
             }
         }
 
+        // Verwaiste Eintraege entfernen (geloeschte/offline gestellte Inhalte, entfernte Quellen) -
+        // frueher blieben sie bis zur naechsten vollstaendigen Neuindizierung in Suche und KI.
+        // Nur nach einem vollstaendigen Durchlauf, sonst fehlen Schluessel noch nicht bearbeiteter Aufgaben.
+        $stats['removed'] = 0;
+        if (!$stats['cancelled'] && [] !== $tasks) {
+            foreach (array_keys($existing) as $existingKey) {
+                if (isset($currentKeys[$existingKey])) {
+                    continue;
+                }
+                [$type, $id, $profile] = array_pad(explode('|', (string) $existingKey, 3), 3, '');
+                $del = rex_sql::factory();
+                if ('' === $profile) {
+                    $del->setQuery('DELETE FROM ' . \rex::getTable('ai_chat_index') . ' WHERE source_type = ? AND source_id = ? AND profile_id IS NULL', [$type, $id]);
+                } else {
+                    $del->setQuery('DELETE FROM ' . \rex::getTable('ai_chat_index') . ' WHERE source_type = ? AND source_id = ? AND profile_id = ?', [$type, $id, (int) $profile]);
+                }
+                $stats['removed'] += $del->getRows();
+            }
+        }
+
         if ($onProgress !== null) {
             $onProgress([
                 'processed' => $stats['processed'],
@@ -355,6 +381,34 @@ class IndexerService
         }
 
         return $stats;
+    }
+
+    /**
+     * Schluessel (source_type|source_id|profile_id) wie in sync() - null, wenn die Aufgabe keinen Index-Eintrag hat.
+     *
+     * @param array<string, mixed> $task
+     */
+    private static function taskIndexKey(array $task): ?string
+    {
+        $type = (string) ($task['type'] ?? '');
+        if ('article' === $type) {
+            $sourceType = 'article';
+            $sourceId = $task['id'] . '-' . $task['clang'];
+        } elseif ('url' === $type) {
+            $sourceType = 'sitemap_url';
+            $sourceId = (string) ($task['url'] ?? '');
+        } elseif ('provider_item' === $type) {
+            $sourceType = (string) ($task['source_type'] ?? 'provider_item');
+            $sourceId = (string) ($task['source_id'] ?? '');
+        } else {
+            return null;
+        }
+        if ('' === $sourceId) {
+            return null;
+        }
+        $profileId = isset($task['chat_profile_id']) ? (string) (int) $task['chat_profile_id'] : '';
+
+        return $sourceType . '|' . $sourceId . '|' . $profileId;
     }
 
     /**

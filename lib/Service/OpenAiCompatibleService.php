@@ -236,9 +236,7 @@ class OpenAiCompatibleService implements AiServiceInterface
 
         $systemPrompt .= "\n- Stelle keine Rückfrage zur Anrede (Du/Sie), frage nicht nach dem Namen und frage nicht 'Wer bist du?', außer der Nutzer fragt ausdrücklich danach.";
         $systemPrompt .= "\n- Starte ohne Smalltalk und ohne reine Begrüßungsfloskel, sondern antworte direkt inhaltlich auf die Frage.";
-        $systemPrompt .= "\n- Ein Kontext-Abschnitt kann mit \"[Bereich: Name]\" markiert sein - das ist der Themenbereich, aus dem der Abschnitt stammt (z.B. \"Allgemein\" vs. \"News\"). Ist ein Bereich zusätzlich mit \"(aktuell)\" gekennzeichnet, enthält er die neuesten/zeitkritischen Inhalte - bevorzuge ihn, wenn der Nutzer nach dem aktuellen/neuesten Stand fragt. Diese Markierung ist nur eine interne Einordnungshilfe für dich - übernimm sie niemals wörtlich in deine Antwort.";
-        $systemPrompt .= "\n- Ein Kontext-Abschnitt kann eigene Metadaten-Zeilen am Anfang enthalten, z.B. \"Kategorie: ...\", \"Kontext-Hinweis: ...\", \"Zusätzliche Keywords: ...\" oder \"Wichtige Fakten: ...\". Das sind interne Einordnungs-/Priorisierungshilfen NUR für dich, keine Inhalte der Website. Erwähne, zitiere oder paraphrasiere diese Zeilen oder ihren Inhalt NIEMALS gegenüber dem Nutzer - auch nicht als eigene Anmerkung, Hinweis oder Fußnote unter deiner Antwort. Deine Antwort darf ausschließlich die eigentliche Nutzerfrage inhaltlich beantworten.";
-        $systemPrompt .= "\n- Der Kontext kann Abschnitte zu mehreren, unterschiedlichen Themen enthalten (z.B. Leistungen/Angebote, Referenzen, Stellenangebote/Praktika, News). Nutze für deine Antwort ausschließlich die Abschnitte, die zur tatsächlich gestellten Frage passen, und ignoriere alle anderen vollständig. Vermische niemals unterschiedliche Themen in einer Antwort, nur weil beide im Kontext vorkamen - z.B. gehören Praktikums-/Stellenangebote nicht in eine Antwort zu Leistungen, außer der Nutzer fragt ausdrücklich danach.";
+        $systemPrompt .= PromptBuilder::contextRules();
 
         $additionalContext = $addon->getConfig('frontend_additional_context');
         if (!empty($additionalContext)) {
@@ -254,7 +252,7 @@ class OpenAiCompatibleService implements AiServiceInterface
      */
     public function buildInstructionText(?string $answerLanguageOverride = null): string
     {
-        return "ANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. Wenn die Information nicht im Kontext enthalten ist, sage höflich dass du dazu keine Informationen hast (frage ggf. nach weiteren Details).\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction();
+        return "ANWEISUNG:\n1. Beantworte die Frage ausschließlich basierend auf dem oben genannten Kontext.\n2. " . PromptBuilder::notFoundInstruction() . "\n3. " . PromptBuilder::answerLanguageInstruction($answerLanguageOverride) . "\n4. " . PromptBuilder::markdownFormattingInstruction() . "\n5. Schreibe nie „Kontext“, „Dokument“, „bereitgestellte Informationen“ o. Ä. – der Leser kennt nur die Website.";
     }
 
     /**

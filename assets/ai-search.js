@@ -112,6 +112,12 @@
     };
   }
 
+  function htmlToText(html) {
+    var div = document.createElement('div');
+    div.innerHTML = String(html || '');
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
   function SearchUi(options) {
     // Widget-Übersetzungen (siehe assets/ai-i18n.js). Leer bis geladen; t()
     // faellt bis dahin auf den mitgegebenen deutschen Text zurueck - render()
@@ -135,6 +141,24 @@
     this.chatActionLabel = (options && options.chatActionLabel) || 'Frag die KI';
     this.chatActionBehavior = (options && options.chatActionBehavior) || 'inline';
     this.autoButton = !options || options.autoButton !== false;
+    // KI im Such-Fenster (Profil-Einstellung „KI im Such-Fenster“, von boot.php als
+    // window.AiSearchConfig.aiMode mitgegeben): 'search' = nur Trefferliste, keine KI;
+    // 'answer' = Trefferliste + KI-Antwort bei Fragen (bisheriges Verhalten);
+    // 'chat' = wie 'answer', dazu ein Chat direkt im Fenster (Nachfragen zur Antwort).
+    var globalConfig = window.AiSearchConfig || {};
+    var aiMode = (options && options.aiMode) || globalConfig.aiMode || 'answer';
+    this.aiMode = ['search', 'answer', 'chat'].indexOf(aiMode) !== -1 ? aiMode : 'answer';
+    if (this.aiMode === 'search') {
+      this.showChatActionButton = false;
+    } else if (this.aiMode === 'chat') {
+      this.showChatActionButton = !options || options.showChatActionButton !== false;
+      this.chatActionBehavior = 'inline';
+    }
+    this.chatHistory = [];
+    this.chatNonce = 0;
+    // Filter-Chips: 'single' = immer nur ein Filter aktiv (Klick wechselt, erneuter Klick
+    // hebt auf), 'multi' = Filter lassen sich kombinieren (bisheriges Verhalten).
+    this.filterMode = (options && options.filterMode === 'multi') ? 'multi' : 'single';
     this.selectedTypes = [];
     this.selectedLabels = [];
     this.debounceTimer = null;
@@ -254,6 +278,19 @@
     this.input.type = 'search';
     this.input.autocomplete = 'off';
     this.input.placeholder = this.placeholder;
+    // Passwort-Manager (Safari/Passwörter, 1Password, LastPass …) halten ein einzelnes Textfeld
+    // ohne Namen sonst für ein Benutzername-Feld und bieten Zugangsdaten an. „search“ im Namen
+    // und die Ignorier-Attribute verhindern das; autocomplete="off" allein reicht Safari nicht.
+    this.input.name = 'search';
+    this.input.id = 'ai-search-input';
+    this.input.setAttribute('role', 'searchbox');
+    this.input.setAttribute('aria-label', this.placeholder);
+    this.input.setAttribute('enterkeyhint', 'search');
+    this.input.setAttribute('autocapitalize', 'off');
+    this.input.setAttribute('data-1p-ignore', '');
+    this.input.setAttribute('data-lpignore', 'true');
+    this.input.setAttribute('data-bwignore', '');
+    this.input.setAttribute('data-form-type', 'other');
 
     // Live-Suche (debounced) bleibt der Regelfall - der Button ist fuer Nutzer:innen gedacht,
     // die lieber explizit "suchen" ausloesen (z.B. nach Abbruch der Eingabe per Tab/Klick weg
@@ -412,6 +449,8 @@
     var self = this;
     var query = this.input.value.trim();
     var nonce = ++this.requestNonce;
+    this.chatHistory = [];
+    ++this.chatNonce;
 
     if (query === '' || query.length < this.minimumQueryLength) {
       this.renderToolbar([]);
@@ -479,7 +518,7 @@
           // nonsense_query (server-seitig erkannt, siehe ChatQueryService::
           // looksLikeNonsenseQuery()) - keine KI anfragen fuer offensichtliches
           // Kauderwelsch, direkt die einfache "keine Treffer"-Meldung zeigen.
-          if (!data.nonsense_query && self.shouldAskChatForEmptyResults(query)) {
+          if (self.aiMode !== 'search' && !data.nonsense_query && self.shouldAskChatForEmptyResults(query)) {
             self.setAnswerLoading(true, 'Die KI prüft, ob sie helfen kann...');
             self.fetchChatAnswer(query, nonce);
             return;
@@ -493,7 +532,7 @@
         self.renderChatAction(query);
         self.renderHits(hits);
 
-        if (self.shouldAskChat(query, hits.length)) {
+        if (self.aiMode !== 'search' && self.shouldAskChat(query, hits.length)) {
           self.setAnswerLoading(true, 'KI analysiert die Treffer...');
           self.fetchChatAnswer(query, nonce);
           return;
@@ -509,7 +548,7 @@
         // Zusammenstellung wird erst HIER, NACH dem Rendern der Treffer, separat nachgeladen -
         // niedrigere Prioritaet als eine echte Frage-Antwort oben, ueberschreibt deren
         // Ladeanzeige daher nicht.
-        if (data.summary_available) {
+        if (data.summary_available && self.aiMode !== 'search') {
           self.fetchSearchSummary(query, hits, nonce);
         }
       })
@@ -614,6 +653,16 @@
 
         var html = typeof data.answer === 'string' ? data.answer.trim() : '';
         self.renderAnswer(html);
+        if (self.aiMode === 'chat' && html !== '') {
+          self.chatHistory = [
+            { role: 'user', text: query },
+            { role: 'assistant', text: typeof data.answer_text === 'string' && data.answer_text.trim() !== '' ? data.answer_text.trim() : htmlToText(html) }
+          ];
+          self.renderChatComposer();
+          if (self.actions) {
+            self.actions.innerHTML = '';
+          }
+        }
       })
       .catch(function () {
         if (nonce !== self.requestNonce) {
@@ -800,6 +849,150 @@
   // beide teilten sich vorher denselben Titel "Antwort", obwohl es inhaltlich und in der
   // Verlaesslichkeit (eine Zusammenstellung ist eine grobe Orientierung ueber mehrere Bereiche,
   // keine direkte Antwort auf eine gestellte Frage) zwei unterschiedliche Dinge sind.
+  // Chat im Such-Fenster (aiMode 'chat'): unter der KI-Antwort ein Verlauf mit Eingabefeld
+  // fuer Nachfragen. Jede Nachfrage geht mit dem bisherigen Verlauf (history, wie beim
+  // Chat-Widget) an mode=chat. Eine neue Suche im Hauptfeld beginnt ein neues Gespraech.
+  SearchUi.prototype.renderChatComposer = function () {
+    var self = this;
+    if (!this.answerHost) {
+      return;
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'ai-search-chat';
+
+    var log = document.createElement('div');
+    log.className = 'ai-search-chat-log';
+    log.setAttribute('aria-live', 'polite');
+
+    var form = document.createElement('form');
+    form.className = 'ai-search-chat-form';
+    form.setAttribute('autocomplete', 'off');
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'search-followup';
+    input.className = 'ai-search-chat-input';
+    input.placeholder = this.t('search_chat_placeholder', 'Nachfrage stellen …');
+    input.setAttribute('aria-label', input.placeholder);
+    input.setAttribute('enterkeyhint', 'send');
+    input.setAttribute('data-1p-ignore', '');
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-bwignore', '');
+    input.setAttribute('data-form-type', 'other');
+    input.maxLength = 1000;
+
+    var send = document.createElement('button');
+    send.type = 'submit';
+    send.className = 'ai-search-chat-send';
+    send.textContent = this.t('search_chat_send', 'Senden');
+
+    form.appendChild(input);
+    form.appendChild(send);
+    wrap.appendChild(log);
+    wrap.appendChild(form);
+    this.answerHost.appendChild(wrap);
+
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        input.blur();
+      }
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var text = input.value.trim();
+      if (text === '' || send.disabled) {
+        return;
+      }
+      input.value = '';
+      self.sendChatMessage(text, log, input, send);
+    });
+  };
+
+  SearchUi.prototype.appendChatMessage = function (log, role, html, isText) {
+    var item = document.createElement('div');
+    item.className = 'ai-search-chat-msg ai-search-chat-msg-' + role;
+    var label = document.createElement('span');
+    label.className = 'ai-search-chat-who';
+    label.textContent = role === 'user' ? this.t('search_chat_you', 'Du') : this.t('search_panel_title', 'Antwort');
+    var body = document.createElement('div');
+    body.className = 'ai-search-chat-body ai-search-answer-body';
+    if (isText) {
+      body.textContent = html;
+    } else {
+      body.innerHTML = html;
+    }
+    item.appendChild(label);
+    item.appendChild(body);
+    log.appendChild(item);
+    return item;
+  };
+
+  SearchUi.prototype.sendChatMessage = function (text, log, input, send) {
+    var self = this;
+    var nonce = ++this.chatNonce;
+    var history = this.chatHistory.slice(-6);
+
+    this.appendChatMessage(log, 'user', text, true);
+    var pending = this.appendChatMessage(log, 'bot', '<span class="ai-search-loading-dots"><span></span><span></span><span></span></span>', false);
+    pending.classList.add('ai-search-chat-pending');
+    send.disabled = true;
+    pending.scrollIntoView({ block: 'nearest' });
+
+    fetch(this.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({
+        mode: 'chat',
+        message: text,
+        scope: this.chatScope,
+        include_followups: false,
+        current_url: window.location.href,
+        history: history
+      })
+    })
+      .then(function (response) {
+        return response.json().then(function (data) {
+          return { ok: response.ok, status: response.status, data: data };
+        });
+      })
+      .then(function (result) {
+        // Neue Suche inzwischen gestartet (Verlauf geleert) oder Fenster neu aufgebaut
+        if (nonce !== self.chatNonce || !document.body.contains(log)) {
+          return;
+        }
+        var data = result.data || {};
+        var html = typeof data.answer === 'string' ? data.answer.trim() : '';
+        if (!result.ok || data.error || html === '') {
+          html = '<p>' + self.t('search_chat_error', 'Darauf habe ich gerade keine Antwort. Bitte formuliere die Frage anders.') + '</p>';
+        } else {
+          self.chatHistory.push({ role: 'user', text: text });
+          self.chatHistory.push({ role: 'assistant', text: typeof data.answer_text === 'string' && data.answer_text.trim() !== '' ? data.answer_text.trim() : htmlToText(html) });
+        }
+        pending.classList.remove('ai-search-chat-pending');
+        pending.querySelector('.ai-search-chat-body').innerHTML = html;
+      })
+      .catch(function () {
+        if (nonce !== self.chatNonce || !document.body.contains(log)) {
+          return;
+        }
+        pending.classList.remove('ai-search-chat-pending');
+        pending.querySelector('.ai-search-chat-body').textContent = self.t('search_error', 'Live-Suche aktuell nicht verfügbar.');
+      })
+      .then(function () {
+        if (nonce === self.chatNonce) {
+          send.disabled = false;
+          input.focus();
+        }
+      });
+  };
+
   SearchUi.prototype.renderAnswer = function (answerHtml, variant) {
     if (!this.answerHost) {
       return;
@@ -901,10 +1094,15 @@
     if (filters.length > 0) {
       var allBtn = document.createElement('button');
       allBtn.type = 'button';
-      allBtn.className = 'ai-search-chip' + (this.selectedTypes.length === 0 ? ' active' : '');
+      var allActive = this.selectedTypes.length === 0 && (this.filterMode === 'multi' || this.selectedLabels.length === 0);
+      allBtn.className = 'ai-search-chip' + (allActive ? ' active' : '');
+      allBtn.setAttribute('aria-pressed', allActive ? 'true' : 'false');
       allBtn.textContent = this.t('search_filter_all', 'Alle');
       allBtn.addEventListener('click', function () {
         self.selectedTypes = [];
+        if (self.filterMode === 'single') {
+          self.selectedLabels = [];
+        }
         self.search();
       });
       this.toolbar.appendChild(allBtn);
@@ -920,9 +1118,13 @@
         chip.type = 'button';
         chip.className = 'ai-search-chip' + (active ? ' active' : '');
         chip.textContent = (filter.label || value) + ' (' + (filter.count || 0) + ')';
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
         chip.addEventListener('click', function () {
           if (active) {
             self.selectedTypes = self.selectedTypes.filter(function (item) { return item !== value; });
+          } else if (self.filterMode === 'single') {
+            self.selectedTypes = [value];
+            self.selectedLabels = [];
           } else {
             self.selectedTypes.push(value);
           }
@@ -956,9 +1158,13 @@
         if (filter.description) {
           chip.title = String(filter.description);
         }
+        chip.setAttribute('aria-pressed', active ? 'true' : 'false');
         chip.addEventListener('click', function () {
           if (active) {
             self.selectedLabels = self.selectedLabels.filter(function (item) { return item !== value; });
+          } else if (self.filterMode === 'single') {
+            self.selectedLabels = [value];
+            self.selectedTypes = [];
           } else {
             self.selectedLabels.push(value);
           }

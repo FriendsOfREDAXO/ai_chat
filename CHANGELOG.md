@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.3.0] - 2026-10-11
+
+### Neu
+- **YForm: Dokumente durchsuchbar (Feld-Modus „Dokument (Text aus PDF)“)**: In einem YForm-Profil lässt sich ein Medienfeld (be_media, auch mehrere Dateien) als Dokument zuordnen – der Text der PDF-Dateien gehört dann zum Datensatz. Eine Download-Tabelle wird so mit Bezeichnung, Beschreibung und Dokumentinhalt in einem Treffer durchsuchbar, neue Downloads kommen automatisch dazu, offline geschaltete fallen heraus (Status-Feld). Bisher ging das nur über eine feste Liste einzelner PDFs. Höchstens 60.000 Zeichen Dokumenttext je Datensatz.
+- **Abgleich entfernt verwaiste Einträge**: Der inkrementelle Abgleich (Cronjob „inkrementell“) las nur neue/geänderte Inhalte ein – gelöschte Seiten, offline gestellte Datensätze und entfernte Quellen blieben bis zur nächsten vollständigen Neuindizierung in Suche und KI. Nach einem vollständigen Durchlauf werden sie jetzt entfernt. Neuer Befehl `ai_chat:sync`.
+- **URL-Template mit Spaltenwerten**: Platzhalter `{field:spalte}`, z. B. `/media/{field:file}` für einen Link direkt auf die Datei.
+- **FAQ-Vorcaching nach Neuindizierung**: Eine vollständige Neuindizierung (Konsole, Cronjob „vollständig“) leert den Antwort-Cache – die vorbereiteten FAQ-Antworten waren danach weg, bis jemand im Backend den Knopf drückte. Sie werden jetzt im Anschluss automatisch neu erzeugt. Neuer Befehl `ai_chat:faq-warmup` (z. B. nach Deployments).
+- **Trigger mit mehreren Stichwörtern**: Ein Trigger reagiert auf mehrere, durch Komma getrennte Stichwörter. Ein Stichwort trifft am Wortanfang (vorher irgendwo im Wort – „Kreis“ zündete auch bei „Fußballkreis“), `*` davor erlaubt Treffer mitten im Wort. Bestehende Trigger mit einem Stichwort funktionieren weiter.
+- **KI im Such-Fenster – drei Modi je Profil** (Profile → „KI im Such-Fenster“):
+  - **Nur Suche**: Trefferliste ohne KI – keine Antwort, keine Zusammenstellung, kein „Frag die KI“. Der Server lehnt KI-Aufrufe aus dem Such-Fenster dann ab.
+  - **Suche + KI-Antwort**: wie bisher – bei Fragen erscheint über den Treffern eine KI-Antwort.
+  - **Suche + Chat im Such-Fenster**: unter der Antwort ein Eingabefeld für Nachfragen; das Gespräch läuft mit Verlauf direkt im Fenster weiter (gleiches `history`-Format wie das Chat-Widget). Eine neue Suche beginnt ein neues Gespräch.
+  - „Automatisch“ (Standard, auch für bestehende Profile) verhält sich wie bisher: Antwort nur, wenn der Chat des Profils aktiv ist.
+  - KI-Aufrufe aus dem Such-Fenster hängen jetzt an dieser Einstellung (und an „Suche aktiv“), nicht mehr am Chat-Widget – Suche + Antwort/Chat geht also auch ohne eingeblendeten Chat.
+  - Im Frontend gibt boot.php den Modus als `window.AiSearchConfig.aiMode` mit; per JS lässt er sich mit `AiSearch.openWithQuery(text, { aiMode: 'chat' })` überschreiben.
+
+### Behoben
+- **KI sprach von „Kontext“ und „DOKUMENT 1“**: Antworten enthielten Sätze wie „im vorliegenden Kontext nicht enthalten“ oder „[Bereich: DOKUMENT 1]“ – der Besucher sieht diesen Kontext nicht. Neue Regel: nie von Kontext/Dokumenten sprechen, keine Nummerierungen übernehmen; fehlt die Antwort, freundlich sagen, dass auf der Website nichts Genaues zu finden ist, und eine Anlaufstelle aus dem Kontext nennen.
+- **Alte Meldungen als aktueller Stand**: Ältere News (z. B. „Geschäftsstelle wegen Corona geschlossen“, 2021) landeten gleichrangig im Kontext, die KI gab sie als aktuell aus („Ist jetzt jemand da?“ → „im mobilen Arbeiten“). Datierte Abschnitte (alles außer Seiten) tragen jetzt „Stand: TT.MM.JJJJ“ im Kontext, verlieren ab einem Jahr Alter je Jahr 7 % (höchstens 30 %), nennen sie nur vergangene Termine, weitere 20 %. Neue Prompt-Regel: datierte Meldungen beschreiben ihren damaligen Stand, Fragen nach „jetzt/heute“ mit dem Zeit-Kontext beantworten. Alte Meldungen erscheinen nicht mehr als Link.
+- **Füllwörter als Suchbegriff**: „jetzt“, „heute“, „gerade“, „jemand“ usw. zählten bei der Link-Auswahl – „Jetzt bewerben …“ landete unter „Ist jetzt jemand da?“. Jetzt Stoppwörter.
+- **KI fand Seiten nicht (Retrieval ohne native Vektor-Datenbank)**: Ohne MariaDB-Vektorunterstützung (z. B. MariaDB 10.x) verglich die Suche nur die ersten `rag_candidate_limit` Index-Zeilen nach ID. Bei vielen Einträgen (z. B. News, die beim Neuaufbau zuerst eingelesen werden) kamen später eingelesene Seiten – Kontakt-, Kreis-, Ansprechpartner-Seiten – nie in den Vergleich. Jetzt werden zuerst die per Volltext passendsten Abschnitte geprüft, danach der Rest bis zum Limit; Embeddings blockweise, nur die besten Treffer bleiben im Speicher.
+- **Stichwort-Ergänzung verdrängte gute Treffer**: Die Volltext-Ergänzung des Kontexts sortierte nach Datum (beliebige neue Beiträge mit irgendeinem Wort der Frage) und ersetzte alle Vektor-Treffer unter 0,6 – bei vielen Embedding-Modellen also fast alle. Jetzt nach Relevanz (Titel-Treffer zählen dreifach, Mindestabdeckung der Suchwörter), je Quelle der passendste Abschnitt, „guter“ Vektor-Treffer relativ zum besten.
+- **Sichtbares „\n\n“ vor „Links:“**: Zwei Ersetzungen in einfachen Anführungszeichen fügten ein wörtliches `\n` statt Zeilenumbrüchen ein.
+- **Trigger-Antworten verwiesen auf „den nächsten Abschnitt“**: Bei einem Trigger-Treffer sollte die KI nur schreiben, dass die Details im Anschluss folgen – Antworten wie „Die Adresse folgt im nächsten Abschnitt“. Die KI bekommt den (geprüften) Trigger-Inhalt jetzt mit und beantwortet die Frage direkt damit; der Inhalt erscheint weiter unverändert darunter.
+- **Links ohne Bezug zur Frage**: Wörter, die in jedem Kontext-Treffer vorkommen (Name der Organisation, „Verband“ …), zählten als Bezug zur Frage – jeder Treffer wurde verlinkt. Sie werden für die Link-Auswahl jetzt ignoriert.
+- **Prompt-Regeln je Provider auseinandergelaufen**: OpenAI-kompatibel, Gemini, Cloudflare und AI Platform hatten je eine eigene Kopie der Kontext-Regeln und der „nicht gefunden“-Anweisung (OpenAI-kompatibel z.B. „frage ggf. nach weiteren Details“). Die Regeln stehen jetzt einmal in `PromptBuilder::contextRules()` / `notFoundInstruction()` und gelten für alle Provider gleich.
+- **YForm-Datensätze verschwanden beim Speichern aus dem Index**: Die Live-Neuindexierung (`YFORM_DATA_UPDATED`) las den Datensatz aus dem Instanz-Cache von YForm. Dort lag zu diesem Zeitpunkt oft ein Teilergebnis (z. B. aus der URL-Erzeugung des URL-AddOns mit Spalten-Aliasen wie `data_segment_part_1`) – Titel und Text fehlten, es gab „Undefined array key“-Warnungen und der Eintrag wurde leer gelesen und aus dem Index entfernt. Der Datensatz wird jetzt frisch aus der Datenbank geladen.
+- **Such-Fenster: lange Titel ragten heraus**: Lange Dateinamen, Adressen oder Wörter ohne Leerzeichen im Treffertitel (ein `inline-flex`-Container ohne Umbruch) machten das Fenster breiter als den Bildschirm, es ließ sich seitlich scrollen. Titel, Auszüge, Kennzeichen und Filter brechen jetzt um, das Fenster scrollt nur noch senkrecht.
+- **Such-Fenster: Passwort-Manager boten Zugangsdaten an**: Safari/Passwörter, 1Password & Co. hielten das Suchfeld für ein Benutzername-Feld. Das Feld heißt jetzt `search`, hat `role="searchbox"`, `enterkeyhint="search"` und die Ignorier-Attribute der gängigen Passwort-Manager.
+
+### Geändert
+- **Such-Fenster: immer nur ein Filter aktiv**: Ein Klick auf einen Filter (Typ oder Bereich) ersetzt den bisherigen, ein erneuter Klick hebt ihn auf, „Alle“ setzt zurück. Wer Filter kombinieren möchte, übergibt `filterMode: 'multi'` (z. B. `AiSearch.openWithQuery(text, { filterMode: 'multi' })`). Die Filter melden ihren Zustand per `aria-pressed`.
+
 ## [2.2.2] - 2026-10-11
 
 ### Behoben

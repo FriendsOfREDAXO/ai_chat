@@ -1,5 +1,5 @@
 package: ai_chat
-version: '2.2.2'
+version: '2.3.0'
 author: 'KLXM Crossmedia GmbH'
 supportpage: https://github.com/FriendsOfRedaxo/ai_chat
 
@@ -42,6 +42,8 @@ page:
 
 console_commands:
     ai_chat:reindex: FriendsOfRedaxo\AiChat\Console\ReindexCommand
+    ai_chat:faq-warmup: FriendsOfRedaxo\AiChat\Console\FaqWarmupCommand
+    ai_chat:sync: FriendsOfRedaxo\AiChat\Console\SyncCommand
 
 default_config:
     provider: gemini

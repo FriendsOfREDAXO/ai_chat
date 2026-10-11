@@ -228,6 +228,15 @@ if ('add' === $func || 'edit' === $func) {
         $field->setValue('1');
     }
 
+    $field = $form->addSelectField('search_ai_mode');
+    $field->setLabel('KI im Such-Fenster');
+    $field->setNotice('Nur Suche: Trefferliste ohne KI. Suche + Antwort: bei Fragen erscheint über den Treffern eine KI-Antwort. Suche + Chat: dazu lassen sich im Such-Fenster direkt Nachfragen stellen (Gespräch mit Verlauf). „Automatisch“ verhält sich wie bisher: Antwort nur, wenn der Chat dieses Profils aktiv ist.');
+    $select = $field->getSelect();
+    $select->addOption('Automatisch (wie bisher)', '');
+    $select->addOption('Nur Suche', 'search');
+    $select->addOption('Suche + KI-Antwort', 'answer');
+    $select->addOption('Suche + Chat im Such-Fenster', 'chat');
+
     $field = $form->addSelectField('search_extended_enabled');
     $field->setLabel('Erweiterte Suche (Vektorsuche)');
     $field->setNotice('Steuert nur die zusätzliche, KI-gestützte Vektorsuche (ausgelöst per Enter/Suchen-Button im Such-Fenster bzw. auf der paginierten Suchseite) - findet dadurch auch thematisch verwandte, aber wortverschiedene Treffer. Die normale Live-Suche beim Tippen bleibt davon unberührt und funktioniert auch ohne KI-Provider.');
