@@ -172,6 +172,10 @@ final class YformContentProvider implements ContentProviderInterface
                 return null;
             }
             $dataset = $table->getDataset($recordId);
+            // Frisch aus der Datenbank laden: Beim Speichern liegt im Instanz-Cache von YForm oft ein Teilergebnis
+            // (z. B. aus der URL-Erzeugung des URL-AddOns mit eigenen Spalten-Aliasen) – ohne Titel und Text würde
+            // der Datensatz sonst leer gelesen und aus dem Index entfernt.
+            $dataset?->loadData();
         } catch (\Throwable) {
             return null;
         }

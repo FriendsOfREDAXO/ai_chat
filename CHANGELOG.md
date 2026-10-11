@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.2.3] - 2026-10-11
+
+### Behoben
+- **YForm-Datensätze verschwanden beim Speichern aus dem Index**: Die Live-Neuindexierung (`YFORM_DATA_UPDATED`) las den Datensatz aus dem Instanz-Cache von YForm. Dort lag zu diesem Zeitpunkt oft ein Teilergebnis (z. B. aus der URL-Erzeugung des URL-AddOns mit Spalten-Aliasen wie `data_segment_part_1`) – Titel und Text fehlten, es gab „Undefined array key“-Warnungen und der Eintrag wurde leer gelesen und aus dem Index entfernt. Der Datensatz wird jetzt frisch aus der Datenbank geladen.
+
 ## [2.2.2] - 2026-10-11
 
 ### Behoben
