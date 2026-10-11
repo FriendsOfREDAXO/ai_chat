@@ -2862,8 +2862,8 @@ class ChatQueryService
                 // Original - "Waermepumpen" soll weiterhin exakt "Waermepumpen"
                 // treffen UND zusaetzlich "Waermepumpe" (siehe scoreSearchHit(), das
                 // einen reinen Stamm-Treffer niedriger gewichtet als einen exakten).
-                if (null !== $term['stem']) {
-                    $stemLike = '%' . $term['stem'] . '%';
+                foreach (array_filter([$term['stem'] ?? null, $term['stem_alt'] ?? null]) as $stemValue) {
+                    $stemLike = '%' . $stemValue . '%';
                     $textClauses[] = '(title LIKE ? OR content LIKE ? OR url LIKE ?)';
                     $params[] = $stemLike;
                     $params[] = $stemLike;
@@ -3490,7 +3490,7 @@ class ChatQueryService
     }
 
     /**
-     * @param list<string>|list<array{original: string, stem: ?string}> $terms
+     * @param list<string>|list<array{original: string, stem: ?string, stem_alt?: ?string}> $terms
      */
     private function scoreSearchHit(string $needle, string $title, string $content, string $url, array $terms = []): float
     {
@@ -3517,15 +3517,15 @@ class ChatQueryService
         $queryParts = [];
         foreach ($terms as $part) {
             if (is_array($part)) {
-                $queryParts[] = ['original' => (string) $part['original'], 'stem' => null !== $part['stem'] ? (string) $part['stem'] : null];
+                $queryParts[] = ['original' => (string) $part['original'], 'stem' => null !== $part['stem'] ? (string) $part['stem'] : null, 'stem_alt' => isset($part['stem_alt']) ? (string) $part['stem_alt'] : null];
             } else {
-                $queryParts[] = ['original' => (string) $part, 'stem' => null];
+                $queryParts[] = ['original' => (string) $part, 'stem' => null, 'stem_alt' => null];
             }
         }
         if ($queryParts === []) {
             $split = preg_split('/\s+/', $queryLower, -1, PREG_SPLIT_NO_EMPTY);
             foreach ((is_array($split) ? $split : []) as $part) {
-                $queryParts[] = ['original' => (string) $part, 'stem' => null];
+                $queryParts[] = ['original' => (string) $part, 'stem' => null, 'stem_alt' => null];
             }
         }
 
@@ -3533,6 +3533,8 @@ class ChatQueryService
         foreach ($queryParts as $part) {
             $term = mb_strtolower(trim($part['original']));
             $stem = null !== $part['stem'] ? mb_strtolower(trim($part['stem'])) : null;
+            $stemAlt = null !== ($part['stem_alt'] ?? null) ? mb_strtolower(trim((string) $part['stem_alt'])) : null;
+            $stemIn = static fn (string $haystack): bool => (null !== $stem && str_contains($haystack, $stem)) || (null !== $stemAlt && str_contains($haystack, $stemAlt));
             if ($term === '') {
                 continue;
             }
@@ -3542,9 +3544,9 @@ class ChatQueryService
             // "Pumpen" weiterhin Seiten mit dem exakten Wort "Pumpen" vor bloss
             // stamm-verwandten Seiten rankt - Stemming soll zusaetzliche Treffer
             // erschliessen, nicht bestehende exakte Treffer verdraengen.
-            $titleHit = str_contains($titleLower, $term) ? 1.0 : (null !== $stem && str_contains($titleLower, $stem) ? 0.6 : 0.0);
-            $contentHit = str_contains($contentLower, $term) ? 1.0 : (null !== $stem && str_contains($contentLower, $stem) ? 0.6 : 0.0);
-            $urlHit = str_contains($urlLower, $term) ? 1.0 : (null !== $stem && str_contains($urlLower, $stem) ? 0.6 : 0.0);
+            $titleHit = str_contains($titleLower, $term) ? 1.0 : ($stemIn($titleLower) ? 0.6 : 0.0);
+            $contentHit = str_contains($contentLower, $term) ? 1.0 : ($stemIn($contentLower) ? 0.6 : 0.0);
+            $urlHit = str_contains($urlLower, $term) ? 1.0 : ($stemIn($urlLower) ? 0.6 : 0.0);
 
             if ($titleHit > 0.0) {
                 $score += 1.5 * $titleHit;
@@ -3617,7 +3619,7 @@ class ChatQueryService
      * mindestens 4 Zeichen lang ist (kuerzere Staemme treffen zu unspezifisch, z.B.
      * wuerde ein 2-3-Zeichen-Stamm quer durch den halben Index matchen).
      *
-     * @return list<array{original: string, stem: ?string}> stem ist null, wenn
+     * @return list<array{original: string, stem: ?string, stem_alt?: ?string}> stem ist null, wenn
      *         Original und Stamm identisch sind ODER der Stamm zu kurz waere - der
      *         Aufrufer soll dann NUR das Original verwenden, keine doppelte Klausel.
      */
@@ -3633,10 +3635,24 @@ class ChatQueryService
         $result = [];
         foreach ($terms as $term) {
             $stem = null;
+            $stemAlt = null;
             try {
                 $candidateStem = $stemmer->stem($term);
                 if ($candidateStem !== $term && mb_strlen($candidateStem, 'UTF-8') >= 4) {
-                    $stem = $candidateStem;
+                    // Der Snowball-Stemmer schreibt ß als ss und ä/ö/ü als a/o/u ("Fußballvereine" ->
+                    // "fussballverein") - im Inhalt steht aber "Fußballverein". Stamm deshalb in der
+                    // Schreibweise des Suchbegriffs verwenden, den Snowball-Stamm zusaetzlich (findet
+                    // "Haus" zu "Häuser" und Adressen wie /fussballvereine/).
+                    $restored = self::restoreStemSpelling($term, $candidateStem);
+                    if (null === $restored) {
+                        $stem = $candidateStem;
+                    } elseif ($restored === $term) {
+                        // nur die Schreibweise geaendert (Fußball -> fussball): hilft nur bei Adressen
+                        $stemAlt = $candidateStem;
+                    } else {
+                        $stem = mb_strlen($restored, 'UTF-8') >= 4 ? $restored : null;
+                        $stemAlt = $restored !== $candidateStem ? $candidateStem : null;
+                    }
                 }
             } catch (\Throwable $e) {
                 // Stemmer wirft laut eigener Schnittstelle theoretisch eine Exception -
@@ -3646,10 +3662,33 @@ class ChatQueryService
                 rex_logger::logException($e);
             }
 
-            $result[] = ['original' => $term, 'stem' => $stem];
+            $result[] = ['original' => $term, 'stem' => $stem, 'stem_alt' => $stemAlt];
         }
 
         return $result;
+    }
+
+    /**
+     * Snowball-Stamm in der Schreibweise des Suchbegriffs: laengster Anfang des Begriffs, der normalisiert
+     * (ä/ö/ü -> a/o/u, ß -> ss) dem Stamm entspricht. null, wenn der Stamm kein solcher Anfang ist.
+     */
+    private static function restoreStemSpelling(string $term, string $stem): ?string
+    {
+        $map = ['ä' => 'a', 'ö' => 'o', 'ü' => 'u', 'ß' => 'ss'];
+        $chars = mb_str_split($term, 1, 'UTF-8');
+        $normalized = '';
+        foreach ($chars as $i => $char) {
+            $normalized .= $map[$char] ?? $char;
+            if ($normalized === $stem) {
+                return implode('', array_slice($chars, 0, $i + 1));
+            }
+            if (strlen($normalized) > strlen($stem)) {
+                // Stamm endet mitten in "ss" eines ß: das ß gehoert noch zum Stamm
+                return str_starts_with($normalized, $stem) && 'ß' === $char ? implode('', array_slice($chars, 0, $i + 1)) : null;
+            }
+        }
+
+        return null;
     }
 
     /**
