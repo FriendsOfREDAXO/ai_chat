@@ -374,7 +374,8 @@ if ('add' === $func || 'edit' === $func) {
     });
 
     $list->addColumn('delete', '<i class="rex-icon rex-icon-delete"></i> Löschen', -1, ['', '<td class="rex-table-action">###VALUE###</td>']);
-    $list->setColumnParams('delete', ['func' => 'delete', 'key' => '###id###']);
+    // CSRF-Token im Link – die Seite prüft es beim Löschen (ohne: „CSRF-Token ungültig“, Issue #7)
+    $list->setColumnParams('delete', ['func' => 'delete', 'key' => '###id###'] + $csrf->getUrlParams());
     $list->addLinkAttribute('delete', 'data-confirm', 'Mapping wirklich löschen? Bereits indexierte Inhalte dieser Quelle bleiben im Index stehen, werden aber von keinem Profil mehr genutzt.');
 
     $content = $list->get();

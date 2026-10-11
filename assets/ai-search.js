@@ -79,6 +79,12 @@
     return icon;
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   function findApiUrl() {
     var chat = document.querySelector('ai-chat');
     if (chat && chat.getAttribute('api-url')) {
@@ -723,6 +729,10 @@
     return text.length >= 30;
   };
 
+  // KI-Antwort holen. Mit Streaming (Server: Einstellung „Streaming“, Antwort als text/event-stream)
+  // erscheint der Text schon während die KI schreibt – der erste Satz nach ~1 s statt der ganzen
+  // Antwort nach mehreren Sekunden; am Ende ersetzt die formatierte Antwort (HTML) den Rohtext.
+  // Ohne Streaming (JSON-Antwort) wie bisher.
   SearchUi.prototype.fetchChatAnswer = function (query, nonce) {
     var self = this;
     self.setAnswerLoading(true, 'KI antwortet...');
@@ -732,66 +742,156 @@
       scope: this.chatScope,
       include_followups: false
     };
+    var canStream = typeof TextDecoder !== 'undefined' && typeof ReadableStream !== 'undefined';
+
+    var finish = function (data) {
+      if (nonce !== self.requestNonce) {
+        return;
+      }
+      self.setAnswerLoading(false);
+      var html = typeof data.answer === 'string' ? data.answer.trim() : '';
+      self.renderAnswer(html);
+      // Antwort steht – „Frag die KI“ erst bei einer neuen Eingabe wieder anbieten
+      if (self.aiTrigger === 'button' && self.actions && html !== '') {
+        self.actions.innerHTML = '';
+      }
+      if (self.aiMode === 'chat' && html !== '') {
+        self.chatHistory = [
+          { role: 'user', text: query },
+          { role: 'assistant', text: typeof data.answer_text === 'string' && data.answer_text.trim() !== '' ? data.answer_text.trim() : htmlToText(html) }
+        ];
+        self.renderChatComposer();
+        if (self.actions) {
+          self.actions.innerHTML = '';
+        }
+      }
+    };
+
+    var fail = function (message) {
+      if (nonce !== self.requestNonce) {
+        return;
+      }
+      self.setAnswerLoading(false);
+      self.renderAnswer(message ? '<p>Keine KI-Antwort: ' + escapeHtml(message) + '</p>' : '');
+      self.renderChatAction(query); // erneut versuchen möglich
+    };
+
+    // Rohtext während des Streamens: eigener Kasten, Text als Text (kein HTML)
+    var streamBox = null;
+    var streamText = '';
+    var showChunk = function (chunk) {
+      if (nonce !== self.requestNonce) {
+        return;
+      }
+      streamText += chunk;
+      if (!streamBox) {
+        self.setAnswerLoading(false);
+        self.answerHost.innerHTML = '';
+        var box = document.createElement('div');
+        box.className = 'ai-search-answer ai-search-answer-streaming';
+        var title = document.createElement('div');
+        title.className = 'ai-search-answer-title';
+        title.textContent = self.t('search_panel_title', 'Antwort');
+        streamBox = document.createElement('div');
+        streamBox.className = 'ai-search-answer-stream';
+        box.appendChild(title);
+        box.appendChild(streamBox);
+        self.answerHost.appendChild(box);
+      }
+      // Markdown-Zeichen im Rohtext dezent entfernen (**fett**, Überschriften-Rauten, Link-Klammern)
+      streamBox.textContent = streamText.replace(/\*\*|__|^#+\s*/gm, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+    };
 
     fetch(this.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Accept': canStream ? 'text/event-stream, application/json' : 'application/json',
         'X-Requested-With': 'XMLHttpRequest'
       },
       body: JSON.stringify(payload)
     })
       .then(function (response) {
+        var type = response.headers.get('Content-Type') || '';
+        if (canStream && response.ok && type.indexOf('text/event-stream') !== -1 && response.body) {
+          return self.readAnswerStream(response, nonce, showChunk).then(function (result) {
+            if (result.error) {
+              fail(result.error);
+            } else {
+              finish(result.data || {});
+            }
+          });
+        }
         return response.json().then(function (data) {
-          return {
-            ok: response.ok,
-            status: response.status,
-            data: data
-          };
+          if (!response.ok || (data && data.error)) {
+            fail((data && data.error) ? String(data.error) : ('HTTP ' + String(response.status)));
+            return;
+          }
+          finish(data || {});
         });
       })
-      .then(function (result) {
-        if (nonce !== self.requestNonce) {
-          return;
-        }
-
-        self.setAnswerLoading(false);
-        if (!result.ok || (result.data && result.data.error)) {
-          var message = (result.data && result.data.error) ? String(result.data.error) : ('HTTP ' + String(result.status));
-          self.renderAnswer('<p>Keine KI-Antwort: ' + message + '</p>');
-          self.renderChatAction(query); // erneut versuchen möglich
-          return;
-        }
-
-        var data = result.data || {};
-
-        var html = typeof data.answer === 'string' ? data.answer.trim() : '';
-        self.renderAnswer(html);
-        // Antwort steht – „Frag die KI“ erst bei einer neuen Eingabe wieder anbieten
-        if (self.aiTrigger === 'button' && self.actions && html !== '') {
-          self.actions.innerHTML = '';
-        }
-        if (self.aiMode === 'chat' && html !== '') {
-          self.chatHistory = [
-            { role: 'user', text: query },
-            { role: 'assistant', text: typeof data.answer_text === 'string' && data.answer_text.trim() !== '' ? data.answer_text.trim() : htmlToText(html) }
-          ];
-          self.renderChatComposer();
-          if (self.actions) {
-            self.actions.innerHTML = '';
-          }
-        }
-      })
       .catch(function () {
-        if (nonce !== self.requestNonce) {
-          return;
-        }
-
-        self.setAnswerLoading(false);
-        self.renderAnswer('');
-        self.renderChatAction(query);
+        fail('');
       });
+  };
+
+  // Server-Sent Events der Chat-API lesen: start → chunk {text} … → complete {answer, answer_text} | error {message}
+  SearchUi.prototype.readAnswerStream = function (response, nonce, onChunk) {
+    var self = this;
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    var result = { data: null, error: null };
+
+    var processFrame = function (part) {
+      var eventName = 'message';
+      var eventData = '';
+      part.split(/\n/).forEach(function (line) {
+        if (line.indexOf('event:') === 0) {
+          eventName = line.slice(6).trim();
+        } else if (line.indexOf('data:') === 0) {
+          eventData += (eventData ? '\n' : '') + line.slice(5).trim();
+        }
+      });
+      if (!eventData) {
+        return;
+      }
+      var payload;
+      try {
+        payload = JSON.parse(eventData);
+      } catch (e) {
+        return;
+      }
+      if (eventName === 'chunk' && typeof payload.text === 'string') {
+        onChunk(payload.text);
+      } else if (eventName === 'complete') {
+        result.data = payload;
+      } else if (eventName === 'error') {
+        result.error = typeof payload.message === 'string' ? payload.message : 'Fehler';
+      }
+    };
+
+    var pump = function () {
+      return reader.read().then(function (step) {
+        if (nonce !== self.requestNonce) {
+          reader.cancel();
+          return result;
+        }
+        if (step.done) {
+          if (buffer.trim()) {
+            processFrame(buffer);
+          }
+          return result;
+        }
+        buffer += decoder.decode(step.value, { stream: true });
+        var parts = buffer.split(/\n\n/);
+        buffer = parts.pop() || '';
+        parts.forEach(processFrame);
+        return pump();
+      });
+    };
+
+    return pump();
   };
 
   // Asynchroner Folgeaufruf zu 'summary_available' aus der mode=search-Antwort - siehe
