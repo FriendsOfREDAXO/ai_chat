@@ -53,5 +53,15 @@
   "search_chat_placeholder": "Ask a follow-up …",
   "search_chat_send": "Send",
   "search_chat_you": "You",
-  "search_chat_error": "I don't have an answer to that right now. Please rephrase your question."
+  "search_chat_error": "I don't have an answer to that right now. Please rephrase your question.",
+  "pdf_document": "PDF document",
+  "pdf_loading": "Loading document …",
+  "pdf_error": "The document could not be displayed.",
+  "pdf_open_direct": "Open file directly",
+  "pdf_page": "Page",
+  "pdf_pages": "Pages of the document",
+  "pdf_zoom_in": "Zoom in",
+  "pdf_zoom_out": "Zoom out",
+  "pdf_download": "Download",
+  "pdf_close": "Close"
 }

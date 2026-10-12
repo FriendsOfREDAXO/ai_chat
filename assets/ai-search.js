@@ -1581,11 +1581,60 @@
         link.appendChild(snippet);
       }
 
-      link.addEventListener('click', function () {
+      link.addEventListener('click', function (event) {
+        // PDF-Dokumente: im Viewer-Dialog (pdfout installiert), Suche bleibt dahinter offen
+        if (self.canViewPdf(hit) && !(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button)) {
+          event.preventDefault();
+          self.openPdf(hit);
+          return;
+        }
         self.close();
       });
 
       self.results.appendChild(link);
+    });
+  };
+
+  // PDF-Viewer (assets/ai-pdf-viewer.js): nur wenn pdfout installiert ist (window.AiSearchConfig.pdfViewer, boot.php)
+  SearchUi.prototype.canViewPdf = function (hit) {
+    var cfg = (window.AiSearchConfig || {}).pdfViewer;
+    return !!(cfg && cfg.lib && hit && hit.url && (hit.type || '').trim() === 'mediapool_pdf' && typeof HTMLDialogElement !== 'undefined');
+  };
+
+  SearchUi.prototype.openPdf = function (hit) {
+    var self = this;
+    var cfg = window.AiSearchConfig.pdfViewer;
+    var ready = window.AiPdfViewer ? Promise.resolve() : new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = cfg.script;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    ready.then(function () {
+      var opened = window.AiPdfViewer.open({
+        url: hit.url,
+        title: hit.title || '',
+        lib: cfg.lib,
+        worker: cfg.worker,
+        labels: {
+          document: self.t('pdf_document', 'PDF-Dokument'),
+          loading: self.t('pdf_loading', 'Dokument wird geladen …'),
+          error: self.t('pdf_error', 'Das Dokument konnte nicht angezeigt werden.'),
+          openDirect: self.t('pdf_open_direct', 'Datei direkt öffnen'),
+          page: self.t('pdf_page', 'Seite'),
+          pages: self.t('pdf_pages', 'Seiten des Dokuments'),
+          zoomIn: self.t('pdf_zoom_in', 'Vergrößern'),
+          zoomOut: self.t('pdf_zoom_out', 'Verkleinern'),
+          download: self.t('pdf_download', 'Herunterladen'),
+          close: self.t('pdf_close', 'Schließen')
+        }
+      });
+      if (!opened) {
+        window.location.href = hit.url;
+      }
+    }).catch(function () {
+      window.location.href = hit.url;
     });
   };
 

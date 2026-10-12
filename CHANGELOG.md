@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.5.0] - 2026-10-12
+
+### Neu
+- **PDF-Treffer im Viewer-Dialog**: Ist das AddOn `pdfout` installiert, öffnen PDF-Dokumente aus der Suche (Typ `mediapool_pdf`) in einem eigenen Dialog über der Suche statt in einem neuen Tab. Die Seiten zeichnet PDF.js aus pdfout direkt als Canvas – ohne iframe, daher zuverlässiges Scrollen und Zoomen auch auf iPhone/iPad. Mit Seitenanzeige, Vergrößern/Verkleinern, Herunterladen, Schließen (auch Esc). Seiten werden erst nahe am sichtbaren Bereich gezeichnet und weit entfernte wieder freigegeben (Speichergrenzen von iOS). Skript `assets/ai-pdf-viewer.js` lädt erst beim ersten PDF-Klick; Texte in `assets/i18n/*.json` (`pdf_*`). Ohne pdfout bleibt alles wie bisher.
+
 ## [2.4.6] - 2026-10-12
 
 ### Behoben
