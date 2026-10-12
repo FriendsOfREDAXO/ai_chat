@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.6.1] - 2026-10-12
+
+### Behoben
+- **Filter zeigten Treffer an, die es nicht gab** (z. B. „Ansprechpersonen der Kreise (3)“ → „Keine Treffer“): Die Zahlen zählten jede passende Datenbankzeile – auch solche, die die Bewertung danach aussortiert – und keine Treffer der erweiterten Suche (Vektor). Jetzt werden sie aus genau der Trefferliste gebildet, die angezeigt wird; erst danach greift der gewählte Typ/Bereich. Zahl am Filter = Zahl der Treffer.
+- **Nach einer Weile Suchen kam nichts mehr**: Die Anfragebremse (`rate_limit`, Standard 10 je Minute) galt auch für die schnelle Suche beim Tippen und Filtern – Tippen, Enter, Filterwechsel und Zusammenstellung verbrauchten das Kontingent, danach antwortete der Server eine Minute lang nur „Zu viele Anfragen“ (leere Liste, Tippen ohne Wirkung). Die schnelle Suche hat jetzt ein eigenes Kontingent (6-fach, mindestens 60 je Minute); KI-Antworten und erweiterte Suche zählen weiter wie bisher. Greift die Bremse doch, bleiben die Treffer stehen und ein Hinweis erscheint darüber.
+
+## [2.6.0] - 2026-10-12
+
+### Neu
+- **Vorschläge bei leerer Suche**: Gibt die Website in `window.AiSearchConfig.startGroups` Gruppen mit Links mit (`[{ title, items: [{ title, text, url, icon }] }]`, `icon` = eigenes SVG/HTML der Website), zeigt das Such-Fenster sie, solange nichts eingetippt ist – z. B. Schnellzugriff, neueste News, neue Downloads. Tippen ersetzt sie durch die Treffer, Leeren holt sie zurück. Ohne Angabe bleibt der Hinweis „Starte mit einem Suchbegriff oder einer Frage.“ (jetzt übersetzbar: `search_start`).
+
+### Verbessert
+- **Strg/⌘+K schaltet um**: öffnet das Such-Fenster bzw. schließt es, wenn es offen ist (vorher nur öffnen).
+- **Leere Bereiche ohne Platz**: Filterleiste, Aktionen und Antwortbereich nehmen keinen Raum ein, solange sie leer sind (vorher stand z. B. eine leere graue Filterleiste unter dem Suchfeld).
+- Erneutes Öffnen mit leerem Feld zeigt den Startzustand statt der alten Treffer.
+
 ## [2.5.2] - 2026-10-12
 
 ### Behoben

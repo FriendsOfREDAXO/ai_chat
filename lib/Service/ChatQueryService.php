@@ -350,7 +350,11 @@ class ChatQueryService
             $this->validateOrigin();
         }
 
-        $this->checkRateLimit();
+        // Schnelle Suche (reine Datenbanksuche beim Tippen/Filtern) hat ein eigenes, großzügiges Kontingent – sonst
+        // verbrauchten Tippen, Filterwechsel und Enter die Anfragen für KI-Antworten, und nach einer Minute Suchen kam
+        // nur noch „Zu viele Anfragen“ (leere Trefferliste, Tippen ohne Wirkung).
+        $isPlainSearch = 'search' === $mode && true !== ($input['extended'] ?? false);
+        $this->checkRateLimit($isPlainSearch ? 'search' : '');
 
         $messageLengthGuard = $this->evaluateMessageLengthGuard($message);
         if ($messageLengthGuard['blocked']) {
@@ -2754,7 +2758,8 @@ class ChatQueryService
         return $cleaned === '' ? '' : $cleaned;
     }
 
-    private function checkRateLimit(): void
+    /** @param string $bucket '' = KI-Anfragen (Grenze rate_limit je Minute), 'search' = schnelle Suche (6-fach, mindestens 60) */
+    private function checkRateLimit(string $bucket = ''): void
     {
         if (rex::getUser() && rex::getUser()->isAdmin()) {
             return;
@@ -2764,12 +2769,15 @@ class ChatQueryService
         if ($limit <= 0) {
             return;
         }
+        if ('search' === $bucket) {
+            $limit = max(60, $limit * 6);
+        }
 
         if (session_status() === PHP_SESSION_NONE) {
             @session_start();
         }
 
-        $sessionId = (string) session_id();
+        $sessionId = (string) session_id() . ('' !== $bucket ? '|' . $bucket : ''); // eigener Zähler je Kontingent
         $ip = rex_server('REMOTE_ADDR', 'string', '0.0.0.0');
 
         $sql = rex_sql::factory();
@@ -3072,9 +3080,7 @@ class ChatQueryService
         $providerRegistry = new ContentProviderRegistry();
 
         $facets = [];
-        $facetSourceMap = [];
         $labelFacets = [];
-        $labelFacetSourceMap = [];
         $selectedLabels = $this->extractSourceLabels($input);
         $candidatesBySource = [];
 
@@ -3090,41 +3096,6 @@ class ChatQueryService
             }
             $sourceKey = $sourceType . '|' . $sourceId;
             $sourceLabel = trim((string) ($row['source_label'] ?? ''));
-
-            if (!isset($facetSourceMap[$sourceType])) {
-                $facetSourceMap[$sourceType] = [];
-            }
-            if (!isset($facetSourceMap[$sourceType][$sourceKey])) {
-                $facetSourceMap[$sourceType][$sourceKey] = true;
-                if (!isset($facets[$sourceType])) {
-                    $facets[$sourceType] = 0;
-                }
-                $facets[$sourceType]++;
-            }
-
-            // Eigene Facette fuer benannte Sitemap-Gruppen (ChatProfile::$sitemapGroups,
-            // z.B. "News") - unabhaengig vom source_type-Filter oben, damit "News" auch dann
-            // waehlbar bleibt, wenn mehrere Quellenarten unter demselben Label auftauchen.
-            if ('' !== $sourceLabel) {
-                if (!isset($labelFacetSourceMap[$sourceLabel])) {
-                    $labelFacetSourceMap[$sourceLabel] = [];
-                }
-                if (!isset($labelFacetSourceMap[$sourceLabel][$sourceKey])) {
-                    $labelFacetSourceMap[$sourceLabel][$sourceKey] = true;
-                    if (!isset($labelFacets[$sourceLabel])) {
-                        $labelFacets[$sourceLabel] = 0;
-                    }
-                    $labelFacets[$sourceLabel]++;
-                }
-            }
-
-            if ($selectedTypes !== [] && !in_array($sourceType, $selectedTypes, true)) {
-                continue;
-            }
-
-            if ($selectedLabels !== [] && !in_array($sourceLabel, $selectedLabels, true)) {
-                continue;
-            }
 
             $title = (string) ($row['title'] ?? 'Ohne Titel');
             $content = (string) ($row['content'] ?? '');
@@ -3212,7 +3183,7 @@ class ChatQueryService
             try {
                 $userEmbedding = $aiService->getEmbedding($needle);
                 $vectorContext = $this->findSimilarContent($userEmbedding, 20, $scope, null, $needle, $profile);
-                $candidates = $this->fuseSearchResults($candidates, $vectorContext, $addon, $providerRegistry, $selectedTypes);
+                $candidates = $this->fuseSearchResults($candidates, $vectorContext, $addon, $providerRegistry);
             } catch (\Throwable $e) {
                 // Stiller Fallback: die Suche bleibt auch bei einem Provider-Ausfall
                 // (falscher/fehlender API-Key, Netzwerkfehler, Timeout) vollstaendig
@@ -3222,6 +3193,24 @@ class ChatQueryService
                 // trotzdem geloggt, damit ein dauerhaft kaputter Provider auffaellt.
                 rex_logger::logException($e);
             }
+        }
+
+        // Filter-Zahlen aus genau der Trefferliste, die angezeigt wird (bewertet > 0, je Quelle einmal, inkl. der
+        // Vektor-Treffer der erweiterten Suche) – erst danach den gewaehlten Typ/Bereich anwenden. Vorher zaehlten die
+        // Filter jede passende Datenbankzeile (auch solche mit Score 0) und keine Vektor-Treffer: „(3)“ lieferte dann
+        // 0 Treffer, „(2)“ dagegen 8.
+        foreach ($candidates as $candidate) {
+            $facets[$candidate['type']] = ($facets[$candidate['type']] ?? 0) + 1;
+            $candidateLabel = (string) ($candidate['label'] ?? '');
+            if ('' !== $candidateLabel) {
+                $labelFacets[$candidateLabel] = ($labelFacets[$candidateLabel] ?? 0) + 1;
+            }
+        }
+        if ($selectedTypes !== [] || $selectedLabels !== []) {
+            $candidates = array_values(array_filter($candidates, static function (array $c) use ($selectedTypes, $selectedLabels): bool {
+                return ($selectedTypes === [] || in_array($c['type'], $selectedTypes, true))
+                    && ($selectedLabels === [] || in_array((string) ($c['label'] ?? ''), $selectedLabels, true));
+            }));
         }
 
         // "Alle" (kein Bereich-Filter aktiv): ohne Durchmischung wuerde ein grosser Bereich
