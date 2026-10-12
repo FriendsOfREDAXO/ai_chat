@@ -1598,7 +1598,20 @@
   // PDF-Viewer (assets/ai-pdf-viewer.js): nur wenn pdfout installiert ist (window.AiSearchConfig.pdfViewer, boot.php)
   SearchUi.prototype.canViewPdf = function (hit) {
     var cfg = (window.AiSearchConfig || {}).pdfViewer;
-    return !!(cfg && cfg.lib && hit && hit.url && (hit.type || '').trim() === 'mediapool_pdf' && typeof HTMLDialogElement !== 'undefined');
+    if (!(cfg && cfg.lib && hit && hit.url && typeof HTMLDialogElement !== 'undefined')) {
+      return false;
+    }
+    if ((hit.type || '').trim() === 'mediapool_pdf') {
+      return true;
+    }
+    // PDFs aus anderen Quellen (z. B. YForm-Download-Tabellen mit Dokument-Feld): jede PDF-Datei dieser Website.
+    // Fremde Server bleiben normale Links (PDF.js darf sie wegen CORS meist nicht laden).
+    try {
+      var target = new URL(hit.url, window.location.href);
+      return target.origin === window.location.origin && /\.pdf$/i.test(target.pathname);
+    } catch (e) {
+      return false;
+    }
   };
 
   SearchUi.prototype.openPdf = function (hit) {
