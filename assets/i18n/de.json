@@ -53,5 +53,15 @@
   "search_chat_placeholder": "Nachfrage stellen …",
   "search_chat_send": "Senden",
   "search_chat_you": "Du",
-  "search_chat_error": "Darauf habe ich gerade keine Antwort. Bitte formuliere die Frage anders."
+  "search_chat_error": "Darauf habe ich gerade keine Antwort. Bitte formuliere die Frage anders.",
+  "pdf_document": "PDF-Dokument",
+  "pdf_loading": "Dokument wird geladen …",
+  "pdf_error": "Das Dokument konnte nicht angezeigt werden.",
+  "pdf_open_direct": "Datei direkt öffnen",
+  "pdf_page": "Seite",
+  "pdf_pages": "Seiten des Dokuments",
+  "pdf_zoom_in": "Vergrößern",
+  "pdf_zoom_out": "Verkleinern",
+  "pdf_download": "Herunterladen",
+  "pdf_close": "Schließen"
 }

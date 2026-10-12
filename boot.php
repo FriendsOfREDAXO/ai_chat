@@ -280,7 +280,17 @@ if (rex::isFrontend()) {
 
             if (strpos($content, 'ai-search.js') === false) {
                 // KI im Such-Fenster (Profil): vor ai-search.js, das die Einstellung beim Start liest
-                $searchConfig = '<script>window.AiSearchConfig = Object.assign(window.AiSearchConfig || {}, ' . json_encode(['aiMode' => $frontendProfile->searchAiMode, 'aiTrigger' => $frontendProfile->searchAiTrigger]) . ');</script>';
+                $searchSettings = ['aiMode' => $frontendProfile->searchAiMode, 'aiTrigger' => $frontendProfile->searchAiTrigger];
+                // PDF-Treffer im Viewer-Dialog (assets/ai-pdf-viewer.js) mit PDF.js aus pdfout – ohne pdfout normaler Link
+                $pdfout = rex_addon::get('pdfout');
+                if ($pdfout->isAvailable() && is_file($pdfout->getAssetsPath('vendor/build/pdf.mjs'))) {
+                    $searchSettings['pdfViewer'] = [
+                        'script' => $addon->getAssetsUrl('ai-pdf-viewer.js?v=' . $assetVersion('ai-pdf-viewer.js')),
+                        'lib' => $pdfout->getAssetsUrl('vendor/build/pdf.mjs'),
+                        'worker' => $pdfout->getAssetsUrl('vendor/build/pdf.worker.mjs'),
+                    ];
+                }
+                $searchConfig = '<script>window.AiSearchConfig = Object.assign(window.AiSearchConfig || {}, ' . json_encode($searchSettings, JSON_UNESCAPED_SLASHES) . ');</script>';
                 $content = str_replace('</body>', $searchConfig . $searchScript . '</body>', $content);
             }
         }
