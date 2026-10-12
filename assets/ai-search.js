@@ -695,8 +695,20 @@
         self.searchAbort = null;
         self.setSearching(false);
         self.setAnswerLoading(false);
+        var message = toErrorMessage(error, 'Unbekannter Fehler');
+        // Zu viele Anfragen: bisherige Treffer stehen lassen und freundlich Bescheid geben statt die Liste zu leeren
+        if (/zu viele anfragen|too many requests|HTTP 429/i.test(message) && self.results.querySelector('.ai-search-item')) {
+          var notice = self.results.querySelector('.ai-search-notice') || document.createElement('p');
+          notice.className = 'ai-search-notice';
+          notice.textContent = self.t('search_rate_limited', 'Kurz durchatmen – zu viele Suchen in kurzer Zeit. Gleich geht es weiter.');
+          self.results.insertBefore(notice, self.results.firstChild);
+          self.status.textContent = notice.textContent;
+          return;
+        }
         self.renderAnswer('');
-        self.renderEmpty('Fehler beim Laden der Suche: ' + toErrorMessage(error, 'Unbekannter Fehler'));
+        self.renderEmpty(/zu viele anfragen|too many requests|HTTP 429/i.test(message)
+          ? self.t('search_rate_limited', 'Kurz durchatmen – zu viele Suchen in kurzer Zeit. Gleich geht es weiter.')
+          : 'Fehler beim Laden der Suche: ' + message);
       });
   };
 

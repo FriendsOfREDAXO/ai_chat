@@ -64,5 +64,6 @@
   "pdf_zoom_out": "Verkleinern",
   "pdf_download": "Herunterladen",
   "pdf_close": "Schließen",
-  "search_start": "Starte mit einem Suchbegriff oder einer Frage."
+  "search_start": "Starte mit einem Suchbegriff oder einer Frage.",
+  "search_rate_limited": "Kurz durchatmen – zu viele Suchen in kurzer Zeit. Gleich geht es weiter."
 }

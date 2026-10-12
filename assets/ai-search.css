@@ -995,3 +995,13 @@ body.rex-theme-dark #ai-search-root {
 #ai-search-root .ai-search-answer-host:empty {
   display: none;
 }
+
+/* Hinweis über den Treffern (z. B. zu viele Suchen in kurzer Zeit) – Treffer bleiben stehen */
+#ai-search-root .ai-search-notice {
+  margin: 4px 8px 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--ai-search-chip-bg);
+  color: var(--ai-search-text);
+  font-size: 14px;
+}
