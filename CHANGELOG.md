@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.4.6] - 2026-10-12
+
+### Behoben
+- **Übersetzungen der Widgets auf Unterseiten**: `ai-i18n.js` lud die Texte über die relative Adresse `index.php?rex-api-call=…` – auf Seiten wie `/service/suche/` ergab das `/service/suche/index.php?…` (404, Texte nur als Rückfalltext). Die Adresse wird jetzt aus der Adresse des Skripts gebildet (funktioniert auch in Unterordnern).
+
 ## [2.4.5] - 2026-10-12
 
 ### Behoben
