@@ -171,40 +171,43 @@ class ChatQueryService
             }
             $stats['prepared'] += count($questions);
 
+            // Anfragen über den Bereich, in dem das Profil antworten darf: Such-Fenster („search“), wenn dort KI-Antworten
+            // aktiv sind – sonst Chat-Widget („frontend“). Vorher immer „frontend“: Bei Profilen mit KI nur im Such-Fenster
+            // (Chat aus) kam keine Antwort, der Vorrat blieb leer. Zwischenspeicher und Inhalte teilen sich beide Bereiche
+            // (process() führt „search“ intern als „frontend“), daher genügt eine Antwort je Frage.
+            $askScope = 'search' !== $profile->searchAiMode ? 'search' : 'frontend';
+
             foreach ($questions as $question) {
                 if ($this->hasExactCachedQuestion($question, 'frontend', $profile->id)) {
                     $stats['skipped']++;
                     $stats['skipped_questions'][] = $question;
                     continue;
                 }
-
+                $answered = false;
                 try {
                     $result = $this->process([
                         'message' => $question,
-                        'scope' => 'frontend',
+                        'scope' => $askScope,
                         'mode' => 'chat',
                         'include_followups' => false,
                         'current_url' => null,
                         'profile_id' => $profile->id,
                     ], false);
-
-                    $answerText = trim((string) ($result['answer_text'] ?? ''));
-                    if ($answerText === '') {
-                        $stats['skipped']++;
-                        $stats['skipped_questions'][] = $question;
-                        continue;
-                    }
-
-                    $stats['processed']++;
-                    $stats['processed_questions'][] = $question;
+                    $answered = '' !== trim((string) ($result['answer_text'] ?? ''));
                 } catch (\Throwable $e) {
                     $stats['errors']++;
                     if (count($stats['error_details']) < 10) {
                         $stats['error_details'][] = $e->getMessage();
                     }
-                    $stats['skipped_questions'][] = $question;
-                    $stats['skipped']++;
                     rex_logger::logException($e);
+                }
+
+                if ($answered) {
+                    $stats['processed']++;
+                    $stats['processed_questions'][] = $question;
+                } else {
+                    $stats['skipped']++;
+                    $stats['skipped_questions'][] = $question;
                 }
 
                 if ($maxItems > 0 && $stats['processed'] + $stats['skipped'] >= $maxItems) {
