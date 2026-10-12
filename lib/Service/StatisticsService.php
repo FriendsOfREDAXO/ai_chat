@@ -175,7 +175,7 @@ class StatisticsService
     private function buildScopeQuery(rex_sql $sql, string $scope, int $days, string $mode, bool $onlyNoResult, string $profileClause, ?int $profileParam): array
     {
         $statusClause = $onlyNoResult
-            ? "AND status IN ('search_no_result', 'chat_no_answer')"
+            ? "AND status IN ('search_no_result', 'chat_no_answer', 'chat_no_context')"
             : "AND status NOT IN ('request_started')";
 
         $modeClause = $mode !== '' ? "AND mode = :mode" : '';

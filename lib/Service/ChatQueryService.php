@@ -620,6 +620,10 @@ class ChatQueryService
             $this->logRetrievalDebug($scope, $profile?->id, $retrievalMessage, $context, $sufficientContext);
 
             if ($triggerContent === '' && !$sufficientContext) {
+                // eigener Status: Frage ohne passende Inhalte im Index – zeigt Luecken („Ohne Ergebnis“ in der Statistik)
+                if ($this->isStatsLoggingEnabled()) {
+                    $this->recordUsageStat('chat', $scope, $message, 'chat_no_context', 0, $profile?->id);
+                }
                 $answer = $this->buildInsufficientContextAnswer();
                 $answer = $this->normalizeAnswerMarkdown($answer);
                 $answerHtml = $this->parseMarkdown($answer);
