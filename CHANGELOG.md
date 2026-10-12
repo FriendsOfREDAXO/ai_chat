@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.4.5] - 2026-10-12
+
+### Behoben
+- **FAQ-Vorcaching bei KI nur im Such-Fenster**: Der Vorrat (Backend-Knopf, `ai_chat:faq-warmup`, nach Neuindizierung) fragte immer im Bereich „frontend“ (Chat-Widget) an. Bei Profilen mit ausgeschaltetem Chat-Widget, aber KI-Antworten im Such-Fenster, kam dort keine Antwort – der Vorrat blieb leer („übersprungen: 12“). Jetzt wird über den Bereich gefragt, in dem das Profil antwortet; vorhandene Antworten werden weiter übersprungen.
+
 ## [2.4.4] - 2026-10-12
 
 ### Behoben
