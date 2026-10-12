@@ -6,12 +6,20 @@
 (function () {
     var cache = {};
 
+    // Adresse der Website aus der Adresse dieses Skripts (…/assets/addons/ai_chat/ai-i18n.js) – ein relatives
+    // „index.php?…“ zeigte auf Unterseiten wie /service/suche/ ins Leere (404).
+    var base = (function () {
+        var src = document.currentScript && document.currentScript.src;
+        var i = src ? src.indexOf('/assets/addons/ai_chat/') : -1;
+        return i >= 0 ? src.slice(0, i + 1) : '/';
+    })();
+
     // Pro Locale nur einmal laden, auch wenn Chat UND Suche auf derselben
     // Seite gleichzeitig danach fragen.
     function load(locale) {
         locale = (locale || 'de').toLowerCase();
         if (!cache[locale]) {
-            cache[locale] = fetch('index.php?rex-api-call=ai_chat_widget_translations&locale=' + encodeURIComponent(locale))
+            cache[locale] = fetch(base + 'index.php?rex-api-call=ai_chat_widget_translations&locale=' + encodeURIComponent(locale))
                 .then(function (response) {
                     if (!response.ok) {
                         throw new Error('i18n fetch failed: ' + response.status);
