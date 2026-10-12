@@ -329,13 +329,15 @@
     this.clearButton.className = 'ai-search-clear';
     this.clearButton.hidden = true;
     this.clearButton.setAttribute('aria-label', this.t('search_clear_label', 'Eingabe löschen'));
-    this.clearButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"></path></svg>';
+    this.clearButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.24 12.83-1.41 1.41L12 13.41l-2.83 2.83-1.41-1.41L10.59 12 7.76 9.17l1.41-1.41L12 10.59l2.83-2.83 1.41 1.41L13.41 12l2.83 2.83Z"></path></svg>';
 
     // Schließen – auf dem Handy gibt es keine Esc-Taste und kaum Hintergrund zum Antippen
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'ai-search-close';
-    this.closeButton.textContent = this.t('search_close_label', 'Schließen');
+    this.closeButton.setAttribute('aria-label', this.t('search_close_label', 'Suche schließen'));
+    this.closeButton.title = this.t('search_close_label', 'Suche schließen');
+    this.closeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"></path></svg>';
 
     // Fortschrittsbalken unter der Kopfzeile: zeigt, dass gesucht wird (Tippen → Suche läuft → Treffer)
     this.progress = document.createElement('div');
