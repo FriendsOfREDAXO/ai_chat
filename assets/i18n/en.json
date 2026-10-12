@@ -63,5 +63,6 @@
   "pdf_zoom_in": "Zoom in",
   "pdf_zoom_out": "Zoom out",
   "pdf_download": "Download",
-  "pdf_close": "Close"
+  "pdf_close": "Close",
+  "search_start": "Start with a search term or a question."
 }

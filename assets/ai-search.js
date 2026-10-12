@@ -380,7 +380,7 @@
     this.root = root;
 
     this.bindEvents();
-    this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
+    this.renderStart();
 
     return this;
   };
@@ -439,7 +439,7 @@
         self.clearToolbar();
         self.renderChatAction('');
         self.renderAnswer('');
-        self.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
+        self.renderStart();
         return;
       }
 
@@ -473,7 +473,11 @@
     document.addEventListener('keydown', function (event) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        self.open();
+        if (self.overlay.classList.contains('open')) {
+          self.close(); // Strg/⌘+K schaltet um
+        } else {
+          self.open();
+        }
       }
       if (event.key === 'Escape') {
         self.close();
@@ -524,7 +528,7 @@
     this.clearToolbar();
     this.renderChatAction('');
     this.renderAnswer('');
-    this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
+    this.renderStart();
   };
 
   SearchUi.prototype.open = function (query) {
@@ -537,6 +541,8 @@
     this.input.focus();
     if (this.input.value.trim() !== '') {
       this.search();
+    } else {
+      this.renderStart(); // leeres Feld: Vorschläge statt alter Treffer
     }
   };
 
@@ -572,7 +578,7 @@
       this.clearToolbar();
       this.renderChatAction('');
       this.renderAnswer('');
-      this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
+      this.renderStart();
       return;
     }
 
@@ -1649,6 +1655,59 @@
     }).catch(function () {
       window.location.href = hit.url;
     });
+  };
+
+  // Startzustand bei leerem Suchfeld: Hinweis oder – falls die Website sie mitgibt – Vorschlagsgruppen
+  // (window.AiSearchConfig.startGroups = [{ title, items: [{ title, text, url, icon }] }], icon = SVG/HTML der Website selbst).
+  // Tippen ersetzt die Vorschläge durch die Treffer; Pfeiltasten/Tab erreichen die Links wie Treffer.
+  SearchUi.prototype.renderStart = function () {
+    var groups = (window.AiSearchConfig || {}).startGroups;
+    if (!Array.isArray(groups) || 0 === groups.length) {
+      this.renderEmpty(this.t('search_start', 'Starte mit einem Suchbegriff oder einer Frage.'));
+      return;
+    }
+    this.results.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'ai-search-start';
+    groups.forEach(function (group) {
+      if (!group || !Array.isArray(group.items) || 0 === group.items.length) {
+        return;
+      }
+      if (group.title) {
+        var h = document.createElement('p');
+        h.className = 'ai-search-start-title';
+        h.textContent = group.title;
+        wrap.appendChild(h);
+      }
+      group.items.forEach(function (item) {
+        if (!item || !item.url) {
+          return;
+        }
+        var a = document.createElement('a');
+        a.className = 'ai-search-item ai-search-start-item';
+        a.href = item.url;
+        var icon = document.createElement('span');
+        icon.className = 'ai-search-start-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        if (item.icon) {
+          icon.innerHTML = String(item.icon);
+        }
+        var body = document.createElement('span');
+        body.className = 'ai-search-start-body';
+        var title = document.createElement('strong');
+        title.textContent = item.title || item.url;
+        body.appendChild(title);
+        if (item.text) {
+          var text = document.createElement('small');
+          text.textContent = item.text;
+          body.appendChild(text);
+        }
+        a.appendChild(icon);
+        a.appendChild(body);
+        wrap.appendChild(a);
+      });
+    });
+    this.results.appendChild(wrap);
   };
 
   SearchUi.prototype.renderEmpty = function (message) {

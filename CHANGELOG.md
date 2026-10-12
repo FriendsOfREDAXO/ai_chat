@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.6.0] - 2026-10-12
+
+### Neu
+- **Vorschläge bei leerer Suche**: Gibt die Website in `window.AiSearchConfig.startGroups` Gruppen mit Links mit (`[{ title, items: [{ title, text, url, icon }] }]`, `icon` = eigenes SVG/HTML der Website), zeigt das Such-Fenster sie, solange nichts eingetippt ist – z. B. Schnellzugriff, neueste News, neue Downloads. Tippen ersetzt sie durch die Treffer, Leeren holt sie zurück. Ohne Angabe bleibt der Hinweis „Starte mit einem Suchbegriff oder einer Frage.“ (jetzt übersetzbar: `search_start`).
+
+### Verbessert
+- **Strg/⌘+K schaltet um**: öffnet das Such-Fenster bzw. schließt es, wenn es offen ist (vorher nur öffnen).
+- **Leere Bereiche ohne Platz**: Filterleiste, Aktionen und Antwortbereich nehmen keinen Raum ein, solange sie leer sind (vorher stand z. B. eine leere graue Filterleiste unter dem Suchfeld).
+- Erneutes Öffnen mit leerem Feld zeigt den Startzustand statt der alten Treffer.
+
 ## [2.5.2] - 2026-10-12
 
 ### Behoben
