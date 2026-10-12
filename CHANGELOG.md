@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.5.2] - 2026-10-12
+
+### Behoben
+- **PDF-Viewer auch für PDFs aus YForm-Tabellen**: Der Viewer-Dialog (2.5.0) öffnete sich nur für Treffer vom Typ `mediapool_pdf`. PDFs aus Download-Tabellen (YForm-Profil mit Feld-Modus „Dokument (Text aus PDF)“) kamen als normaler Link. Jetzt öffnet jeder Treffer, der auf eine PDF-Datei derselben Website zeigt, im Viewer; PDFs auf fremden Servern bleiben normale Links.
+
 ## [2.5.1] - 2026-10-12
 
 ### Behoben
