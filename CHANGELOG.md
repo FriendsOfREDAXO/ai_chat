@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.5.1] - 2026-10-12
+
+### Behoben
+- **Fragen ohne passende Inhalte fehlten in der Statistik**: Fand die KI im Index nicht genug Material, antwortete sie „Dazu habe ich … keine verlässlichen Informationen“ – ohne Statistik-Eintrag. Diese Fragen zählen jetzt mit Status `chat_no_context` und erscheinen unter „Ohne Ergebnis“; genau sie zeigen, welche Inhalte auf der Website fehlen.
+
 ## [2.5.0] - 2026-10-12
 
 ### Neu
