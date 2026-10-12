@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.4.4] - 2026-10-12
+
+### Behoben
+- **Such-Fenster: Filter verschwanden beim Wechseln**: Nach einer erweiterten Suche (Enter/„Suchen“, mit Vektoren) zeigten die Filter deren Trefferzahlen, ein Klick auf einen Filter suchte aber ohne Vektoren. Fand die einfache Suche dort nichts, verschwand die ganze Filterleiste samt „Alle“ – die Suche war leer und man kam nicht zurück. Filter suchen jetzt in derselben Art wie die Suche davor; liefert ein aktiver Filter nichts, bleibt die Filterleiste stehen.
+- Angeklickter Filter wird sofort als aktiv angezeigt, nicht erst nach der Antwort.
+
+### Verbessert
+- Such-Fenster: „Schließen“ als deutliches X rechts in der Kopfzeile (mit Beschriftung für Screenreader); „Eingabe löschen“ als kleines umkreistes × im Feld – die beiden sind nicht mehr zu verwechseln.
+
 ## [2.4.3] - 2026-10-12
 
 ### Neu

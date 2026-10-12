@@ -170,6 +170,11 @@
       this.chatActionBehavior = 'inline';
     }
     this.searchAbort = null;
+    // Art der letzten Suche (erweitert = mit Vektoren, nach Enter/„Suchen“) – Filter-Klicks suchen genauso, sonst
+    // passen Trefferzahlen und Ergebnis nicht zusammen (Filter mit 0 Treffern, Filterleiste verschwand)
+    this.lastExtended = false;
+    this.lastFilters = [];
+    this.lastLabelFilters = [];
     this.chatHistory = [];
     this.chatNonce = 0;
     // Filter-Chips: 'single' = immer nur ein Filter aktiv (Klick wechselt, erneuter Klick
@@ -324,13 +329,15 @@
     this.clearButton.className = 'ai-search-clear';
     this.clearButton.hidden = true;
     this.clearButton.setAttribute('aria-label', this.t('search_clear_label', 'Eingabe löschen'));
-    this.clearButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"></path></svg>';
+    this.clearButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.24 12.83-1.41 1.41L12 13.41l-2.83 2.83-1.41-1.41L10.59 12 7.76 9.17l1.41-1.41L12 10.59l2.83-2.83 1.41 1.41L13.41 12l2.83 2.83Z"></path></svg>';
 
     // Schließen – auf dem Handy gibt es keine Esc-Taste und kaum Hintergrund zum Antippen
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'ai-search-close';
-    this.closeButton.textContent = this.t('search_close_label', 'Schließen');
+    this.closeButton.setAttribute('aria-label', this.t('search_close_label', 'Suche schließen'));
+    this.closeButton.title = this.t('search_close_label', 'Suche schließen');
+    this.closeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"></path></svg>';
 
     // Fortschrittsbalken unter der Kopfzeile: zeigt, dass gesucht wird (Tippen → Suche läuft → Treffer)
     this.progress = document.createElement('div');
@@ -422,13 +429,14 @@
     this.input.addEventListener('input', function () {
       var nextQuery = self.input.value.trim();
       self.clearButton.hidden = self.input.value === '';
+      self.lastExtended = false;
       if (nextQuery.length < self.minimumQueryLength) {
         if (self.debounceTimer) {
           clearTimeout(self.debounceTimer);
         }
         self.abortSearch();
         self.setSearching(false);
-        self.renderToolbar([]);
+        self.clearToolbar();
         self.renderChatAction('');
         self.renderAnswer('');
         self.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
@@ -505,10 +513,15 @@
     this.chatHistory = [];
     this.input.value = '';
     this.lastQuestionMarkQuery = '';
+    this.lastExtended = false;
+    this.selectedTypes = [];
+    this.selectedLabels = [];
+    this.lastFilters = [];
+    this.lastLabelFilters = [];
     this.clearButton.hidden = true;
     this.setSearching(false);
     this.isChatLoading = false;
-    this.renderToolbar([]);
+    this.clearToolbar();
     this.renderChatAction('');
     this.renderAnswer('');
     this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
@@ -556,12 +569,14 @@
 
     if (query === '' || query.length < this.minimumQueryLength) {
       this.setSearching(false);
-      this.renderToolbar([]);
+      this.clearToolbar();
       this.renderChatAction('');
       this.renderAnswer('');
       this.renderEmpty('Starte mit einem Suchbegriff oder einer Frage.');
       return;
     }
+
+    this.lastExtended = true === extended;
 
     // vorherige, noch laufende Suche abbrechen (schnelles Weitertippen erzeugt sonst Anfragen-Staus)
     this.abortSearch();
@@ -613,7 +628,7 @@
         var data = result.data || {};
 
         if (data.privacy_warning_message) {
-          self.renderToolbar([]);
+          self.clearToolbar();
           self.renderChatAction('');
           self.renderAnswer('<p>' + String(data.privacy_warning_message) + '</p>');
           self.renderEmpty('Aus Datenschutzgründen wurde diese Eingabe nicht verarbeitet.');
@@ -1329,9 +1344,48 @@
     return fragment;
   };
 
+  // Filterleiste wirklich leeren (Eingabe gelöscht/zu kurz, Datenschutz-Hinweis) – ohne die bisherigen Filter
+  SearchUi.prototype.clearToolbar = function () {
+    this.lastFilters = [];
+    this.lastLabelFilters = [];
+    if (this.toolbar) {
+      this.toolbar.innerHTML = '';
+    }
+  };
+
+  // Sofortige Rückmeldung beim Filter-Klick: gewählter Filter (oder „Alle“) sofort aktiv, nicht erst nach der Antwort
+  SearchUi.prototype.markChip = function (chip) {
+    if (!this.toolbar) {
+      return;
+    }
+    var chips = this.toolbar.querySelectorAll('.ai-search-chip');
+    Array.prototype.forEach.call(chips, function (c) {
+      c.classList.remove('active');
+      c.setAttribute('aria-pressed', 'false');
+    });
+    var target = chip || (this.filterMode === 'single' ? chips[0] : null);
+    if (target) {
+      target.classList.add('active');
+      target.setAttribute('aria-pressed', 'true');
+    }
+  };
+
   SearchUi.prototype.renderToolbar = function (filters, labelFilters) {
     var self = this;
     this.toolbar.innerHTML = '';
+    filters = filters || [];
+    labelFilters = labelFilters || [];
+
+    // Ein Filter ist aktiv, liefert aber nichts: die bisherige Filterleiste stehen lassen – sonst verschwinden alle
+    // Filter samt „Alle“ und man kommt aus der leeren Suche nicht mehr heraus
+    var filterActive = this.selectedTypes.length > 0 || this.selectedLabels.length > 0;
+    if (filterActive && filters.length === 0 && labelFilters.length === 0) {
+      filters = this.lastFilters;
+      labelFilters = this.lastLabelFilters;
+    } else {
+      this.lastFilters = filters;
+      this.lastLabelFilters = labelFilters;
+    }
 
     if (filters.length === 0 && (!labelFilters || labelFilters.length === 0)) {
       return;
@@ -1349,7 +1403,8 @@
         if (self.filterMode === 'single') {
           self.selectedLabels = [];
         }
-        self.search();
+        self.markChip(allBtn);
+        self.search(self.lastExtended);
       });
       this.toolbar.appendChild(allBtn);
 
@@ -1374,7 +1429,8 @@
           } else {
             self.selectedTypes.push(value);
           }
-          self.search();
+          self.markChip(active ? null : chip);
+          self.search(self.lastExtended);
         });
 
         self.toolbar.appendChild(chip);
@@ -1414,7 +1470,8 @@
           } else {
             self.selectedLabels.push(value);
           }
-          self.search();
+          self.markChip(active ? null : chip);
+          self.search(self.lastExtended);
         });
 
         self.toolbar.appendChild(chip);
