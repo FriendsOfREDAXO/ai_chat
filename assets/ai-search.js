@@ -597,7 +597,9 @@
       source_types: this.selectedTypes,
       source_labels: this.selectedLabels,
       limit: 30,
-      extended: true === extended
+      extended: true === extended,
+      // „Stattdessen nach … suchen“ nach einer Tippfehler-Korrektur: genau diese Eingabe, ohne Korrektur
+      exact: '' !== (this.exactQuery || '') && this.exactQuery === query
     };
 
     fetch(this.apiUrl, {
@@ -666,6 +668,24 @@
 
         self.renderChatAction(query);
         self.renderHits(hits);
+
+        // Tippfehler korrigiert (ChatQueryService::correctSearchQuery): sagen, wonach tatsaechlich gesucht
+        // wurde, und die Suche nach genau der Eingabe anbieten (exact=true)
+        if (data.corrected_from && data.query) {
+          var corrected = document.createElement('p');
+          corrected.className = 'ai-search-notice ai-search-corrected';
+          corrected.appendChild(document.createTextNode(self.t('search_corrected', 'Ergebnisse für „{0}“.').replace('{0}', data.query) + ' '));
+          var original = document.createElement('button');
+          original.type = 'button';
+          original.className = 'ai-search-corrected-original';
+          original.textContent = self.t('search_corrected_original', 'Stattdessen nach „{0}“ suchen').replace('{0}', data.corrected_from);
+          original.addEventListener('click', function () {
+            self.exactQuery = self.input.value.trim();
+            self.search(self.lastExtended);
+          });
+          corrected.appendChild(original);
+          self.results.insertBefore(corrected, self.results.firstChild);
+        }
 
         if ((self.aiAuto() && self.shouldAskChat(query, hits.length)) || self.askedWithQuestionMark(query)) {
           self.setAnswerLoading(true, 'KI analysiert die Treffer...');
