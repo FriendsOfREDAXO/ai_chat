@@ -1005,3 +1005,14 @@ body.rex-theme-dark #ai-search-root {
   color: var(--ai-search-text);
   font-size: 14px;
 }
+
+/* Nach einer Tippfehler-Korrektur: Suche nach genau der Eingabe anbieten */
+#ai-search-root .ai-search-corrected-original {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

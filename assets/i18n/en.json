@@ -65,5 +65,7 @@
   "pdf_download": "Download",
   "pdf_close": "Close",
   "search_start": "Start with a search term or a question.",
-  "search_rate_limited": "Take a breath – too many searches in a short time. Back in a moment."
+  "search_rate_limited": "Take a breath – too many searches in a short time. Back in a moment.",
+  "search_corrected": "Showing results for “{0}”.",
+  "search_corrected_original": "Search for “{0}” instead"
 }

@@ -20,6 +20,8 @@ use rex_backend_login;
 use rex_clang;
 use rex_logger;
 use rex_server;
+use rex_file;
+use rex_path;
 use rex_sql;
 use rex_user;
 
@@ -537,6 +539,24 @@ class ChatQueryService
             $result = $this->search($message, $input, $scope, $profile, $aiService);
             $hits = is_array($result['hits'] ?? null) ? count($result['hits']) : 0;
             $status = $hits > 0 ? 'search_hit' : 'search_no_result';
+
+            // Tippfehler: Woerter, die auf der Website nirgends vorkommen („Futsall“, „Kemepn“), gegen den
+            // Wortschatz der Website pruefen und mit der korrigierten Anfrage suchen – auch wenn die
+            // falsch geschriebene Anfrage zufaellig ein paar (meist unpassende) Treffer hat. Findet die
+            // korrigierte Anfrage etwas, gilt sie; das Frontend sagt das und bietet die Suche nach dem
+            // Original an (exact=true). Gezaehlt als 'search_corrected' – keine fehlenden Inhalte.
+            if (true !== ($input['exact'] ?? false)) {
+                $corrected = $this->correctSearchQuery($message, $this->searchSourceTypes($scope, $profile));
+                if (null !== $corrected) {
+                    $retry = $this->search($corrected, $input, $scope, $profile, $aiService);
+                    $retryHits = is_array($retry['hits'] ?? null) ? count($retry['hits']) : 0;
+                    if ($retryHits > 0) {
+                        $result = ['corrected_from' => $message] + $retry;
+                        $hits = $retryHits;
+                        $status = 'search_corrected';
+                    }
+                }
+            }
             if ($this->isStatsLoggingEnabled()) {
                 $this->recordUsageStat('search', $scope, $message, $status, $hits, $profile?->id);
             }
@@ -2305,7 +2325,23 @@ class ChatQueryService
             $relevantSorted = $sorted;
         }
 
-        $sorted = $relevantSorted;
+        // Treffer, deren TITEL die Frage trifft (Name einer Person, Seite „Geschäftsstelle“), zuerst und
+        // unabhaengig von der Aehnlichkeit: sonst gewann z. B. bei „Was macht Palapies-Ziehn?“ eine News,
+        // die ihn nur als Pressekontakt nennt, gegen seinen eigenen Eintrag.
+        $titleHits = [];
+        foreach ($relevantSorted as $i => $item) {
+            $title = strtolower($item['title']);
+            $titleHits[$i] = 0;
+            foreach ($messageTokens as $token) {
+                if ('' !== $token && $this->tokenMatchesText($title, $token)) {
+                    ++$titleHits[$i];
+                }
+            }
+        }
+        $order = array_keys($relevantSorted);
+        usort($order, static fn (int $a, int $b): int => [$titleHits[$b], $relevantSorted[$b]['similarity']] <=> [$titleHits[$a], $relevantSorted[$a]['similarity']]);
+        $sorted = array_map(static fn (int $i): array => $relevantSorted[$i], $order);
+        $titleMatched = array_map(static fn (int $i): bool => $titleHits[$i] > 0, $order);
         $maxSources = 3;
         $selected = [];
 
@@ -2323,16 +2359,16 @@ class ChatQueryService
         }
 
         if ($selected === []) {
-            $topSimilarity = $sorted[0]['similarity'];
+            $topSimilarity = max(array_map(static fn (array $item): float => (float) $item['similarity'], $sorted));
             $minSimilarity = max(0.18, $topSimilarity * 0.72);
 
-            foreach ($sorted as $item) {
+            foreach ($sorted as $k => $item) {
                 if (count($selected) >= $maxSources) {
                     break;
                 }
 
                 $similarity = $item['similarity'];
-                if ($similarity < $minSimilarity && count($selected) > 0) {
+                if ($similarity < $minSimilarity && count($selected) > 0 && !$titleMatched[$k]) {
                     continue;
                 }
 
@@ -2411,6 +2447,173 @@ class ChatQueryService
         $path = rtrim((string) ($parts['path'] ?? ''), '/');
 
         return $scheme . '://' . $host . $path;
+    }
+
+    /**
+     * Korrigiert Tippfehler in einer Suchanfrage anhand des Wortschatzes der Website (Titel und Inhalte
+     * im Such-Index, nur die oeffentlich durchsuchbaren Typen): Woerter ab 4 Zeichen, die dort nicht
+     * vorkommen, werden durch das naechste bekannte Wort ersetzt – Abstand 1, ab 8 Zeichen 2; ein
+     * Buchstabendreher („Kemepn“ → „Kempen“) zaehlt als ein Fehler; bei Gleichstand das haeufigere Wort.
+     * Lange Woerter, die zwar vorkommen, aber viel seltener als ein fast gleiches (Faktor 30), gelten
+     * ebenfalls als Tippfehler. Zahlen und Fuellwoerter bleiben unveraendert.
+     *
+     * @param list<string> $sourceTypes durchsuchbare Typen (leer = alle)
+     * @return string|null korrigierte Anfrage oder null, wenn nichts zu korrigieren war
+     */
+    public function correctSearchQuery(string $query, array $sourceTypes = []): ?string
+    {
+        $vocabulary = $this->getSearchVocabulary($sourceTypes);
+        if ([] === $vocabulary) {
+            return null;
+        }
+        $stop = array_flip($this->getGermanStopwords());
+        $changed = false;
+        $result = preg_replace_callback('/[\p{L}\p{N}]+/u', function (array $m) use ($vocabulary, $stop, &$changed): string {
+            $word = $m[0];
+            $lower = mb_strtolower($word, 'UTF-8');
+            $length = mb_strlen($lower, 'UTF-8');
+            if ($length < 4 || isset($stop[$lower]) || preg_match('/\d/', $lower)) {
+                return $word;
+            }
+            $known = $vocabulary[$lower] ?? 0;
+            // Bekannte Woerter bleiben – ausser lange, seltene Schreibweisen eines viel haeufigeren Wortes
+            // (Tippfehler, die selbst in Texten stehen: „Geschäftstelle“ 11× neben „Geschäftsstelle“ 543×)
+            if ($known > 0 && $length < 8) {
+                return $word;
+            }
+            $best = $this->closestVocabularyWord($lower, $vocabulary);
+            if (null === $best || ($known > 0 && ($vocabulary[$best] ?? 0) < 30 * $known)) {
+                return $word;
+            }
+            $changed = true;
+            // Schreibweise uebernehmen: grosser Anfangsbuchstabe bleibt gross
+            return mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8') === mb_substr($word, 0, 1, 'UTF-8')
+                ? mb_strtoupper(mb_substr($best, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($best, 1, null, 'UTF-8')
+                : $best;
+        }, $query);
+
+        return $changed && is_string($result) ? $result : null;
+    }
+
+    /**
+     * @param array<string, int> $vocabulary Wort => Haeufigkeit
+     */
+    private function closestVocabularyWord(string $word, array $vocabulary): ?string
+    {
+        // Umlaute als ein Zeichen vergleichen (levenshtein() zaehlt Bytes)
+        $latin = static fn (string $s): string => (string) mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8');
+        $needle = $latin($word);
+        $length = strlen($needle);
+        $maxDistance = $length >= 8 ? 2 : 1;
+        $best = null;
+        $bestDistance = $maxDistance + 1;
+        $bestCount = 0;
+        foreach ($vocabulary as $candidate => $count) {
+            $candidate = (string) $candidate;
+            if ($candidate === $word) {
+                continue;
+            }
+            $other = $latin($candidate);
+            if (abs(strlen($other) - $length) > $maxDistance) {
+                continue;
+            }
+            $distance = levenshtein($needle, $other);
+            // Buchstabendreher zaehlen bei levenshtein() doppelt – nur fuer knappe Faelle genauer rechnen
+            if ($distance > $maxDistance && $distance <= 2 * $maxDistance) {
+                $distance = self::transpositionDistance($needle, $other);
+            }
+            if ($distance < $bestDistance || ($distance === $bestDistance && $count > $bestCount)) {
+                $best = $candidate;
+                $bestDistance = $distance;
+                $bestCount = $count;
+            }
+        }
+
+        return $bestDistance <= $maxDistance ? $best : null;
+    }
+
+    /** Editierabstand mit Vertauschung benachbarter Zeichen als einem Schritt (optimal string alignment). */
+    private static function transpositionDistance(string $a, string $b): int
+    {
+        $la = strlen($a);
+        $lb = strlen($b);
+        $d = [];
+        for ($i = 0; $i <= $la; ++$i) {
+            $d[$i][0] = $i;
+        }
+        for ($j = 0; $j <= $lb; ++$j) {
+            $d[0][$j] = $j;
+        }
+        for ($i = 1; $i <= $la; ++$i) {
+            for ($j = 1; $j <= $lb; ++$j) {
+                $cost = $a[$i - 1] === $b[$j - 1] ? 0 : 1;
+                $d[$i][$j] = min($d[$i - 1][$j] + 1, $d[$i][$j - 1] + 1, $d[$i - 1][$j - 1] + $cost);
+                if ($i > 1 && $j > 1 && $a[$i - 1] === $b[$j - 2] && $a[$i - 2] === $b[$j - 1]) {
+                    $d[$i][$j] = min($d[$i][$j], $d[$i - 2][$j - 2] + 1);
+                }
+            }
+        }
+
+        return $d[$la][$lb];
+    }
+
+    /**
+     * Wortschatz der Website fuer die Tippfehler-Korrektur: Woerter ab 4 Zeichen aus Titeln (alle) und
+     * Inhalten (ab zwei Vorkommen – einzelne Tippfehler im Text zaehlen nicht als „bekannt“) des Such-Index,
+     * nur die gegebenen Typen, mit ihrer Haeufigkeit. Zwischengespeichert, neu aufgebaut sobald sich der Index aendert.
+     *
+     * @param list<string> $sourceTypes
+     * @return array<string, int>
+     */
+    private function getSearchVocabulary(array $sourceTypes = []): array
+    {
+        $table = rex::getTable('ai_chat_index');
+        sort($sourceTypes);
+        $typeWhere = '';
+        if ([] !== $sourceTypes) {
+            $sql = rex_sql::factory();
+            $typeWhere = ' AND source_type IN (' . implode(',', array_map(static fn (string $t): string => $sql->escape($t), $sourceTypes)) . ')';
+        }
+        try {
+            $sig = rex_sql::factory()->getArray('SELECT COUNT(*) n, MAX(updatedate) d FROM ' . $table . ' WHERE 1' . $typeWhere)[0] ?? [];
+        } catch (\Throwable) {
+            return [];
+        }
+        $signature = (int) ($sig['n'] ?? 0) . '|' . (string) ($sig['d'] ?? '') . '|2';
+        $file = rex_path::addonCache('ai_chat', 'search-vocabulary-' . md5(implode(',', $sourceTypes)) . '.json');
+        $cached = is_file($file) ? json_decode((string) rex_file::get($file), true) : null;
+        if (is_array($cached) && ($cached['signature'] ?? '') === $signature && is_array($cached['words'] ?? null)) {
+            return $cached['words'];
+        }
+        $stop = array_flip($this->getGermanStopwords());
+        $titleWords = [];
+        $contentWords = [];
+        $lastId = 0;
+        do {
+            $rows = rex_sql::factory()->getArray('SELECT id, title, source_label, content FROM ' . $table . ' WHERE id > ?' . $typeWhere . ' ORDER BY id LIMIT 1000', [$lastId]);
+            foreach ($rows as $row) {
+                $lastId = (int) $row['id'];
+                foreach ([[(string) $row['title'] . ' ' . (string) $row['source_label'], &$titleWords], [(string) $row['content'], &$contentWords]] as [$text, &$target]) {
+                    if (preg_match_all('/[\p{L}]{4,40}/u', mb_strtolower($text, 'UTF-8'), $m)) {
+                        foreach ($m[0] as $w) {
+                            if (!isset($stop[$w])) {
+                                $target[$w] = ($target[$w] ?? 0) + 1;
+                            }
+                        }
+                    }
+                }
+                unset($target);
+            }
+        } while (count($rows) === 1000);
+        $words = $titleWords;
+        foreach ($contentWords as $w => $n) {
+            if ($n >= 2 || isset($words[$w])) {
+                $words[$w] = ($words[$w] ?? 0) + $n;
+            }
+        }
+        rex_file::put($file, (string) json_encode(['signature' => $signature, 'words' => $words], JSON_UNESCAPED_UNICODE));
+
+        return $words;
     }
 
     /**
@@ -2947,6 +3150,25 @@ class ChatQueryService
      * @param array<string, mixed> $input
      * @return array<string, mixed>
      */
+    /**
+     * Typen, die die Suche fuer diesen Bereich durchsuchen darf (frontend: Artikel, Sitemap, freigegebene
+     * Inhalte und die eigenen Typen des Profils; andere Bereiche: keine).
+     *
+     * @return list<string>
+     */
+    private function searchSourceTypes(string $scope, ?ChatProfile $profile = null): array
+    {
+        if ($scope !== 'frontend') {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(
+            ['article', 'sitemap_url'],
+            $this->getEnabledFrontendProviderSourceTypes(),
+            $this->getProfileExclusiveSourceTypes($profile),
+        )));
+    }
+
     private function search(string $query, array $input, string $scope, ?ChatProfile $profile = null, ?AiServiceInterface $aiService = null): array
     {
         $needle = trim($query);
@@ -2960,14 +3182,7 @@ class ChatQueryService
         $offset = max(0, (int) ($input['offset'] ?? 0));
         $terms = $this->extractStemmedSearchTerms($needle);
 
-        $allowedSourceTypes = [];
-        if ($scope === 'frontend') {
-            $allowedSourceTypes = array_values(array_unique(array_merge(
-                ['article', 'sitemap_url'],
-                $this->getEnabledFrontendProviderSourceTypes(),
-                $this->getProfileExclusiveSourceTypes($profile),
-            )));
-        }
+        $allowedSourceTypes = $this->searchSourceTypes($scope, $profile);
 
         if ($allowedSourceTypes === []) {
             rex_logger::logError(E_USER_WARNING, 'AiChat Search: Unknown scope "' . $scope . '". Returning empty result.', __FILE__, __LINE__);

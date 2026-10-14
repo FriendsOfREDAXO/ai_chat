@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.7.0] - 2026-10-14
+
+### Neu
+- **Tippfehler-Korrektur in der Suche** (ohne KI): Wörter, die auf der Website nirgends vorkommen, werden gegen den Wortschatz der Website geprüft – Titel und Inhalte des Index (Inhaltswörter ab zwei Vorkommen), nur die öffentlich durchsuchbaren Typen – und durch das nächste bekannte Wort ersetzt: Abstand 1, ab 8 Zeichen 2, Buchstabendreher („Kemepn“ → „Kempen“) zählen als ein Fehler, bei Gleichstand das häufigere Wort. Lange Wörter, die zwar vorkommen, aber mindestens 30-mal seltener als ein fast gleiches sind (Tippfehler in Texten: „Geschäftstelle“ neben „Geschäftsstelle“), werden ebenfalls korrigiert. Füllwörter, Zahlen und kurze Wörter bleiben unverändert, Namen ebenso („Meier“/„Meyer“).
+- Die Korrektur greift auch, wenn die falsch geschriebene Anfrage zufällig ein paar Treffer hat. Findet die korrigierte Anfrage etwas, zeigt die Suche „Ergebnisse für „…““ und den Link „Stattdessen nach „…“ suchen“ (`exact: true`, neue Übersetzungen `search_corrected`, `search_corrected_original`). Statistik-Status `search_corrected` – zählt nicht als Suche ohne Ergebnis.
+- Wortschatz zwischengespeichert im Cache des AddOns, neu aufgebaut, sobald sich der Index ändert.
+
+### Verbessert
+- **Links unter KI-Antworten**: Treffer, deren Titel die Frage trifft (Name einer Person, Seitenname), stehen jetzt vorn – auch bei geringerer Ähnlichkeit. Vorher gewann z. B. bei „Was macht Palapies-Ziehn?“ eine News, die die Person nur als Pressekontakt nennt, gegen den Eintrag der Person selbst.
+
 ## [2.6.1] - 2026-10-12
 
 ### Behoben

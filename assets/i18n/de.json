@@ -65,5 +65,7 @@
   "pdf_download": "Herunterladen",
   "pdf_close": "Schließen",
   "search_start": "Starte mit einem Suchbegriff oder einer Frage.",
-  "search_rate_limited": "Kurz durchatmen – zu viele Suchen in kurzer Zeit. Gleich geht es weiter."
+  "search_rate_limited": "Kurz durchatmen – zu viele Suchen in kurzer Zeit. Gleich geht es weiter.",
+  "search_corrected": "Ergebnisse für „{0}“.",
+  "search_corrected_original": "Stattdessen nach „{0}“ suchen"
 }
