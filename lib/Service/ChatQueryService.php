@@ -2455,7 +2455,8 @@ class ChatQueryService
      * vorkommen, werden durch das naechste bekannte Wort ersetzt – Abstand 1, ab 8 Zeichen 2; ein
      * Buchstabendreher („Kemepn“ → „Kempen“) zaehlt als ein Fehler; bei Gleichstand das haeufigere Wort.
      * Lange Woerter, die zwar vorkommen, aber viel seltener als ein fast gleiches (Faktor 30), gelten
-     * ebenfalls als Tippfehler. Zahlen und Fuellwoerter bleiben unveraendert.
+     * ebenfalls als Tippfehler. Umschreibungen ohne Umlaute („ae“, „ss“) gelten als gleich. Zahlen und
+     * Fuellwoerter bleiben unveraendert.
      *
      * @param list<string> $sourceTypes durchsuchbare Typen (leer = alle)
      * @return string|null korrigierte Anfrage oder null, wenn nichts zu korrigieren war
@@ -2485,6 +2486,14 @@ class ChatQueryService
             if (null === $best || ($known > 0 && ($vocabulary[$best] ?? 0) < 30 * $known)) {
                 return $word;
             }
+            // Landet die Korrektur selbst auf einer seltenen Schreibweise („Geschaeftstelle“ → „Geschäftstelle“),
+            // zur viel haeufigeren weitergehen („Geschäftsstelle“)
+            if (mb_strlen($best, 'UTF-8') >= 8) {
+                $better = $this->closestVocabularyWord($best, $vocabulary);
+                if (null !== $better && ($vocabulary[$better] ?? 0) >= 30 * ($vocabulary[$best] ?? 0)) {
+                    $best = $better;
+                }
+            }
             $changed = true;
             // Schreibweise uebernehmen: grosser Anfangsbuchstabe bleibt gross
             return mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8') === mb_substr($word, 0, 1, 'UTF-8')
@@ -2500,8 +2509,9 @@ class ChatQueryService
      */
     private function closestVocabularyWord(string $word, array $vocabulary): ?string
     {
-        // Umlaute als ein Zeichen vergleichen (levenshtein() zaehlt Bytes)
-        $latin = static fn (string $s): string => (string) mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8');
+        // Umlaute und ß wie auf Tastaturen ohne Umlaute schreiben („Geschaeftsstelle“ = „Geschäftsstelle“),
+        // dann Byte-Vergleich (levenshtein() zaehlt Bytes, uebrige Sonderzeichen als ein Zeichen)
+        $latin = static fn (string $s): string => (string) mb_convert_encoding(strtr($s, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']), 'ISO-8859-1', 'UTF-8');
         $needle = $latin($word);
         $length = strlen($needle);
         $maxDistance = $length >= 8 ? 2 : 1;

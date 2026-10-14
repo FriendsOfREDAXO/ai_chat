@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.1] - 2026-10-14
+
+### Verbessert
+- **Tippfehler-Korrektur kennt Umschreibungen ohne Umlaute**: „Geschaeftsstelle“, „Muelheim“, „Duesseldorf“, „Schiedsrichterpruefung“ finden die Inhalte mit ä/ö/ü/ß (ae/oe/ue/ss gelten beim Vergleich als gleich).
+- Landet die Korrektur auf einer seltenen Schreibweise, die selbst als Tippfehler in Texten steht („Geschaeftstelle“ → „Geschäftstelle“), geht sie zur viel häufigeren weiter („Geschäftsstelle“).
+
 ## [2.7.0] - 2026-10-14
 
 ### Neu
